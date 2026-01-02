@@ -1,0 +1,30 @@
+/* Minimal CSS - Most styles moved to Bootstrap classes */
+/* Only keeping styles that can't be replaced with Bootstrap utilities */
+
+/* Responsive padding adjustments */
+@media (max-width: 992px) {
+  .dashboard-main {
+    padding: 1.5rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding: 1rem !important;
+    min-height: calc(100vh - 60px) !important;
+  }
+  
+  .chat-support {
+    width: 48px !important;
+    height: 48px !important;
+    bottom: 16px !important;
+    right: 16px !important;
+    font-size: 20px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-main {
+    padding: 0.75rem !important;
+  }
+}

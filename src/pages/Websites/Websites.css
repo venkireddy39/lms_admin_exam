@@ -1,0 +1,370 @@
+/* Websites.css */
+
+.websites-page {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.web-header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.web-header-main h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 4px 0;
+}
+
+.web-header-main p {
+    color: #64748b;
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Tabs Header */
+.web-tabs-header {
+    display: flex;
+    gap: 32px;
+    /* Removed border-bottom as requested */
+    margin-bottom: 32px;
+}
+
+.web-tab {
+    background: none;
+    border: none;
+    padding: 12px 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.web-tab:hover {
+    color: #334155;
+}
+
+.web-tab.active {
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.web-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #3b82f6;
+}
+
+/* Themes Grid */
+.themes-container h3 {
+    font-size: 18px;
+    margin-bottom: 24px;
+    color: #1e293b;
+}
+
+.themes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.theme-card-premium {
+    /* Subtle border instead of strong lines */
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.theme-card-premium:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e1;
+}
+
+.theme-card-premium.active {
+    border: 2px solid #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.theme-preview-box {
+    height: 400px;
+    width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Simulated UI inside Theme Card */
+.tp-nav {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+}
+
+.tp-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+}
+
+.tp-links {
+    display: flex;
+    gap: 8px;
+}
+
+.tp-links span {
+    width: 30px;
+    height: 6px;
+    border-radius: 3px;
+}
+
+.tp-hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 16px;
+}
+
+.tp-h-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.tp-h-title {
+    width: 80%;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.tp-h-sub {
+    width: 60%;
+    height: 10px;
+    border-radius: 4px;
+}
+
+.tp-h-btn {
+    width: 80px;
+    height: 24px;
+    border-radius: 4px;
+    margin-top: 8px;
+}
+
+.tp-h-img {
+    flex: 1;
+    border-radius: 8px;
+    margin-top: 16px;
+    width: 100%;
+}
+
+.tp-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.theme-card-premium:hover .tp-overlay {
+    opacity: 1;
+}
+
+.btn-preview {
+    background: white;
+    color: #1e293b;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transform: translateY(10px);
+    transition: transform 0.2s;
+}
+
+.theme-card-premium:hover .btn-preview {
+    transform: translateY(0);
+}
+
+.theme-info-row {
+    padding: 16px;
+    background: white;
+    /* Removed border-top */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.theme-name {
+    font-weight: 600;
+    color: #334155;
+}
+
+.theme-badge {
+    font-size: 11px;
+    color: #16a34a;
+    background: #dcfce7;
+    padding: 4px 8px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+}
+
+/* Navigation Editor */
+.nav-editor,
+.seo-config,
+.web-settings {
+    max-width: 800px;
+}
+
+.web-header h2 {
+    font-size: 18px;
+    margin: 0 0 4px 0;
+    color: #1e293b;
+}
+
+.web-header p {
+    color: #64748b;
+    font-size: 14px;
+    margin: 0 0 24px 0;
+}
+
+.nav-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: white;
+    border: 1px solid #f1f5f9;
+    /* Subtle border */
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.nav-drag-handle {
+    color: #94a3b8;
+    cursor: grab;
+}
+
+.nav-inputs {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+}
+
+.st-input.small {
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+/* Shared Settings Inputs */
+.st-group {
+    margin-bottom: 20px;
+}
+
+.st-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #475569;
+    font-size: 14px;
+}
+
+.st-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.st-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+}
+
+/* Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: #3b82f6;
+}
+
+input:checked+.slider:before {
+    transform: translateX(20px);
+}

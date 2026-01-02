@@ -1,0 +1,180 @@
+/* MyApp Styles */
+.myapp-page {
+    padding: 32px;
+    background: #f8fafc;
+    min-height: 100vh;
+    font-family: 'Inter', 'DM Sans', sans-serif;
+    color: #0f172a;
+}
+
+.myapp-layout {
+    display: flex;
+    gap: 40px;
+    margin-top: 32px;
+}
+
+.app-preview-section {
+    width: 380px;
+    flex-shrink: 0;
+}
+
+.iphone-frame {
+    width: 100%;
+    height: 700px;
+    background: #000;
+    border-radius: 50px;
+    padding: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+    border: 8px solid #333;
+}
+
+.iphone-screen {
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 30px;
+    background: #000;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    z-index: 10;
+}
+
+.app-config-section {
+    flex: 1;
+}
+
+.config-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 32px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 24px;
+}
+
+.config-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.config-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.color-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 16px;
+}
+
+.color-item {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 8px;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.color-item.selected {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.color-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.app-nav-item {
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+}
+
+.push-notification-preview {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 12px;
+    margin: 40px 16px 0;
+    color: #fff;
+}
+
+.notif-header {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.notif-title {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.notif-body {
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+/* App Screen Mock Content */
+.app-hero {
+    height: 200px;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.app-grid {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.app-card-mock {
+    height: 120px;
+    background: #f1f5f9;
+    border-radius: 12px;
+}
+
+@media (max-width: 1000px) {
+    .myapp-layout {
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+
+    .app-preview-section {
+        width: 100%;
+        max-width: 380px;
+    }
+}

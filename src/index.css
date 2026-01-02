@@ -1,0 +1,128 @@
+/* GLOBAL RESET - Bootstrap handles most of this, but keeping for consistency */
+* {
+  padding: 0px;
+  margin: 0px;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* THEME VARIABLES - Required for theme switching */
+[data-theme="dark"] {
+  --primary: #7c3aed;
+  --accent: #06b6d4;
+  --muted: #94a3b8;
+  --bg: #0b1220;
+  --surface: #0f1724;
+  --card-bg: #0f172a;
+  --sidebar-bg: #0b1220;
+  --text-color: #e6eef8;
+  --hover-bg: rgba(230, 238, 248, 0.06);
+  --border: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] {
+  --primary: #4f46e5;
+  --accent: #06b6d4;
+  --muted: #6b7280;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --card-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --text-color: #0f172a;
+  --hover-bg: rgba(15, 23, 42, 0.04);
+  --border: rgba(15, 23, 42, 0.06);
+}
+
+:root {
+  --main-bg: var(--bg);
+  --content-bg: var(--surface);
+}
+
+/* Bootstrap theme overrides using CSS variables */
+.text-primary {
+  color: var(--primary) !important;
+}
+
+.btn-primary {
+  background-color: var(--primary) !important;
+  border-color: transparent !important;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: color-mix(in srgb, var(--primary) 80%, black 20%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Sidebar active state - Bootstrap nav-link active styling */
+.nav-link.active {
+  background-color: var(--hover-bg) !important;
+  font-weight: 600 !important;
+  color: var(--primary) !important;
+}
+
+/* Responsive sidebar margin - handled via JS but keeping for fallback */
+@media (min-width: 769px) {
+  .dashboard-content {
+    margin-left: 70px;
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar-open~.dashboard-content {
+    margin-left: 220px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar-closed {
+    transform: translateX(-100%);
+  }
+
+  .sidebar-open {
+    transform: translateX(0);
+  }
+}
+
+/* Custom Sticky Utility for Large Screens Only */
+@media (min-width: 992px) {
+  .sticky-lg-top {
+    position: sticky;
+    top: 100px;
+    /* Matching the inline style previously used, can be overridden inline */
+    z-index: 1020;
+  }
+}
