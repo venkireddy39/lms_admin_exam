@@ -144,11 +144,12 @@ const ChapterList = ({
             </div>
 
             {chapters.length === 0 && (
-                <div className="empty-chapters">
-                    <p>No chapters yet.</p>
+                <div className="empty-chapters text-center py-5">
+                    <div className="text-muted mb-2 opacity-50"><FiLayout size={40} /></div>
+                    <p className="text-muted mb-3 small">No chapters content yet.</p>
                     {!isFreeMode && (
-                        <button className="btn-text-primary" onClick={onAddChapter}>
-                            Add your first chapter
+                        <button className="btn btn-sm btn-outline-primary" onClick={onAddChapter}>
+                            <FiPlus className="me-1" /> Add First Chapter
                         </button>
                     )}
                 </div>
@@ -173,7 +174,7 @@ const ChapterList = ({
                                         toggleExpand(chapter.id);
                                     }}
                                 >
-                                    {isExpanded ? <FiChevronDown /> : <FiChevronRight />}
+                                    <FiChevronRight className={`chevron-icon ${isExpanded ? 'rotate-90' : ''}`} />
                                 </button>
 
                                 <div className="ci-content">
@@ -320,6 +321,9 @@ const ChapterList = ({
 
                             return (
                                 <>
+                                    <button className="cmd-item" onClick={() => { onAddItem(foundChapter.id, foundItem.id); setMenuOpenId(null); }}>
+                                        <FiPlusCircle size={15} /> <span>Add chapter item</span>
+                                    </button>
                                     <button className="cmd-item" onClick={() => { onEditContent?.(foundChapter.id, foundItem); setMenuOpenId(null); }}>
                                         <FiEdit2 size={14} /> <span>Edit</span>
                                     </button>

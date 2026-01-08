@@ -48,6 +48,7 @@ const CourseBuilder = () => {
     const [contentMenuOpenId, setContentMenuOpenId] = useState(null);
     const [editingItem, setEditingItem] = useState(null);
     const [selectedContentId, setSelectedContentId] = useState(null);
+    const [insertionPoint, setInsertionPoint] = useState(null); // { chapterId, afterId }
 
     const activeChapter = courseData.chapters.find(c => c.id === activeChapterId);
 
@@ -86,10 +87,15 @@ const CourseBuilder = () => {
             updateContent(activeChapterId, editingItem.id, data);
             setEditingItem(null);
         } else {
-            addContent(activeChapterId, activeForm, data);
+            // Check if we have a specific insertion point
+            const targetChapterId = insertionPoint?.chapterId || activeChapterId;
+            const insertAfterId = insertionPoint?.afterId || null;
+
+            addContent(targetChapterId, activeForm, data, insertAfterId);
         }
         setActiveForm(null);
         setSelectedContentId(null);
+        setInsertionPoint(null); // Reset
     };
 
     const handleContentClick = (chapterId, item) => {
@@ -165,10 +171,11 @@ const CourseBuilder = () => {
         });
     };
 
-    const handleSidebarAddItem = (chapterId) => {
+    const handleSidebarAddItem = (chapterId, afterId = null) => {
         if (activeChapterId !== chapterId) {
             selectChapter(chapterId);
         }
+        setInsertionPoint({ chapterId, afterId });
         setIsSelectorOpen(true);
     };
 
