@@ -13,7 +13,7 @@ const NotFound = () => {
             textAlign: 'center',
             color: '#1e293b'
         }}>
-            <FiAlertTriangle size={64} color="#f59e0b" style={{ marginBottom: 24, opacity: 0.8 }} />
+            <FiAlertTriangle size={64} color="#d9d3c9ff" style={{ marginBottom: 24, opacity: 0.8 }} />
             <h1 style={{ fontSize: '3rem', fontWeight: 800, margin: 0, lineHeight: 1 }}>404</h1>
             <h2 style={{ fontSize: '1.5rem', marginTop: 16 }}>Page Not Found</h2>
             <p style={{ color: '#64748b', maxWidth: 400, marginTop: 12 }}>

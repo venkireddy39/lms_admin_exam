@@ -73,7 +73,7 @@ const ChapterList = ({
 
     const startEdit = (chapter) => {
         setEditingId(chapter.id);
-        setEditValue(chapter.title);
+        setEditValue(chapter.title || "");
         setMenuOpenId(null);
     };
 

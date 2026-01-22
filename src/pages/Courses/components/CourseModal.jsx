@@ -11,12 +11,38 @@ const CourseModal = ({
     isEdit,
 }) => {
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [error, setError] = useState("");
+
+    React.useEffect(() => {
+        if (isEdit && isOpen) {
+            // Auto-expand if advanced settings are in use
+            if (
+                formData.showValidity ||
+                formData.allowOffline ||
+                formData.certificateEnabled ||
+                (formData.accessPlatforms && formData.accessPlatforms.length > 1) ||
+                formData.validityDuration
+            ) {
+                setShowAdvanced(true);
+            }
+        }
+    }, [isOpen, isEdit]);
 
     if (!isOpen) return null;
+
+    const onSave = () => {
+        if (!formData.name || !formData.name.trim()) {
+            setError("Course name is required");
+            return;
+        }
+        setError("");
+        handleSave();
+    };
 
     return (
         <div className="modal-overlay-fixed">
             <div className="modal-box">
+
                 {/* Header */}
                 <div className="modal-head">
                     <h2>{isEdit ? "Edit Course" : "Add New Course"}</h2>
@@ -27,15 +53,23 @@ const CourseModal = ({
 
                 {/* Body */}
                 <div className="modal-body">
+
+                    {error && (
+                        <div style={{ color: "#dc2626", marginBottom: 12, fontSize: 14 }}>
+                            {error}
+                        </div>
+                    )}
+
                     {/* BASIC DETAILS */}
                     <div className="form-section">
+
                         <div className="form-field">
-                            <label>Course Name</label>
+                            <label>Course Name *</label>
                             <input
                                 type="text"
                                 className="form-input"
                                 name="name"
-                                value={formData.name}
+                                value={formData.name || ""}
                                 onChange={handleInputChange}
                                 placeholder="e.g. Advanced React Patterns"
                             />
@@ -46,8 +80,8 @@ const CourseModal = ({
                             <textarea
                                 className="form-input"
                                 rows="3"
-                                name="description"
-                                value={formData.description}
+                                name="desc"
+                                value={formData.desc || ""}
                                 onChange={handleInputChange}
                             />
                         </div>
@@ -58,9 +92,8 @@ const CourseModal = ({
                                 className="form-input"
                                 rows="4"
                                 name="overview"
-                                value={formData.overview}
+                                value={formData.overview || ""}
                                 onChange={handleInputChange}
-                                placeholder="Enter learning outcomes..."
                             />
                         </div>
 
@@ -76,18 +109,19 @@ const CourseModal = ({
                             />
                         </div>
 
-                        <div className="form-row" style={{ display: 'flex', gap: '16px' }}>
+                        <div className="form-row" style={{ display: "flex", gap: 16 }}>
                             <div className="form-field" style={{ flex: 1 }}>
                                 <label>Course Fee</label>
                                 <input
                                     type="number"
                                     className="form-input"
                                     name="price"
-                                    value={formData.price || ""}
+                                    value={formData.price ?? ""}
                                     onChange={handleInputChange}
                                     placeholder="0 for Free"
                                 />
                             </div>
+
                             <div className="form-field" style={{ flex: 1 }}>
                                 <label>Duration</label>
                                 <input
@@ -103,24 +137,15 @@ const CourseModal = ({
 
                         <div className="form-field">
                             <label>Cover Image</label>
-                            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                                 {formData.imgPreview && (
                                     <img
                                         src={formData.imgPreview}
                                         alt="Preview"
-                                        style={{
-                                            width: 60,
-                                            height: 60,
-                                            borderRadius: 8,
-                                            objectFit: "cover",
-                                        }}
+                                        style={{ width: 60, height: 60, borderRadius: 8 }}
                                     />
                                 )}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageChange}
-                                />
+                                <input type="file" accept="image/*" onChange={handleImageChange} />
                             </div>
                         </div>
                     </div>
@@ -128,7 +153,6 @@ const CourseModal = ({
                     {/* ADVANCED TOGGLE */}
                     <button
                         type="button"
-                        className="btn-text-acc"
                         onClick={() => setShowAdvanced(!showAdvanced)}
                         style={{
                             background: "none",
@@ -147,21 +171,20 @@ const CourseModal = ({
 
                     {/* ADVANCED SETTINGS */}
                     {showAdvanced && (
+
                         <div
-                            className="advanced-options-grid"
                             style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                gap: 20,
+                                marginTop: 12,
                                 background: "#f8fafc",
                                 padding: 16,
                                 borderRadius: 12,
                                 border: "1px solid #e5e7eb",
-                                marginTop: 12,
+                                display: "grid",
+                                gap: 20
                             }}
                         >
                             {/* Validity */}
-                            <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+                            <div className="form-field">
                                 <label>Show Course Validity</label>
                                 <div style={{ display: "flex", gap: 16 }}>
                                     <label>
@@ -200,7 +223,7 @@ const CourseModal = ({
                             </div>
 
                             {/* Platforms */}
-                            <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+                            <div className="form-field">
                                 <label>Accessible On</label>
                                 <div style={{ display: "flex", gap: 16 }}>
                                     {["Website", "Android App", "iOS App"].map((platform) => (
@@ -272,37 +295,8 @@ const CourseModal = ({
                                 </div>
                             </div>
 
-                            {/* Status */}
-                            <div className="form-field">
-                                <label>Course Status</label>
-                                <div style={{ display: "flex", gap: 16 }}>
-                                    <label>
-                                        <input
-                                            type="radio"
-                                            name="status"
-                                            value="ACTIVE"
-                                            checked={formData.status === "ACTIVE"}
-                                            onChange={handleInputChange}
-                                        />{" "}
-                                        Active
-                                    </label>
-                                    <label>
-                                        <input
-                                            type="radio"
-                                            name="status"
-                                            value="DISABLED"
-                                            checked={formData.status === "DISABLED"}
-                                            onChange={handleInputChange}
-                                        />{" "}
-                                        Disabled
-                                    </label>
-                                </div>
-                            </div>
-
-
-
                             {/* Certificate */}
-                            <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+                            <div className="form-field">
                                 <label>Certificate on Course Completion</label>
                                 <div style={{ display: "flex", gap: 16 }}>
                                     <label>
@@ -327,6 +321,32 @@ const CourseModal = ({
                                     </label>
                                 </div>
                             </div>
+
+                            {/* Status */}
+                            <div className="form-field">
+                                <label>Course Status</label>
+                                <label>
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        value="ACTIVE"
+                                        checked={formData.status === "ACTIVE"}
+                                        onChange={handleInputChange}
+                                    />{" "}
+                                    Active
+                                </label>
+                                <label>
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        value="DISABLED"
+                                        checked={formData.status === "DISABLED"}
+                                        onChange={handleInputChange}
+                                    />{" "}
+                                    Disabled
+                                </label>
+                            </div>
+
                         </div>
                     )}
                 </div>
@@ -336,13 +356,14 @@ const CourseModal = ({
                     <button className="btn-secondary" onClick={onClose}>
                         Cancel
                     </button>
-                    <button className="btn-secondary" onClick={handleSave}>
+                    <button className="btn-secondary" onClick={onSave}>
                         {isEdit ? "Update Course" : "Create Course"}
                     </button>
                 </div>
+
             </div>
         </div>
     );
 };
 
-export default CourseModal;
+export default React.memo(CourseModal);

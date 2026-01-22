@@ -12,10 +12,10 @@ const UnifiedContentForm = ({ onSave, onCancel, initialData }) => {
     const [method, setMethod] = useState(initialData?.method || (initialData?.url ? 'url' : 'upload'));
 
     const [formData, setFormData] = useState({
-        title: initialData?.title || '',
-        description: initialData?.description || '',
-        url: initialData?.url || '',
-        file: initialData?.file || null
+        title: initialData?.title ?? '',
+        description: initialData?.description ?? '',
+        url: initialData?.url ?? '',
+        file: initialData?.file ?? null
     });
 
     // Reset fields when content type changes (optional, but cleaner)

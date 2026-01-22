@@ -10,7 +10,8 @@ import {
     FiEdit2, // Restored
     FiVideo,
     FiFileText,
-    FiLayout
+    FiLayout,
+    FiLink // ✅ Import FiLink
 } from 'react-icons/fi';
 
 import ChapterList from './builder/ChapterList';
@@ -42,6 +43,7 @@ const CourseBuilder = () => {
     const [editingItem, setEditingItem] = useState(null);
     const [selectedContentId, setSelectedContentId] = useState(null);
     const [insertionPoint, setInsertionPoint] = useState(null); // { chapterId, afterId }
+    const [isUploading, setIsUploading] = useState(false); // ✅ Upload state
 
     const activeChapter = courseData.chapters.find(c => c.id === activeChapterId);
 
@@ -67,24 +69,32 @@ const CourseBuilder = () => {
         return groups;
     }, [activeChapter]);
 
-    const handleSave = (data) => {
-        // If coming from UnifiedForm, data.type is explicit.
-        // Fallback to activeForm if needed (though it's just 'content' now)
-        const contentType = data.type || 'video'; // Default fallback
+    const handleSave = async (data) => {
+        setIsUploading(true);
+        try {
+            // If coming from UnifiedForm, data.type is explicit.
+            // Fallback to activeForm if needed (though it's just 'content' now)
+            const contentType = data.type || 'video'; // Default fallback
 
-        if (editingItem) {
-            updateContent(activeChapterId, editingItem.id, data);
-            setEditingItem(null);
-        } else {
-            // Check if we have a specific insertion point
-            const targetChapterId = insertionPoint?.chapterId || activeChapterId;
-            const insertAfterId = insertionPoint?.afterId || null;
+            if (editingItem) {
+                await updateContent(activeChapterId, editingItem.id, data);
+                setEditingItem(null);
+            } else {
+                // Check if we have a specific insertion point
+                const targetChapterId = insertionPoint?.chapterId || activeChapterId;
+                const insertAfterId = insertionPoint?.afterId || null;
 
-            addContent(targetChapterId, contentType, data, insertAfterId);
+                await addContent(targetChapterId, contentType, data, insertAfterId);
+            }
+            setActiveForm(null);
+            setSelectedContentId(null);
+            setInsertionPoint(null); // Reset
+        } catch (error) {
+            console.error("Save failed:", error);
+            alert("Failed to save content. Please try again.");
+        } finally {
+            setIsUploading(false);
         }
-        setActiveForm(null);
-        setSelectedContentId(null);
-        setInsertionPoint(null); // Reset
     };
 
     const handleContentClick = (chapterId, item) => {
@@ -222,8 +232,8 @@ const CourseBuilder = () => {
                                             <div className="content-section-header p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <h5 className="mb-0 fw-bold text-dark">{group.heading.title}</h5>
-                                                    {group.heading.data?.subtext && (
-                                                        <small className="text-muted">{group.heading.data.subtext}</small>
+                                                    {group.heading.data?.description && (
+                                                        <small className="text-muted d-block mt-1">{group.heading.data.description}</small>
                                                     )}
                                                 </div>
                                                 <div className="position-relative">
@@ -261,7 +271,27 @@ const CourseBuilder = () => {
                                                                     <span className="badge bg-success bg-opacity-10 text-success border border-success px-2 py-0 ms-2" style={{ fontSize: '10px' }}>Preview</span>
                                                                 )}
                                                             </div>
+                                                            {item.data?.description && (
+                                                                <p className="mb-0 text-muted small mt-1 text-truncate" style={{ maxWidth: '90%' }}>
+                                                                    {item.data.description}
+                                                                </p>
+                                                            )}
                                                             <small className="text-muted text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>{item.type}</small>
+                                                            {item.data?.url && !item.data.url.includes('/uploads/') && (
+                                                                <div className="d-flex align-items-center gap-1 mt-1">
+                                                                    <FiLink size={12} className="text-muted" />
+                                                                    <a
+                                                                        href={item.data.url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="small text-primary text-decoration-none text-truncate d-block"
+                                                                        style={{ maxWidth: '400px' }}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        {item.data.url}
+                                                                    </a>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -275,7 +305,15 @@ const CourseBuilder = () => {
 
                                                         {contentMenuOpenId === item.id && (
                                                             <div className="chapter-menu-dropdown" style={{ right: 0, top: '100%', zIndex: 10 }}>
-                                                                <button onClick={() => { updateContent(activeChapterId, item.id, { isPreview: !item.data?.isPreview }); setContentMenuOpenId(null); }}>
+                                                                <button onClick={() => {
+                                                                    updateContent(activeChapterId, item.id, {
+                                                                        title: item.title,
+                                                                        description: item.data?.description,
+                                                                        url: item.data?.url,
+                                                                        isPreview: !item.data?.isPreview
+                                                                    });
+                                                                    setContentMenuOpenId(null);
+                                                                }}>
                                                                     {item.data?.isPreview ? 'Disable Preview' : 'Enable Preview'}
                                                                 </button>
                                                                 <button onClick={() => { setEditingItem(item); setActiveForm(item.type); setContentMenuOpenId(null); }}>
@@ -295,26 +333,57 @@ const CourseBuilder = () => {
                                                     <div className="mt-3 p-3 bg-light rounded border">
                                                         {item.type === 'video' ? (
                                                             (item.data.file || item.data.url) ? (
-                                                                <video
-                                                                    controls
-                                                                    width="100%"
-                                                                    src={item.data.file ? URL.createObjectURL(item.data.file) : item.data.url}
-                                                                    className="rounded"
-                                                                />
+                                                                (item.data.url && (item.data.url.includes('youtube.com') || item.data.url.includes('youtu.be'))) ? (
+                                                                    <div>
+                                                                        <iframe
+                                                                            width="100%"
+                                                                            height="400"
+                                                                            src={`https://www.youtube-nocookie.com/embed/${item.data.url.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=)([^#&?]*).*/)?.[1] || item.data.url.split('/').pop()}?origin=${window.location.origin}`}
+                                                                            title="YouTube video player"
+                                                                            frameBorder="0"
+                                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                            allowFullScreen
+                                                                            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                                                                            className="rounded"
+                                                                        ></iframe>
+                                                                        <div className="mt-2 text-end">
+                                                                            <a href={item.data.url} target="_blank" rel="noopener noreferrer" className="text-muted small text-decoration-underline">
+                                                                                Watch on YouTube <FiLink className="ms-1" />
+                                                                            </a>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <video
+                                                                        controls
+                                                                        width="100%"
+                                                                        src={item.data.file ? URL.createObjectURL(item.data.file) : item.data.url}
+                                                                        className="rounded"
+                                                                    >
+                                                                        Your browser does not support the video tag.
+                                                                    </video>
+                                                                )
                                                             ) : (
                                                                 <div className="text-center py-4 text-muted">
-                                                                    <p className="mb-0">No video source available (Database URL: {item.data.url || 'None'}).</p>
+                                                                    <p className="mb-0">No video source available ({item.data.url ? 'Invalid URL' : 'Database URL: None'}).</p>
+                                                                    {item.data.url && <small className="text-muted d-block mt-1">{item.data.url}</small>}
                                                                 </div>
                                                             )
                                                         ) : item.type === 'pdf' ? (
                                                             (item.data.file || item.data.url) ? (
-                                                                <iframe
-                                                                    src={item.data.file ? URL.createObjectURL(item.data.file) : item.data.url}
-                                                                    width="100%"
-                                                                    height="400px"
-                                                                    title={item.title}
-                                                                    className="rounded border bg-white"
-                                                                />
+                                                                <div>
+                                                                    <iframe
+                                                                        src={item.data.file ? URL.createObjectURL(item.data.file) : item.data.url}
+                                                                        width="100%"
+                                                                        height="400px"
+                                                                        title={item.title}
+                                                                        className="rounded border bg-white"
+                                                                    />
+                                                                    <div className="mt-2 text-end">
+                                                                        <a href={item.data.url} target="_blank" rel="noopener noreferrer" className="text-muted small text-decoration-underline">
+                                                                            Open in New Tab <FiLink className="ms-1" />
+                                                                        </a>
+                                                                    </div>
+                                                                </div>
                                                             ) : (
                                                                 <div className="text-center py-4 text-muted">
                                                                     <p className="mb-0">No PDF source available.</p>
@@ -358,7 +427,17 @@ const CourseBuilder = () => {
                             </div>
 
                             {/* UNIFIED FORM OVERLAY */}
-                            {activeForm === 'content' && (
+                            {isUploading && (
+                                <div className="cts-overlay" style={{ zIndex: 2000 }}>
+                                    <div className="bg-white p-4 rounded shadow text-center">
+                                        <div className="spinner-border text-primary mb-3" role="status"></div>
+                                        <h5 className="mb-0">Saving Content...</h5>
+                                        <small className="text-muted">Please wait while we upload and update.</small>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeForm === 'content' && !isUploading && (
                                 <div className="cts-overlay">
                                     <div className="builder-form-container" style={{ width: '100%', maxWidth: '600px', margin: 0 }}>
                                         <UnifiedContentForm
@@ -381,7 +460,7 @@ const CourseBuilder = () => {
                     )}
                 </main>
             </div>
-        </div>
+        </div >
     );
 };
 

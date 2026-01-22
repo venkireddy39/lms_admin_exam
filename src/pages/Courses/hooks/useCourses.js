@@ -98,11 +98,16 @@ export const useCourses = () => {
         setStep(1);
     };
 
-    const openModal = (index = null) => {
-        if (index !== null) {
-            const c = courses[index];
+    const openModal = (courseId = null) => {
+        if (courseId !== null) {
+            const c = courses.find(course => course.id === courseId);
+            if (!c) return;
+
             setCurrentCourseId(c.id);
-            setEditIndex(index);
+            // We can keep editIndex for legacy reasons or remove it, 
+            // but tracking currentCourseId is enough for isEdit check.
+            setEditIndex(courses.findIndex(x => x.id === courseId));
+
             // Map course data back to form data
             setFormData({
                 name: c.name,
@@ -183,24 +188,43 @@ export const useCourses = () => {
         }
     };
 
-    const handleDelete = async (index) => {
-        const c = courses[index];
-        if (!c || !c.id) return;
+    const toggleCourseStatus = async (id, status) => {
+        try {
+            await courseService.updateCourseStatus(id, status);
+            // Optimistic update or reload
+            setCourses(prev => prev.map(c =>
+                c.id === id ? { ...c, status: status } : c
+            ));
+        } catch (error) {
+            console.error("Failed to update status", error);
+            alert("Failed to update course status");
+        }
+    };
 
-        if (window.confirm("Delete this course?")) {
+    const handleDelete = async (id) => {
+        const c = courses.find(course => course.id === id);
+        if (!c) return;
+
+        if (window.confirm(`Are you sure you want to DISABLE "${c.name}"?\n(To permanently delete, please contact admin)`)) {
             try {
-                await courseService.deleteCourse(c.id);
-                loadCourses();
+                // Perform Soft Delete (Disable)
+                await toggleCourseStatus(c.id, "DISABLED");
             } catch (error) {
-                console.error("Delete failed", error);
-                const msg = error.message || "";
-                if (msg.includes("foreign key constraint") || msg.includes("ConstraintViolationException")) {
-                    alert("Cannot delete this course because it has associated Content/Topics.\n\nPlease delete the course content first.");
-                } else {
-                    alert("Failed to delete course: " + msg);
-                }
+                console.error("Disable failed", error);
+                alert("Failed to disable course.");
             }
         }
+    };
+
+    const toggleBookmark = (courseId) => {
+        setCourses(prev => prev.map(course => {
+            if (course.id === courseId) {
+                return { ...course, isBookmarked: !course.isBookmarked };
+            }
+            return course;
+        }));
+        // Optional: Call API to persist bookmark
+        // courseService.toggleBookmark(courseId);
     };
 
     return {
@@ -216,6 +240,8 @@ export const useCourses = () => {
         step,
         setStep,
         editIndex,
-        setFormData
+        setFormData,
+        toggleBookmark,
+        toggleCourseStatus
     };
 };

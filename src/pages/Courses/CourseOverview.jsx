@@ -1,233 +1,168 @@
-
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { FiClock, FiUsers, FiAward, FiCheckCircle, FiPlayCircle, FiLock, FiBookOpen, FiArrowRight } from 'react-icons/fi';
-import { courseService } from './services/courseService'; // Check path! File is in pages/Courses/CourseOverview.jsx, service is in pages/Courses/services/courseService.js
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import {
+    FiClock,
+    FiUsers,
+    FiAward,
+    FiCheckCircle,
+    FiLock,
+} from "react-icons/fi";
+import { courseService } from "../services/courseService";
 
 const CourseOverview = () => {
-    const { id, shareCode } = useParams(); // Get shareCode from params
+    const { id, shareCode } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Mock Auth State (Replace with real auth context)
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-    // Mock Course Data (In real app, fetch by ID)
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
     const [imgError, setImgError] = useState(false);
 
-    useEffect(() => {
-        const fetchCourse = async () => {
-            try {
-                let data;
-                if (shareCode) {
-                    data = await courseService.getCourseByShareCode(shareCode);
-                } else if (id) {
-                    data = await courseService.getCourseById(id);
-                } else {
-                    return;
-                }
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-                // Helper to format image URL
-                const getFullImageUrl = (imgUrl) => {
-                    if (!imgUrl) return null;
-                    if (imgUrl.startsWith("http")) return imgUrl;
-                    // Prepend backend URL for relative paths
-                    return `http://192.168.1.23:5151${imgUrl.startsWith("/") ? "" : "/"}${imgUrl}`;
-                };
+    const getFullImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith("http") || url.startsWith("blob:")) return url;
+        return `${BACKEND_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+    };
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const data = shareCode
+                    ? await courseService.getCourseByShareCode(shareCode)
+                    : await courseService.getCourseById(id);
 
                 setCourse({
                     id: data.courseId,
-                    title: data.courseName,
-                    description: data.description,
-                    longDescription: data.description,
-                    instructor: "TBD",
-                    instructorRole: "Instructor",
-                    duration: data.duration,
-                    lessons: 0,
-                    students: 0,
-                    rating: 0,
-                    price: data.courseFee ? `$${data.courseFee}` : "Free",
-                    originalPrice: "",
-                    coverImage: getFullImageUrl(data.courseImageUrl) || "https://images.unsplash.com/photo-1633356122544-f134324a6cee",
-                    topics: data.toolsCovered ? data.toolsCovered.split(',') : [],
-                    curriculum: []
+                    name: data.courseName,
+                    desc: data.description || "",
+                    duration: data.duration || "",
+                    price: data.courseFee ? `₹${data.courseFee}` : "Free",
+                    img: getFullImageUrl(data.courseImageUrl),
+                    topics: data.toolsCovered
+                        ? data.toolsCovered.split(",").map((t) => t.trim()).filter(Boolean)
+                        : [],
+                    status: data.status || "ACTIVE",
+                    certificateEnabled: !!data.certificateProvided,
                 });
-            } catch (error) {
-                console.error("Failed to load course details", error);
+            } catch (err) {
+                console.error("Failed to load course", err);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchCourse();
+        load();
     }, [id, shareCode]);
 
-    const handleEnroll = () => {
-        if (!isLoggedIn) {
-            // Redirect to login with return url
-            // In a real app, you'd probably have a specific login route. 
-            // For this demo, assuming '/login' exists or using a mock approach.
-            // Since there is no detailed login page in the file list (though there might be), 
-            // I'll simulate the requirement "redirect to login".
-
-            if (confirm("You need to login to enroll. Proceed to Login?")) {
-                navigate('/login', { state: { from: location.pathname } });
-            }
-            return;
-        }
-
-        // If logged in -> Process Payment -> Enroll
-        const confirmPayment = confirm(`Confirm enrollment for ${course.price}?`);
-        if (confirmPayment) {
-            alert("Payment Successful! Enrolling you now...");
-            // Simulate enrollment
-            setTimeout(() => {
-                navigate('/'); // Redirect to "My Courses" (Dashboard Home often has My Courses)
-            }, 1000);
-        }
-    };
-
     if (loading) {
-        return (
-            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="spinner">Loading Course Details...</div>
-            </div>
-        );
+        return <div style={{ padding: 60 }}>Loading course…</div>;
     }
 
-    if (!course) return <div>Course not found</div>;
+    if (!course) {
+        return <div style={{ padding: 60 }}>Course not found</div>;
+    }
+
+    const isDisabled = course.status === "DISABLED";
 
     return (
-        <div className="course-overview-page" style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: '"Inter", sans-serif' }}>
+        <div style={{ background: "#f8fafc", minHeight: "100vh" }}>
+            {/* Header */}
+            <header
+                style={{
+                    padding: "20px 40px",
+                    background: "#fff",
+                    borderBottom: "1px solid #e2e8f0",
+                    display: "flex",
+                    justifyContent: "space-between",
+                }}
+            >
+                <strong>LMS Platform</strong>
+                <button
+                    onClick={() => navigate("/login", { state: { from: location.pathname } })}
+                >
+                    Login
+                </button>
+            </header>
 
-            {/* Header / Navbar (Public) */}
-            <nav style={{ padding: '20px 40px', background: 'white', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a' }}>LMS Platform</div>
-                <div>
-                    {!isLoggedIn ? (
-                        <button
-                            onClick={() => navigate('/login', { state: { from: location.pathname } })}
-                            style={{ padding: '8px 24px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#0f172a', fontWeight: '600', cursor: 'pointer' }}
-                        >
-                            Log In
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => navigate('/')}
-                            style={{ padding: '8px 24px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#0f172a', fontWeight: '600', cursor: 'pointer' }}
-                        >
-                            Go to Dashboard
-                        </button>
-                    )}
-                </div>
-            </nav>
-
-            {/* Hero Section */}
-            <div style={{ background: '#0f172a', color: 'white', padding: '60px 40px' }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '60px', alignItems: 'center' }}>
-
-                    {/* Left: Content */}
+            {/* Hero */}
+            <section style={{ background: "#0f172a", color: "#fff", padding: 60 }}>
+                <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 40 }}>
                     <div>
-                        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-                            <span style={{ background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', color: '#60a5fa' }}>Development</span>
-                            <span style={{ background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', color: '#a78bfa' }}>Advanced</span>
-                        </div>
-                        <h1 style={{ fontSize: '48px', fontWeight: '800', lineHeight: '1.2', marginBottom: '24px' }}>{course.title}</h1>
-                        <p style={{ fontSize: '18px', color: '#94a3b8', lineHeight: '1.6', marginBottom: '32px' }}>{course.description}</p>
+                        <h1 style={{ fontSize: 42 }}>{course.name}</h1>
 
-                        <div style={{ display: 'flex', gap: '24px', fontSize: '14px', color: '#cbd5e1' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FiUsers /> {course.students} Learners
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FiClock /> {course.duration}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FiAward /> Certificate of Completion
-                            </div>
+                        {course.desc && (
+                            <p style={{ color: "#94a3b8", marginTop: 16 }}>
+                                {course.desc}
+                            </p>
+                        )}
+
+                        <div style={{ display: "flex", gap: 24, marginTop: 24 }}>
+                            {course.duration && (
+                                <span><FiClock /> {course.duration}</span>
+                            )}
+                            {course.certificateEnabled && (
+                                <span><FiAward /> Certificate</span>
+                            )}
                         </div>
+
+                        {isDisabled && (
+                            <p style={{ color: "#f87171", marginTop: 16 }}>
+                                This course is currently unavailable.
+                            </p>
+                        )}
                     </div>
 
-                    {/* Right: Card */}
-                    <div style={{ background: 'white', borderRadius: '24px', padding: '24px', color: '#0f172a', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                    {/* Card */}
+                    <div style={{ background: "#fff", borderRadius: 16, padding: 24 }}>
                         <img
-                            src={imgError ? "https://images.unsplash.com/photo-1633356122544-f134324a6cee" : course.coverImage}
+                            src={
+                                imgError || !course.img
+                                    ? "https://images.unsplash.com/photo-1633356122544-f134324a6cee"
+                                    : course.img
+                            }
                             onError={() => setImgError(true)}
-                            alt={course.title}
-                            style={{ width: '100%', height: '220px', objectFit: 'cover', borderRadius: '16px', marginBottom: '24px' }}
+                            alt={course.name}
+                            style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 12 }}
                         />
-                        <div style={{ display: 'flex', alignItems: 'end', gap: '12px', marginBottom: '24px' }}>
-                            <span style={{ fontSize: '32px', fontWeight: '800' }}>{course.price}</span>
-                            <span style={{ fontSize: '18px', color: '#94a3b8', textDecoration: 'line-through', paddingBottom: '6px' }}>{course.originalPrice}</span>
-                        </div>
+
+                        <h2 style={{ marginTop: 16 }}>{course.price}</h2>
 
                         <button
-                            onClick={handleEnroll}
-                            style={{ width: '100%', padding: '16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', marginBottom: '16px', transition: 'background 0.2s' }}
+                            disabled={isDisabled}
+                            onClick={() => navigate("/login", { state: { from: location.pathname } })}
+                            style={{
+                                width: "100%",
+                                marginTop: 16,
+                                padding: 14,
+                                background: isDisabled ? "#94a3b8" : "#2563eb",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: 10,
+                                cursor: isDisabled ? "not-allowed" : "pointer",
+                            }}
                         >
-                            Enroll Now
+                            {isDisabled ? "Course Disabled" : "Enroll Now"}
                         </button>
-                        <p style={{ fontSize: '12px', textAlign: 'center', color: '#64748b' }}>30-Day Money-Back Guarantee</p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            {/* Details Section */}
-            <div style={{ maxWidth: '1200px', margin: '60px auto', padding: '0 40px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '60px' }}>
-
-                {/* Main Info */}
-                <div>
-                    <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px' }}>What you'll learn</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '48px' }}>
-                        {course.topics.map((topic, idx) => (
-                            <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'start' }}>
-                                <FiCheckCircle color="#10b981" style={{ marginTop: '4px', flexShrink: 0 }} />
-                                <span style={{ color: '#334155', lineHeight: '1.5' }}>{topic}</span>
+            {/* What you'll learn */}
+            {course.topics.length > 0 && (
+                <section style={{ maxWidth: 1100, margin: "60px auto", padding: "0 40px" }}>
+                    <h2>What you'll learn</h2>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 24 }}>
+                        {course.topics.map((t, i) => (
+                            <div key={i} style={{ display: "flex", gap: 8 }}>
+                                <FiCheckCircle color="#10b981" />
+                                <span>{t}</span>
                             </div>
                         ))}
                     </div>
-
-                    <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px' }}>Course Content</h2>
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                        {course.curriculum.map((item, idx) => (
-                            <div key={idx} style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: idx % 2 === 0 ? 'white' : '#f8fafc' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    {item.type === 'video' ? <FiPlayCircle color="#64748b" /> : <FiBookOpen color="#64748b" />}
-                                    <span style={{ color: '#334155', fontWeight: '500' }}>{item.title}</span>
-                                    {item.isPreview && <span style={{ fontSize: '10px', background: '#ecfdf5', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>Preview</span>}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <span style={{ fontSize: '13px', color: '#94a3b8' }}>{item.duration}</span>
-                                    {!item.isPreview && <FiLock color="#cbd5e1" />}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Instructor Info */}
-                <div>
-                    <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px' }}>Instructor</h2>
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-                            <div style={{ width: '60px', height: '60px', background: '#e2e8f0', borderRadius: '50%', overflow: 'hidden' }}>
-                                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60" alt="Instructor" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-                            <div>
-                                <h4 style={{ margin: '0 0 4px 0', fontSize: '18px' }}>{course.instructor}</h4>
-                                <span style={{ color: '#64748b', fontSize: '14px' }}>{course.instructorRole}</span>
-                            </div>
-                        </div>
-                        <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.6', marginBottom: '0' }}>
-                            Passionate educator and senior engineer with over 10 years of experience in building scalable web applications. Committed to helping students master modern web technologies.
-                        </p>
-                    </div>
-                </div>
-
-            </div>
-
+                </section>
+            )}
         </div>
     );
 };

@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 import { FiSearch } from "react-icons/fi";
-import { COURSE_STATUS } from '../constants/courseConstants';
+import { COURSE_STATUS } from "../constants/courseConstants";
 
 const CourseFilters = ({
     search,
@@ -10,6 +10,7 @@ const CourseFilters = ({
 }) => {
     return (
         <div className="courses-actions-bar">
+
             {/* Search */}
             <div className="course-search-wrapper">
                 <FiSearch className="search-icon-abs" />
@@ -28,24 +29,24 @@ const CourseFilters = ({
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 style={{
-                    padding: '10px 16px',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0',
-                    outline: 'none',
-                    fontSize: '14px',
-                    color: '#64748b',
-                    cursor: 'pointer',
-                    height: '46px', // Match search height roughly
-                    backgroundColor: 'white'
+                    padding: "10px 16px",
+                    borderRadius: "12px",
+                    border: "1px solid #e2e8f0",
+                    outline: "none",
+                    fontSize: "14px",
+                    color: "#64748b",
+                    cursor: "pointer",
+                    height: "46px",
+                    backgroundColor: "white"
                 }}
             >
-                <option value="All">All Status</option>
-                <option value="ACTIVE">Active</option>
-                <option value="DISABLED">Disabled</option>
-                <option value="DELETED">Deleted</option>
+                <option value="ALL">All Status</option>
+                <option value={COURSE_STATUS.ACTIVE}>Active</option>
+                <option value={COURSE_STATUS.DISABLED}>Disabled</option>
             </select>
+
         </div>
     );
 };
 
-export default CourseFilters;
+export default React.memo(CourseFilters);

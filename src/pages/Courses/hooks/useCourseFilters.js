@@ -1,29 +1,31 @@
+import { useState, useMemo } from "react";
+import { COURSE_STATUS } from "../constants/courseConstants";
 
-import { useState } from 'react';
-
-export const useCourseFilters = (courses) => {
+export const useCourseFilters = (courses = []) => {
     const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("All");
+    const [statusFilter, setStatusFilter] = useState(COURSE_STATUS.ALL);
 
-    const filteredCourses = courses.filter(c => {
-        const courseName = c.name ? c.name.toLowerCase() : "";
-        const mentor = c.mentorName ? c.mentorName.toLowerCase() : "";
-        const query = search.toLowerCase();
+    const filteredCourses = useMemo(() => {
+        const query = search.trim().toLowerCase();
 
-        const matchesSearch = courseName.includes(query) || mentor.includes(query);
+        return courses.filter((c) => {
+            const name = c?.name?.toLowerCase() || "";
 
-        // Filter by Status: All, Active, Disabled
-        // Ensure accurate matching with backend values (ACTIVE, DISABLED)
-        const matchesStatus = statusFilter === "All" || (c.status && c.status.toUpperCase() === statusFilter.toUpperCase());
+            const matchesSearch = !query || name.includes(query);
 
-        return matchesSearch && matchesStatus;
-    });
+            const matchesStatus =
+                statusFilter === COURSE_STATUS.ALL ||
+                c?.status === statusFilter;
+
+            return matchesSearch && matchesStatus;
+        });
+    }, [courses, search, statusFilter]);
 
     return {
         search,
         setSearch,
         statusFilter,
         setStatusFilter,
-        filteredCourses
+        filteredCourses,
     };
 };

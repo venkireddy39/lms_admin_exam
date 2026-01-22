@@ -1,34 +1,45 @@
 /* Course Types */
 export const COURSE_TYPES = {
-    FREE: 'Free',
-    PAID: 'Paid',
+    FREE: "FREE",
+    PAID: "PAID",
 };
 
+/* Admin Course Status (soft management only) */
 export const COURSE_STATUS = {
-    ALL: 'All',
-    COMPLETED: 'Completed',
-    UPCOMING: 'Upcoming',
-    LIVE: 'Live'
+    ALL: "ALL",
+    ACTIVE: "ACTIVE",
+    DISABLED: "DISABLED",
 };
 
 /* Initial Form State */
 export const INITIAL_FORM_DATA = {
+    // Basic
     name: "",
     desc: "",
     overview: "",
     toolsCovered: "",
-    toolsCovered: "",
     img: null,
     imgPreview: null,
 
-    // Advanced Options
-    price: "", // Added for Course Fee
-    duration: "", // Added for Duration
+    // Pricing & Duration
+    price: "",
+    duration: "",
+
+    // Validity
     showValidity: false,
-    validityDuration: "", // New field for validity duration
-    accessPlatforms: ['Website'], // Default to Website
+    validityDuration: "",
+
+    // Access
+    accessPlatforms: ["Website"],
     allowOffline: false,
-    showLearnInfo: false,
-    provideCertificate: false,
-    certificateTemplate: "" // New field for certificate template
+    contentAccessEnabled: true,
+
+    // Certificates
+    certificateEnabled: false,
+
+    // Sharing
+    shareEnabled: true,
+
+    // Status
+    status: COURSE_STATUS.ACTIVE,
 };
