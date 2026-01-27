@@ -184,44 +184,104 @@ const PreviewMode = ({ examData, onClose }) => {
                                     </div>
                                 ) : (
                                     <div className="vstack gap-4">
-                                        {questions.map((q, idx) => (
-                                            <div key={idx} className="mb-3 break-inside-avoid">
-                                                <div className="d-flex justify-content-between align-items-start mb-2">
-                                                    <span className="fw-bold fs-5 me-3">{idx + 1}.</span>
-                                                    <div className="flex-grow-1">
-                                                        <p className="fw-bold mb-2 fs-5">{q.question}</p>
-
-                                                        {q.image && (
-                                                            <div className="mb-3">
-                                                                <img src={q.image} alt="Reference" className="img-fluid border rounded" style={{ maxHeight: '250px' }} />
-                                                            </div>
-                                                        )}
-
-                                                        {q.type === 'quiz' && (
-                                                            <div className="ps-3 border-start border-3 border-light">
-                                                                {q.options.map((opt, i) => (
-                                                                    <div key={i} className="form-check mb-1">
-                                                                        <input className="form-check-input" type="radio" disabled />
-                                                                        <label className="form-check-label text-dark">{opt}</label>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-
-                                                        {q.type === 'coding' && (
-                                                            <div className="bg-light p-3 rounded border font-monospace small text-muted">
-                                                                {q.starterCode || '// Write your code here...'}
-                                                            </div>
-                                                        )}
-
-                                                        {(q.type === 'short' || q.type === 'long') && (
-                                                            <div className="border-bottom border-light mt-4" style={{ height: q.type === 'short' ? '50px' : '150px' }}></div>
+                                        {/* Check if exam has sections */}
+                                        {examData.sections && examData.sections.length > 0 ? (
+                                            /* Render with section headers */
+                                            examData.sections.map((section, secIdx) => (
+                                                <div key={section.id} className="mb-4">
+                                                    {/* Section Header */}
+                                                    <div className="bg-dark bg-opacity-10 p-3 rounded mb-3 border-start border-5 border-primary">
+                                                        <h5 className="fw-bold mb-1">Section {secIdx + 1}: {section.title}</h5>
+                                                        {section.description && (
+                                                            <p className="mb-0 small text-muted">{section.description}</p>
                                                         )}
                                                     </div>
-                                                    <span className="fw-bold ms-4 text-nowrap">[{q.marks}]</span>
+
+                                                    {/* Questions in section */}
+                                                    {section.questionIds.map((qIdx, posInSection) => {
+                                                        const q = questions[qIdx];
+                                                        return (
+                                                            <div key={qIdx} className="mb-3 break-inside-avoid">
+                                                                <div className="d-flex justify-content-between align-items-start mb-2">
+                                                                    <span className="fw-bold fs-5 me-3">{qIdx + 1}.</span>
+                                                                    <div className="flex-grow-1">
+                                                                        <p className="fw-bold mb-2 fs-5">{q.question}</p>
+
+                                                                        {q.image && (
+                                                                            <div className="mb-3">
+                                                                                <img src={q.image} alt="Reference" className="img-fluid border rounded" style={{ maxHeight: '250px' }} />
+                                                                            </div>
+                                                                        )}
+
+                                                                        {q.type === 'quiz' && (
+                                                                            <div className="ps-3 border-start border-3 border-light">
+                                                                                {q.options.map((opt, i) => (
+                                                                                    <div key={i} className="form-check mb-1">
+                                                                                        <input className="form-check-input" type="radio" disabled />
+                                                                                        <label className="form-check-label text-dark">{opt}</label>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {q.type === 'coding' && (
+                                                                            <div className="bg-light p-3 rounded border font-monospace small text-muted">
+                                                                                {q.starterCode || '// Write your code here...'}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {(q.type === 'short' || q.type === 'long') && (
+                                                                            <div className="border-bottom border-light mt-4" style={{ height: q.type === 'short' ? '50px' : '150px' }}></div>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="fw-bold ms-4 text-nowrap">[{q.marks}]</span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))
+                                        ) : (
+                                            /* No sections, render all questions */
+                                            questions.map((q, idx) => (
+                                                <div key={idx} className="mb-3 break-inside-avoid">
+                                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                                        <span className="fw-bold fs-5 me-3">{idx + 1}.</span>
+                                                        <div className="flex-grow-1">
+                                                            <p className="fw-bold mb-2 fs-5">{q.question}</p>
+
+                                                            {q.image && (
+                                                                <div className="mb-3">
+                                                                    <img src={q.image} alt="Reference" className="img-fluid border rounded" style={{ maxHeight: '250px' }} />
+                                                                </div>
+                                                            )}
+
+                                                            {q.type === 'quiz' && (
+                                                                <div className="ps-3 border-start border-3 border-light">
+                                                                    {q.options.map((opt, i) => (
+                                                                        <div key={i} className="form-check mb-1">
+                                                                            <input className="form-check-input" type="radio" disabled />
+                                                                            <label className="form-check-label text-dark">{opt}</label>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+
+                                                            {q.type === 'coding' && (
+                                                                <div className="bg-light p-3 rounded border font-monospace small text-muted">
+                                                                    {q.starterCode || '// Write your code here...'}
+                                                                </div>
+                                                            )}
+
+                                                            {(q.type === 'short' || q.type === 'long') && (
+                                                                <div className="border-bottom border-light mt-4" style={{ height: q.type === 'short' ? '50px' : '150px' }}></div>
+                                                            )}
+                                                        </div>
+                                                        <span className="fw-bold ms-4 text-nowrap">[{q.marks}]</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 )}
                             </div>

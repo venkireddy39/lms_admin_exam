@@ -42,6 +42,8 @@ const MNCExamView = () => {
     const [statusMap, setStatusMap] = useState({});
     const [timeLeft, setTimeLeft] = useState(60 * 60);
     const [selectedOption, setSelectedOption] = useState(null);
+    const [showSectionTransition, setShowSectionTransition] = useState(false);
+    const [nextSectionToStart, setNextSectionToStart] = useState(null);
 
     // --- Coding Execution State ---
     const [executing, setExecuting] = useState(false);
@@ -129,9 +131,7 @@ const MNCExamView = () => {
                     text: opt
                 })) : [],
                 marks: q.marks || 1,
-                negative: incoming.settings?.negativeMarking ? (incoming.settings.negativeMarkingPenalty || 0) : 0,
-                // Assign a temporary section if available, else 'Default'
-                section: q.section || "General" // Assuming 'section' property might exist or we default
+                negative: incoming.settings?.negativeMarking ? (incoming.settings.negativeMarkingPenalty || 0) : 0
             }));
 
             loadedExam = {
@@ -141,40 +141,40 @@ const MNCExamView = () => {
                 durationMinutes: incoming.duration || 60,
                 questions: transformedQuestions,
                 course: incoming.course,
-                instructions: incoming.instructions // Load instructions
+                instructions: incoming.instructions,
+                sections: incoming.sections // Keep sections from incoming data
             };
         }
 
         setExamData(loadedExam);
         setTimeLeft(loadedExam.durationMinutes * 60);
 
-        // Group Questions into Sections
-        // If loadedExam.questions has 'section' field, group by it. 
-        // Otherwise create one section.
-        const grouped = {};
-        loadedExam.questions.forEach(q => {
-            const secName = q.section || "Section 1";
-            if (!grouped[secName]) grouped[secName] = [];
-            grouped[secName].push(q);
-        });
+        // Build sections from examData.sections if available
+        if (loadedExam.sections && loadedExam.sections.length > 0) {
+            // Use the sections from examData
+            const sectionArray = loadedExam.sections.map((section, idx) => ({
+                id: section.id || `sec-${idx}`,
+                name: section.title || `Section ${idx + 1}`,
+                description: section.description || '',
+                questions: section.questionIds.map(qIdx => loadedExam.questions[qIdx])
+            }));
 
-        const sectionArray = Object.keys(grouped).map((name, idx) => ({
-            id: `sec-${idx}`,
-            name: name,
-            questions: grouped[name]
-        }));
+            setSections(sectionArray);
+            setActiveSectionId(sectionArray[0].id);
+            setCurrentQIndex(0);
+        } else {
+            // Backward compatible: Create single default section
+            const sectionArray = [{
+                id: 'sec-0',
+                name: 'Main Section',
+                description: '',
+                questions: loadedExam.questions
+            }];
 
-        // If mostly default, maybe split completely if user asked for "section wise"?
-        // But we stick to data. If only 1 section, so be it. 
-        // User can click tabs if we make multiple. 
-        // Let's ensure we have at least one.
-        if (sectionArray.length === 0) {
-            sectionArray.push({ id: 'sec-0', name: 'General', questions: [] });
+            setSections(sectionArray);
+            setActiveSectionId(sectionArray[0].id);
+            setCurrentQIndex(0);
         }
-
-        setSections(sectionArray);
-        setActiveSectionId(sectionArray[0].id);
-        setCurrentQIndex(0);
 
         // Init Status Map
         const initialStatus = {};
@@ -293,18 +293,26 @@ const MNCExamView = () => {
         if (currentQIndex < activeSection.questions.length - 1) {
             setCurrentQIndex(prev => prev + 1);
         } else {
-            // End of section
-            // Find next section index
+            // End of section - check if more sections exist
             const currentSecIdx = sections.findIndex(s => s.id === activeSectionId);
             if (currentSecIdx < sections.length - 1) {
-                if (window.confirm("You have reached the end of this section. Move to next section?")) {
-                    setActiveSectionId(sections[currentSecIdx + 1].id);
-                    setCurrentQIndex(0);
-                }
+                // More sections available - show transition card
+                const nextSection = sections[currentSecIdx + 1];
+                setNextSectionToStart(nextSection);
+                setShowSectionTransition(true);
             } else {
-                // End of exam
-                alert("You have reached the end of the final section. Please click 'Submit Exam' if you are done.");
+                // Last section completed
+                alert("You have reached the end of the final section. Please click 'Submit Exam' when ready.");
             }
+        }
+    };
+
+    const handleStartNextSection = () => {
+        if (nextSectionToStart) {
+            setActiveSectionId(nextSectionToStart.id);
+            setCurrentQIndex(0);
+            setShowSectionTransition(false);
+            setNextSectionToStart(null);
         }
     };
 
@@ -385,20 +393,31 @@ const MNCExamView = () => {
             <div className="mnc-layout">
                 {/* Left: Question Area */}
                 <main className="mnc-question-area">
-                    {/* Section Bar (Mobile/Desktop) */}
-                    <div className="d-none d-md-flex align-items-center bg-light border-bottom px-3 py-2 gap-2"
-                        style={{ overflowX: 'auto', whiteSpace: 'nowrap' }}>
-                        <span className="fw-bold fs-6 me-2">Sections:</span>
-                        {sections.map(sec => (
-                            <button
-                                key={sec.id}
-                                className={`btn btn-sm ${activeSectionId === sec.id ? 'btn-primary' : 'btn-outline-secondary'}`}
-                                onClick={() => { setActiveSectionId(sec.id); setCurrentQIndex(0); }}
+                    {/* Section Selector Dropdown */}
+                    {sections.length > 1 && (
+                        <div className="bg-light border-bottom px-3 py-2 d-flex align-items-center gap-3">
+                            <label className="fw-bold text-muted mb-0 small">Current Section:</label>
+                            <select
+                                className="form-select form-select-sm"
+                                style={{ maxWidth: '300px' }}
+                                value={activeSectionId}
+                                onChange={(e) => {
+                                    setActiveSectionId(e.target.value);
+                                    setCurrentQIndex(0);
+                                }}
                             >
-                                {sec.name} <span className="badge bg-white text-dark ms-1 opacity-75">i</span>
-                            </button>
-                        ))}
-                    </div>
+                                {sections.map((sec, idx) => (
+                                    <option key={sec.id} value={sec.id}>
+                                        Section {idx + 1}: {sec.name} ({sec.questions.length} questions)
+                                    </option>
+                                ))}
+                            </select>
+                            <small className="text-muted ms-auto">
+                                <i className="bi bi-info-circle me-1"></i>
+                                Preview mode: Can jump between sections
+                            </small>
+                        </div>
+                    )}
 
                     <div className="q-top-bar mt-2">
                         <div className="q-number">Question No. {currentQIndex + 1}</div>
@@ -413,6 +432,9 @@ const MNCExamView = () => {
                             {currentQ?.text || "Select a question from the palette."}
                         </div>
 
+                        {/* Debug: Log question type */}
+                        {currentQ && console.log('[DEBUG] Question type:', currentQ.type, 'Full question:', currentQ)}
+
 
 
 
@@ -424,16 +446,15 @@ const MNCExamView = () => {
                                         <label className="small fw-bold text-muted mb-0">Language:</label>
                                         <select
                                             className="form-select form-select-sm border-0 bg-white"
-                                            style={{ width: '150px' }}
-                                            disabled={currentQ.language !== 'all'}
-                                            defaultValue={currentQ.language}
+                                            style={{ width: '180px' }}
+                                            defaultValue={currentQ.language || 'javascript'}
                                         >
                                             <option value="javascript">JavaScript</option>
                                             <option value="python">Python</option>
                                             <option value="java">Java</option>
                                             <option value="cpp">C++</option>
+                                            <option value="c">C</option>
                                             <option value="csharp">C#</option>
-                                            <option value="all">Any</option>
                                         </select>
                                     </div>
                                     <button
@@ -596,6 +617,55 @@ const MNCExamView = () => {
                     </div>
                 </aside>
             </div>
+
+            {/* Section Transition Card Overlay */}
+            {showSectionTransition && nextSectionToStart && (
+                <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                    style={{
+                        background: 'rgba(0, 0, 0, 0.75)',
+                        zIndex: 9999,
+                        backdropFilter: 'blur(4px)'
+                    }}>
+                    <div className="card border-0 shadow-lg" style={{ maxWidth: '500px', borderRadius: '20px' }}>
+                        <div className="card-body p-5 text-center">
+                            <div className="mb-4 text-success">
+                                <i className="bi bi-check-circle-fill" style={{ fontSize: '64px' }}></i>
+                            </div>
+                            <h3 className="fw-bold mb-3">
+                                Section Complete!
+                            </h3>
+                            <p className="text-muted mb-1">
+                                You've completed: <strong>{activeSection.name}</strong>
+                            </p>
+                            <p className="text-muted mb-4">Great progress! Ready for the next section?</p>
+
+                            <div className="bg-light p-4 rounded-3 mb-4">
+                                <h5 className="fw-bold text-primary mb-2">
+                                    <i className="bi bi-arrow-right-circle me-2"></i>
+                                    Up Next:
+                                </h5>
+                                <h4 className="fw-bold mb-2">{nextSectionToStart.name}</h4>
+                                {nextSectionToStart.description && (
+                                    <p className="text-muted small mb-2">{nextSectionToStart.description}</p>
+                                )}
+                                <div className="d-flex justify-content-center gap-4 mt-3 small text-muted">
+                                    <span>
+                                        <i className="bi bi-question-circle-fill me-1"></i>
+                                        {nextSectionToStart.questions.length} Questions
+                                    </span>
+                                </div>
+                            </div>
+
+                            <button
+                                className="btn btn-primary btn-lg px-5 py-3 fw-bold rounded-pill shadow-sm"
+                                onClick={handleStartNextSection}
+                            >
+                                Start Next Section <i className="bi bi-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

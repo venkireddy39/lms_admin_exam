@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://192.168.1.23:5151', // Gateway / Other Modules
+        target: 'http://192.168.1.20:5151', // Gateway / Other Modules
         changeOrigin: true,
         secure: false,
       },
@@ -33,7 +33,7 @@ export default defineConfig({
         secure: false,
       },
       '/uploads': {
-        target: 'http://192.168.1.23:5151',
+        target: 'http://192.168.1.20:5151',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {

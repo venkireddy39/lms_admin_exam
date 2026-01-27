@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MixedQuestionManager from './MixedQuestionManager';
 import QuestionForm from '../../components/QuestionForm';
+import SectionManager from './SectionManager';
 import { toast } from 'react-toastify';
 
 const EditorMode = ({ examData, setExamData, onSave, onPreview, onBack }) => {
@@ -91,13 +92,16 @@ const EditorMode = ({ examData, setExamData, onSave, onPreview, onBack }) => {
 
             <div className="d-flex flex-grow-1 overflow-hidden">
                 {/* Left Sidebar: Editor Tools */}
-                <div className="bg-white border-end d-flex flex-column" style={{ width: '350px', zIndex: 5 }}>
+                <div className="bg-white border-end d-flex flex-column" style={{ width: '380px', zIndex: 5 }}>
                     <div className="p-3 bg-light border-bottom">
                         <div className="nav nav-pills nav-fill bg-white rounded p-1 border">
-                            <button className={`nav-link py-1 small rounded-2 fw-bold ${activeTab === 'add' ? 'active shadow-sm' : 'text-muted'}`} onClick={() => setActiveTab('add')}>
-                                <i className="bi bi-plus-lg me-1"></i> Add Question
+                            <button className={`nav-link py-1 x-small rounded-2 fw-bold ${activeTab === 'add' ? 'active shadow-sm' : 'text-muted'}`} onClick={() => setActiveTab('add')}>
+                                <i className="bi bi-plus-lg me-1"></i> Add
                             </button>
-                            <button className={`nav-link py-1 small rounded-2 fw-bold ${activeTab === 'settings' ? 'active shadow-sm' : 'text-muted'}`} onClick={() => setActiveTab('settings')}>
+                            <button className={`nav-link py-1 x-small rounded-2 fw-bold ${activeTab === 'sections' ? 'active shadow-sm' : 'text-muted'}`} onClick={() => setActiveTab('sections')}>
+                                <i className="bi bi-collection me-1"></i> Sections
+                            </button>
+                            <button className={`nav-link py-1 x-small rounded-2 fw-bold ${activeTab === 'settings' ? 'active shadow-sm' : 'text-muted'}`} onClick={() => setActiveTab('settings')}>
                                 <i className="bi bi-sliders me-1"></i> Settings
                             </button>
                         </div>
@@ -114,6 +118,12 @@ const EditorMode = ({ examData, setExamData, onSave, onPreview, onBack }) => {
                                     </div>
                                 )}
                             </div>
+                        ) : activeTab === 'sections' ? (
+                            <SectionManager
+                                sections={examData.sections || []}
+                                questions={examData.questions}
+                                onSectionsUpdate={(newSections) => setExamData(prev => ({ ...prev, sections: newSections }))}
+                            />
                         ) : (
                             <div className="p-4">
                                 <h6 className="fw-bold text-muted text-uppercase small ls-1 mb-3">Paper Information</h6>

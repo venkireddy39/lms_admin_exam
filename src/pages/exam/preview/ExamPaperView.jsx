@@ -14,6 +14,11 @@ const ExamPaperView = () => {
     const [executionStatus, setExecutionStatus] = useState({});
     const [consoleOutput, setConsoleOutput] = useState({});
 
+    // Section State
+    const [sections, setSections] = useState([]);
+    const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
+    const [showSectionTransition, setShowSectionTransition] = useState(false);
+
     // View Mode State: 'single' (Question by Question) or 'all' (Scrollable List)
     const [viewMode, setViewMode] = useState('single');
     const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -63,7 +68,23 @@ const ExamPaperView = () => {
                 {q.type === 'coding' && (
                     <div className="d-flex flex-column gap-3">
                         <div className="d-flex justify-content-between align-items-center">
-                            <span className="badge bg-secondary">{q.language || 'Code'}</span>
+                            {/* Language Selector */}
+                            <div className="d-flex align-items-center gap-2">
+                                <label className="small fw-bold text-muted mb-0">Language:</label>
+                                <select
+                                    className="form-select form-select-sm"
+                                    style={{ width: '150px' }}
+                                    defaultValue={q.language || 'javascript'}
+                                    disabled={submitted}
+                                >
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="python">Python</option>
+                                    <option value="java">Java</option>
+                                    <option value="cpp">C++</option>
+                                    <option value="c">C</option>
+                                    <option value="csharp">C#</option>
+                                </select>
+                            </div>
                             <div className="d-flex gap-2">
                                 <button
                                     className="btn btn-sm btn-outline-secondary"
@@ -179,6 +200,19 @@ const ExamPaperView = () => {
                 initialAnswers[i] = q.type === 'coding' ? (q.starterCode || '') : '';
             });
             setAnswers(initialAnswers);
+
+            // Build sections (backward compatible)
+            if (foundExam.sections && foundExam.sections.length > 0) {
+                setSections(foundExam.sections);
+            } else {
+                // Create default single section if none exist
+                setSections([{
+                    id: 'default',
+                    title: 'Main Section',
+                    description: '',
+                    questionIds: foundExam.questions.map((_, idx) => idx)
+                }]);
+            }
         }
     }, [id]);
 
@@ -233,9 +267,84 @@ const ExamPaperView = () => {
     }
 
     const isCodingTheme = exam.type === 'coding' || exam.questions.some(q => q.type === 'coding');
-    // Live Exam Rule: No Background Image, but Watermark permitted
     const watermark = exam.customAssets?.watermark;
     const watermarkOpacity = exam.customAssets?.watermarkOpacity || 0.1;
+
+    // Get current section info
+    const currentSection = sections[currentSectionIdx];
+    const isLastSection = currentSectionIdx === sections.length - 1;
+    const hasMultipleSections = sections.length > 1;
+
+    // Get questions for current section
+    const currentSectionQuestions = currentSection ?
+        currentSection.questionIds.map(qId => ({ ...exam.questions[qId], originalIndex: qId })) :
+        [];
+
+    // Find position within current section
+    const currentQuestionInSection = currentSectionQuestions.findIndex(q => q.originalIndex === currentQIndex);
+    const isLastQuestionInSection = currentQuestionInSection === currentSectionQuestions.length - 1;
+    const isFirstQuestionInSection = currentQuestionInSection === 0;
+
+    // Section transition handler
+    const handleCompleteSection = () => {
+        if (isLastSection) {
+            // This was the last section, submit the exam
+            handleSubmit();
+        } else {
+            // Show transition to next section
+            setShowSectionTransition(true);
+        }
+    };
+
+    const handleStartNextSection = () => {
+        setShowSectionTransition(false);
+        setCurrentSectionIdx(prev => prev + 1);
+        // Move to first question of next section
+        const nextSection = sections[currentSectionIdx + 1];
+        if (nextSection && nextSection.questionIds.length > 0) {
+            setCurrentQIndex(nextSection.questionIds[0]);
+        }
+        window.scrollTo(0, 0);
+    };
+
+    // Section Transition Overlay
+    if (showSectionTransition && !submitted) {
+        const nextSection = sections[currentSectionIdx + 1];
+        return (
+            <div className="min-vh-100 d-flex align-items-center justify-content-center"
+                style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                <ToastContainer />
+                <div className="card border-0 shadow-lg text-center p-5 animate-fade-in" style={{ maxWidth: '600px', borderRadius: '20px' }}>
+                    <div className="mb-4 text-success">
+                        <i className="bi bi-check-circle-fill" style={{ fontSize: '64px' }}></i>
+                    </div>
+                    <h2 className="fw-bold mb-3">Section {currentSectionIdx + 1} Complete!</h2>
+                    <p className="text-muted mb-4">Great progress! You're ready for the next section.</p>
+
+                    <div className="bg-light p-4 rounded mb-4">
+                        <h5 className="fw-bold text-primary mb-2">Up Next:</h5>
+                        <h4 className="fw-bold mb-1">{nextSection.title}</h4>
+                        {nextSection.description && (
+                            <p className="text-muted small mb-2">{nextSection.description}</p>
+                        )}
+                        <div className="d-flex justify-content-center gap-3 mt-3 small">
+                            <span>
+                                <i className="bi bi-question-circle me-1"></i>
+                                {nextSection.questionIds.length} questions
+                            </span>
+                        </div>
+                    </div>
+
+                    <button
+                        className="btn btn-primary btn-lg px-5 py-3 fw-bold rounded-pill shadow"
+                        onClick={handleStartNextSection}
+                    >
+                        Start Next Section <i className="bi bi-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-vh-100 pb-5 position-relative" style={{
@@ -276,6 +385,29 @@ const ExamPaperView = () => {
             </div>
 
             <div className="container py-5 position-relative" style={{ maxWidth: '900px', zIndex: 1 }}>
+
+                {/* Section Progress Indicator (only show if multiple sections) */}
+                {hasMultipleSections && (
+                    <div className="mb-4">
+                        <small className="text-muted d-block mb-2 fw-bold">Progress:</small>
+                        <div className="d-flex gap-2">
+                            {sections.map((sec, idx) => (
+                                <div
+                                    key={sec.id}
+                                    className={`flex-grow-1 rounded overflow-hidden`}
+                                    style={{ height: '8px', background: idx < currentSectionIdx ? '#198754' : idx === currentSectionIdx ? '#0d6efd' : '#e9ecef' }}
+                                    title={sec.title}
+                                ></div>
+                            ))}
+                        </div>
+                        <div className="d-flex justify-content-between mt-1">
+                            <small className="text-muted">Section {currentSectionIdx + 1} of {sections.length}: {currentSection?.title}</small>
+                            <small className="text-muted">
+                                Q{currentQuestionInSection + 1} of {currentSectionQuestions.length} in section
+                            </small>
+                        </div>
+                    </div>
+                )}
 
                 {/* Intro Card */}
                 {!submitted && (
@@ -318,23 +450,53 @@ const ExamPaperView = () => {
                 {/* Questions List */}
                 {viewMode === 'all' ? (
                     <div className="vstack gap-4">
-                        {exam.questions.map((q, index) => (
-                            <QuestionCard
-                                key={index}
-                                q={q}
-                                index={index}
-                                isCodingTheme={isCodingTheme}
-                                answers={answers}
-                                handleAnswerChange={handleAnswerChange}
-                                executionStatus={executionStatus}
-                                consoleOutput={consoleOutput}
-                                handleRunCode={handleRunCode}
-                                submitted={submitted}
-                            />
-                        ))}
+                        {hasMultipleSections ? (
+                            // Show sections with headers
+                            sections.map((section, secIdx) => (
+                                <div key={section.id} className="mb-4">
+                                    <div className="alert alert-primary d-flex align-items-center mb-3">
+                                        <i className="bi bi-folder2-open me-2 fs-5"></i>
+                                        <div>
+                                            <h5 className="mb-0 fw-bold">Section {secIdx + 1}: {section.title}</h5>
+                                            {section.description && <small>{section.description}</small>}
+                                        </div>
+                                    </div>
+                                    {section.questionIds.map((qId, qIdx) => (
+                                        <QuestionCard
+                                            key={qId}
+                                            q={exam.questions[qId]}
+                                            index={qId}
+                                            isCodingTheme={isCodingTheme}
+                                            answers={answers}
+                                            handleAnswerChange={handleAnswerChange}
+                                            executionStatus={executionStatus}
+                                            consoleOutput={consoleOutput}
+                                            handleRunCode={handleRunCode}
+                                            submitted={submitted}
+                                        />
+                                    ))}
+                                </div>
+                            ))
+                        ) : (
+                            // No sections, show all questions
+                            exam.questions.map((q, index) => (
+                                <QuestionCard
+                                    key={index}
+                                    q={q}
+                                    index={index}
+                                    isCodingTheme={isCodingTheme}
+                                    answers={answers}
+                                    handleAnswerChange={handleAnswerChange}
+                                    executionStatus={executionStatus}
+                                    consoleOutput={consoleOutput}
+                                    handleRunCode={handleRunCode}
+                                    submitted={submitted}
+                                />
+                            ))
+                        )}
                     </div>
                 ) : (
-                    // Single Question View
+                    // Single Question View with Section Navigation
                     <div className="d-flex flex-column gap-3">
                         <QuestionCard
                             q={exam.questions[currentQIndex]}
@@ -351,21 +513,37 @@ const ExamPaperView = () => {
                         <div className="d-flex justify-content-between mt-3">
                             <button
                                 className="btn btn-outline-secondary px-4"
-                                disabled={currentQIndex === 0}
-                                onClick={() => setCurrentQIndex(prev => prev - 1)}
+                                disabled={isFirstQuestionInSection && currentSectionIdx === 0}
+                                onClick={() => {
+                                    if (isFirstQuestionInSection && currentSectionIdx > 0) {
+                                        // Can't go back to previous section (locked)
+                                        toast.info('Cannot return to previous section');
+                                    } else {
+                                        const prevQId = currentSectionQuestions[currentQuestionInSection - 1]?.originalIndex;
+                                        if (prevQId !== undefined) setCurrentQIndex(prevQId);
+                                    }
+                                }}
                             >
                                 <i className="bi bi-arrow-left me-2"></i> Previous
                             </button>
 
-                            {currentQIndex < exam.questions.length - 1 ? (
+                            {isLastQuestionInSection ? (
+                                <button
+                                    className="btn btn-success px-4 fw-bold"
+                                    onClick={handleCompleteSection}
+                                >
+                                    {isLastSection ? 'Submit Exam' : 'Complete Section'} <i className="bi bi-check2 ms-2"></i>
+                                </button>
+                            ) : (
                                 <button
                                     className="btn btn-primary px-4"
-                                    onClick={() => setCurrentQIndex(prev => prev + 1)}
+                                    onClick={() => {
+                                        const nextQId = currentSectionQuestions[currentQuestionInSection + 1]?.originalIndex;
+                                        if (nextQId !== undefined) setCurrentQIndex(nextQId);
+                                    }}
                                 >
                                     Next <i className="bi bi-arrow-right ms-2"></i>
                                 </button>
-                            ) : (
-                                <div></div> /* Spacer */
                             )}
                         </div>
                     </div>

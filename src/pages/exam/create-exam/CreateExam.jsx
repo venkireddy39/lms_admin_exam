@@ -24,6 +24,7 @@ const CreateExam = () => {
     totalMarks: 100,
     duration: 60,
     questions: [],
+    sections: [], // Multi-section support: [{id, title, description, questionIds: []}]
     customAssets: {
       bgImage: null,
       watermark: null,
