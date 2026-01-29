@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Save, Info } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { BookService } from '../../../services/api';
 
 const AddEditResourceModal = ({
     resource,
@@ -16,15 +17,20 @@ const AddEditResourceModal = ({
 
     /* ===================== STATE ===================== */
 
+    const [categories, setCategories] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
+    const [categorySearch, setCategorySearch] = useState('');
+    const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+
     const [formData, setFormData] = useState({
         id: resource?.id,
         title: resource?.title || '',
         author: resource?.author || '',
         publisher: resource?.publisher || '',
         edition: resource?.edition || '',
-        publicationYear: resource?.publicationYear || '',
+        year: resource?.year || resource?.publicationYear || '', // Check both for safety
         language: resource?.language || '',
-        category: resource?.category || '',
+        category: resource?.category?.id || resource?.category || '',
         type: resource?.type || viewMode,
 
         // Physical only
@@ -37,18 +43,66 @@ const AddEditResourceModal = ({
         format: resource?.format || 'PDF'
     });
 
+    React.useEffect(() => {
+        const fetchCategories = async () => {
+            setCategoriesLoading(true);
+            try {
+                const data = await BookService.getAllCategories();
+                setCategories(data);
+
+                // If editing, set search text to existing category name
+                if (resource?.category) {
+                    const matched = data.find(c => c.id === (resource.category.id || resource.category));
+                    if (matched) setCategorySearch(matched.categoryName);
+                }
+            } catch (err) {
+                console.error('Failed to fetch categories:', err);
+            } finally {
+                setCategoriesLoading(false);
+            }
+        };
+        fetchCategories();
+    }, [resource]);
+
     const handleChange = (key, value) => {
         setFormData(prev => ({ ...prev, [key]: value }));
     };
 
+    const handleCreateCategory = async (name) => {
+        setIsCreatingCategory(true);
+        try {
+            const newCat = await BookService.createCategory(name);
+            const finalName = newCat.categoryName || newCat.name || name;
+
+            setCategories(prev => [...prev, newCat]);
+            handleChange('category', newCat.id);
+            setCategorySearch(finalName);
+            toast.success(`Category "${finalName}" created`);
+        } catch (err) {
+            toast.error('Failed to create category');
+        } finally {
+            setIsCreatingCategory(false);
+        }
+    };
+
     /* ===================== SUBMIT ===================== */
 
-    const handleSubmit = () => {
-        // Required: title & author
+    const handleSubmit = async () => {
+        // Required: title & author & category
         if (!formData.title.trim() || !formData.author.trim()) {
             toast.error('Title and Author are required.');
             return;
         }
+
+        if (!formData.category) {
+            toast.error('Category is required.');
+            return;
+        }
+
+        const submitPayload = {
+            ...formData,
+            category: { id: formData.category }
+        };
 
         if (isPhysical) {
             // Required: ISBN
@@ -64,15 +118,6 @@ const AddEditResourceModal = ({
                 return;
             }
 
-            // Unique ISBN
-            const duplicate = existingResources.some(
-                r => r.isbn === cleanIsbn && r.id !== formData.id
-            );
-            if (duplicate) {
-                toast.error('ISBN already exists.');
-                return;
-            }
-
             // Required: Shelf
             if (!formData.shelfLocation.trim()) {
                 toast.error('Shelf location is required.');
@@ -85,18 +130,29 @@ const AddEditResourceModal = ({
                 return;
             }
 
-            onSave({
-                ...formData,
-                isbn: cleanIsbn,
-                totalCopies: !isEdit ? Number(formData.totalCopies) : undefined
-            });
-
-            return;
+            submitPayload.isbn = cleanIsbn;
+            submitPayload.totalCopies = !isEdit ? Number(formData.totalCopies) : undefined;
         }
 
-        // Digital resource
-        onSave(formData);
+        onSave(submitPayload);
     };
+
+    /* ===================== CATEGORY SEARCH ===================== */
+
+    /* ===================== CATEGORY SEARCH ===================== */
+
+    // Safety check: ensure categories is an array and items have name/categoryName
+    const validCategories = (categories || []).filter(c => c && (c.categoryName || c.name));
+
+    const getCatName = (cat) => (cat.categoryName || cat.name || '');
+
+    const filteredCategories = validCategories.filter(c =>
+        getCatName(c).toLowerCase().includes((categorySearch || '').toLowerCase())
+    );
+
+    const exactMatch = validCategories.find(c =>
+        getCatName(c).toLowerCase() === (categorySearch || '').toLowerCase()
+    );
 
     /* ===================== UI ===================== */
 
@@ -154,13 +210,67 @@ const AddEditResourceModal = ({
                             </div>
 
                             <div className="col-md-6">
-                                <label className="form-label">Category</label>
-                                <input
-                                    className="form-control"
-                                    placeholder="Software Engineering"
-                                    value={formData.category}
-                                    onChange={e => handleChange('category', e.target.value)}
-                                />
+                                <label className="form-label">
+                                    Category <span className="text-danger">*</span>
+                                </label>
+                                <div className="dropdown w-100">
+                                    <input
+                                        type="text"
+                                        className="form-select text-start"
+                                        placeholder="Type to search or add..."
+                                        data-bs-toggle="dropdown"
+                                        value={categorySearch}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            setCategorySearch(val);
+                                            // Reset selected ID if typing manually, unless it's an exact match
+                                            const match = validCategories.find(c => getCatName(c).toLowerCase() === val.toLowerCase());
+                                            if (match) handleChange('category', match.id);
+                                            else handleChange('category', '');
+                                        }}
+                                    />
+                                    <ul className="dropdown-menu w-100 shadow-sm border-0 mt-1 overflow-auto" style={{ maxHeight: '200px' }}>
+                                        {categoriesLoading ? (
+                                            <li className="dropdown-item text-muted">Loading...</li>
+                                        ) : (
+                                            <>
+                                                {filteredCategories.map(cat => (
+                                                    <li key={cat.id}>
+                                                        <button
+                                                            className={`dropdown-item ${formData.category === cat.id ? 'active' : ''}`}
+                                                            onClick={e => {
+                                                                e.preventDefault();
+                                                                handleChange('category', cat.id);
+                                                                setCategorySearch(getCatName(cat));
+                                                            }}
+                                                        >
+                                                            {getCatName(cat)}
+                                                        </button>
+                                                    </li>
+                                                ))}
+
+                                                {!exactMatch && categorySearch.trim().length > 0 && (
+                                                    <li>
+                                                        <button
+                                                            className="dropdown-item text-primary fw-bold"
+                                                            disabled={isCreatingCategory}
+                                                            onClick={e => {
+                                                                e.preventDefault();
+                                                                handleCreateCategory(categorySearch);
+                                                            }}
+                                                        >
+                                                            {isCreatingCategory ? 'Creating...' : `+ Create "${categorySearch}"`}
+                                                        </button>
+                                                    </li>
+                                                )}
+
+                                                {filteredCategories.length === 0 && !categorySearch && (
+                                                    <li className="dropdown-item text-muted small">Type a name to search</li>
+                                                )}
+                                            </>
+                                        )}
+                                    </ul>
+                                </div>
                             </div>
 
                             {/* RESTORED FIELDS */}
@@ -179,8 +289,8 @@ const AddEditResourceModal = ({
                                     className="form-control"
                                     type="number"
                                     placeholder="YYYY"
-                                    value={formData.publicationYear}
-                                    onChange={e => handleChange('publicationYear', e.target.value)}
+                                    value={formData.year}
+                                    onChange={e => handleChange('year', e.target.value)}
                                 />
                             </div>
                             <div className="col-md-4">

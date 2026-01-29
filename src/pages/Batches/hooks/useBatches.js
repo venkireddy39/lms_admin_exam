@@ -7,7 +7,7 @@ import {
 import { getBatchStatus, validateBatchForm } from '../utils/batchUtils';
 import { batchService } from '../services/batchService';
 
-export const useBatches = (courses = []) => {
+export const useBatches = (courses, instructors = []) => {
     const [batches, setBatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -114,9 +114,36 @@ export const useBatches = (courses = []) => {
         if (batch) {
             setIsEdit(true);
             setEditId(batch.batchId); // Use entity ID
+
+            // Reverse Lookup: Backend sends Name but might drop ID. We recover ID from Name.
+            let tid = batch.trainerId;
+
+            // LOGGING FOR DEBUGGING
+            console.log("📝 Edit Batch:", batch.batchName);
+            console.log("   Backend returned TrainerName:", batch.trainerName);
+            console.log("   Backend returned TrainerId:", tid);
+
+            if (!tid && batch.trainerName) {
+                console.log("🔍 Attempting Reverse Lookup for:", batch.trainerName);
+                if (instructors && instructors.length > 0) {
+                    const match = instructors.find(i =>
+                        i.name.trim().toLowerCase() === batch.trainerName.trim().toLowerCase()
+                    );
+                    if (match) {
+                        tid = match.id || match.userId;
+                        console.log("✅ Match Found! ID:", tid);
+                    } else {
+                        console.warn("❌ No match found in instructors list. Available names:", instructors.map(i => i.name));
+                    }
+                } else {
+                    console.warn("⚠️ Instructors list is empty/undefined during OpenModal!");
+                }
+            }
+
             setFormData({
                 batchName: batch.batchName,
                 courseId: batch.courseId,
+                trainerId: tid,
                 trainerName: batch.trainerName,
                 startDate: batch.startDate,
                 endDate: batch.endDate,
@@ -152,14 +179,18 @@ export const useBatches = (courses = []) => {
         const batchPayload = {
             ...formData,
             maxStudents: formData.maxStudents ? Number(formData.maxStudents) : 0,
-            courseId: courseIdNum
+            courseId: courseIdNum,
+            trainerId: formData.trainerId ? Number(formData.trainerId) : null
         };
 
-        console.log("Submitting Batch Payload:", batchPayload);
+        console.log("🚀 SUBMITTING BATCH PAYLOAD:", batchPayload);
+        console.log("👉 Trainer ID being sent:", batchPayload.trainerId);
 
         try {
             if (isEdit) {
+                console.log("🔄 Calling updateBatch...");
                 await batchService.updateBatch(editId, batchPayload);
+                // ...
             } else {
                 await batchService.createBatch(batchPayload);
             }

@@ -69,7 +69,7 @@ const StatCard = ({ title, value, subValue, trendData = DEFAULT_TREND_DATA, colo
                         </div>
                     )}
                 </div>
-                <div style={{ height: 40, margin: '0 -1rem -1rem' }}>
+                <div style={{ height: 40, margin: '0 -1rem -1rem', minHeight: '50px' }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={trendData}>
                             <defs>

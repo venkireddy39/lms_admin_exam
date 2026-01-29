@@ -27,7 +27,7 @@ const IssueList = () => {
         try {
             const data = await IssueService.getAllIssues();
             // Filter only 'ISSUED' transactions for the active list
-            setIssues(data.filter(i => i.status === 'ISSUED'));
+            setIssues(data.filter(i => i.status?.toUpperCase() === 'ISSUED'));
         } catch {
             toast.error('Failed to load issues');
         } finally {
@@ -45,9 +45,10 @@ const IssueList = () => {
     const filteredIssues = useMemo(() => {
         const q = searchTerm.toLowerCase();
         return issues.filter(i =>
-            i.resourceTitle?.toLowerCase().includes(q) ||
-            i.barcode?.toLowerCase().includes(q) ||
-            i.userId?.toString().includes(q)
+            i.book?.title?.toLowerCase().includes(q) ||
+            i.book?.isbn?.toLowerCase().includes(q) ||
+            i.barcode?.toLowerCase().includes(q) || // Search by Issue/Copy Barcode
+            (i.userId || i.memberId || i.member?.id || '').toString().includes(q)
         );
     }, [issues, searchTerm]);
 
@@ -102,15 +103,19 @@ const IssueList = () => {
                                 ) : (
                                     filteredIssues.map(issue => {
                                         const overdue = isOverdue(issue.dueDate);
+                                        const memberIdHelper = issue.userId || issue.memberId || issue.member?.id || issue.user?.id || 'N/A';
                                         return (
-                                            <tr key={issue.id} className={overdue ? 'table-danger-subtle' : ''}>
+                                            <tr key={issue.issueId || issue.id} className={overdue ? 'table-danger-subtle' : ''}>
                                                 <td>
-                                                    <div className="fw-bold">{issue.resourceTitle || 'Unknown Title'}</div>
-                                                    <div className="small text-muted">Code: {issue.barcode}</div>
+                                                    <div className="fw-bold">{issue.book?.title || 'Unknown Title'}</div>
+                                                    <div className="small text-muted">
+                                                        Code: {issue.book?.isbn || 'N/A'}
+                                                        {issue.barcode && <span className="ms-1">({issue.barcode})</span>}
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <span className="badge bg-light text-dark border">
-                                                        User {issue.userId}
+                                                        User {memberIdHelper}
                                                     </span>
                                                 </td>
                                                 <td>{new Date(issue.issueDate).toLocaleDateString()}</td>

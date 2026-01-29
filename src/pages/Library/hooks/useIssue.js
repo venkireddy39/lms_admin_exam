@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { IssueService, MemberService, BookService } from '../services/api';
 import { useToast } from '../context/ToastContext';
 
@@ -17,6 +18,42 @@ export const useIssue = () => {
     // Search Results
     const [memberResults, setMemberResults] = useState([]);
     const [bookResults, setBookResults] = useState([]);
+
+    // --- PRE-SELECTION ---
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.state?.preSelectedMember && !selectedMember) {
+            selectMember(location.state.preSelectedMember);
+            window.history.replaceState({}, document.title);
+        }
+
+        // Handle pre-selected book
+        if (location.state?.preSelectedBook && !selectedBook) {
+            // We need to set step to 2 (Member Selection) or 3 if member is also selected?
+            // Usually, if we start from Book, we still need a Member.
+            // So we select the book, but we might stay on Step 1 (Member) or move to Step 1 but keep book in memory?
+            // The Wizard flow is strict: Step 1 (Member) -> Step 2 (Book).
+
+            // If we select Book first, we break the linear flow.
+            // Solution: Store the book, let user pick member (Step 1), then AUTO-SKIP Step 2.
+
+            // Let's modify the hook state to support "pending book selection"
+            // OR simpler: Just set selectedBook, and when Step 1 completes, check if selectedBook exists?
+
+            // Actually, let's just set it. 
+            // IssueBook Wizard UI renders based on `step`. 
+            // If we are at Step 1, user selects member. 
+            // `selectMember` sets `setStep(2)`. 
+            // If `selectedBook` is already set, we should probably auto-advance to Step 3?
+
+            const book = location.state.preSelectedBook;
+            setSelectedBook(book);
+
+            // Don't auto-advance step, because we need Member first (Step 1).
+            // But we can show a toast or UI indication.
+        }
+    }, [location.state]);
 
     // --- STEP 1: MEMBER ---
     const searchMembers = async (query) => {
@@ -43,8 +80,15 @@ export const useIssue = () => {
         try {
             const { eligible, user } = await IssueService.validateEligibility(member.id);
             if (eligible) {
-                setSelectedMember(user);
-                setStep(2);
+                if (eligible) {
+                    setSelectedMember(user);
+                    // If book was pre-selected, jump to Step 3 (Copy)
+                    if (selectedBook) {
+                        setStep(3);
+                    } else {
+                        setStep(2);
+                    }
+                }
             }
         } catch (err) {
             toast.error(err.message || 'Member not eligible');
@@ -62,7 +106,8 @@ export const useIssue = () => {
             const filtered = all.filter(b =>
                 b.title.toLowerCase().includes(query.toLowerCase()) ||
                 b.author.toLowerCase().includes(query.toLowerCase()) ||
-                b.isbn?.includes(query)
+                b.isbn?.includes(query) ||
+                b.copies?.some(c => c.barcode?.toLowerCase().includes(query.toLowerCase()))
             );
             setBookResults(filtered);
         } catch {

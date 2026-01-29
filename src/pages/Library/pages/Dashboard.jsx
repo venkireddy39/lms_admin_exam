@@ -43,11 +43,17 @@ const Dashboard = () => {
         const fetchDashboardData = async () => {
             setLoading(true);
             try {
-                const [summary, trends, activity] = await Promise.all([
+                const results = await Promise.allSettled([
                     DashboardService.getSummary(),
                     DashboardService.getTrends(),
                     DashboardService.getRecentActivity()
                 ]);
+
+                const summary = results[0].status === 'fulfilled' ? results[0].value : {
+                    totalResources: 0, activeIssues: 0, overdue: 0, digitalAccess: 0, activeMembers: 0, totalMembers: 0
+                };
+                const trends = results[1].status === 'fulfilled' ? results[1].value : [];
+                const activity = results[2].status === 'fulfilled' ? results[2].value : [];
 
                 setStats(summary);
                 setTrendData(trends);
@@ -159,30 +165,36 @@ const Dashboard = () => {
                         </div>
                         <div className="card-body">
                             <div style={{ width: '100%', height: 300 }}>
-                                <ResponsiveContainer>
-                                    <AreaChart data={trendData}>
-                                        <defs>
-                                            <linearGradient id="colorIssues" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#0d6efd" stopOpacity={0.1} />
-                                                <stop offset="95%" stopColor="#0d6efd" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6c757d' }} dy={10} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6c757d' }} />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="issues"
-                                            stroke="#0d6efd"
-                                            strokeWidth={3}
-                                            fillOpacity={1}
-                                            fill="url(#colorIssues)"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                {trendData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={trendData}>
+                                            <defs>
+                                                <linearGradient id="colorIssues" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#0d6efd" stopOpacity={0.1} />
+                                                    <stop offset="95%" stopColor="#0d6efd" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6c757d' }} dy={10} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6c757d' }} />
+                                            <Tooltip
+                                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="issues"
+                                                stroke="#0d6efd"
+                                                strokeWidth={3}
+                                                fillOpacity={1}
+                                                fill="url(#colorIssues)"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="d-flex align-items-center justify-content-center h-100 text-muted">
+                                        No data available
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -209,7 +221,7 @@ const Dashboard = () => {
                                             <div className="d-flex justify-content-between mb-1">
                                                 <small className="fw-bold text-dark">{activity.user}</small>
                                                 <small className="text-muted">{
-                                                    new Date(activity.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                                                    new Date(activity.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
                                                 }</small>
                                             </div>
                                             <div className="small text-muted text-truncate" style={{ maxWidth: '200px' }}>

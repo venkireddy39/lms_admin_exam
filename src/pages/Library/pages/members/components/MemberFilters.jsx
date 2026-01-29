@@ -26,8 +26,8 @@ const MemberFilters = ({ searchTerm, setSearchTerm, filterRole, setFilterRole })
                     onChange={e => setFilterRole(e.target.value)}
                 >
                     <option value="ALL">All Roles</option>
-                    <option value={ROLES.MEMBER}>Member</option>
-                    <option value={ROLES.LIBRARIAN}>Librarian</option>
+                    <option value={ROLES.STUDENT}>Student</option>
+                    <option value={ROLES.INSTRUCTOR}>Instructor</option>
                     <option value={ROLES.ADMIN}>Admin</option>
                 </select>
             </div>

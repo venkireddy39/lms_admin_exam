@@ -39,6 +39,15 @@ export const userService = {
         return await res.json();
     },
 
+    // Get all instructors
+    getAllInstructors: async () => {
+        const res = await fetch(`${BASE_URL}/getinstructors`, {
+            headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
+        });
+        if (!res.ok) throw new Error(`Status: ${res.status} - ${await res.text()}`);
+        return await res.json();
+    },
+
     // Create User (Student, Instructor, Parent)
     createUser: async (userData) => {
         let endpoint = "";

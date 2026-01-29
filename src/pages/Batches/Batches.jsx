@@ -27,15 +27,32 @@ const Batches = () => {
         const loadData = async () => {
             setLoadingData(true);
             try {
-                // Use userService to get ALL users (including Instructors), not just students
+                // Fetch Courses and Users (Single Source of Truth)
                 let [coursesData, usersData] = await Promise.all([
                     courseService.getCourses().catch(e => []),
                     userService.getAllUsers().catch(e => [])
                 ]);
 
-                // Fallback Mocks if APIs fail or return empty
+                console.log("⬇️ API FETCH RESULTS:");
+                console.log("   👉 Courses:", coursesData?.length);
+                console.log("   👉 Users:", usersData?.length);
+
+                // Use "Users API" to get instructors (Filter by Role)
+                // This is more reliable than the separate /instructors endpoint which seems to return incomplete data.
+                let instructorsData = [];
+                if (usersData && usersData.length > 0) {
+                    instructorsData = usersData.filter(u => {
+                        const r = (u.role || u.roleName || '').toUpperCase();
+                        return r === 'INSTRUCTOR' || r === 'ROLE_INSTRUCTOR' || r === 'ADMIN' || r === 'ROLE_ADMIN';
+                    }).map(u => ({
+                        ...u,
+                        instructorId: u.userId,
+                        name: (u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || u.username || "Unknown User")
+                    }));
+                }
+
+                // Fallback Mocks
                 if (!coursesData || coursesData.length === 0) {
-                    console.warn("No courses found from API, using mocks.");
                     coursesData = [
                         { courseId: 101, courseName: "Full Stack Java Development" },
                         { courseId: 102, courseName: "React JS Masterclass" },
@@ -43,16 +60,15 @@ const Batches = () => {
                     ];
                 }
 
-                if (!usersData || usersData.length === 0) {
-                    console.warn("No users found from API, using mocks.");
-                    usersData = [
-                        { userId: 501, name: "John Instructor", role: "INSTRUCTOR", email: "instr@test.com" },
-                        { userId: 502, name: "Sarah Admin", role: "ADMIN", email: "admin@test.com" }
-                    ];
+                // If no users/instructors found, map some mocks for dev
+                if (!instructorsData || instructorsData.length === 0) {
+                    console.warn("⚠️ No instructors found in Users list. Using empty list.");
                 }
 
                 setCourses(coursesData);
                 setAllUsers(usersData);
+                setFetchedInstructors(instructorsData);
+
             } catch (error) {
                 console.error("Failed to load dependency data", error);
             } finally {
@@ -62,17 +78,27 @@ const Batches = () => {
         loadData();
     }, []);
 
-    // Filter instructors from all users if role exists, otherwise fallback or show all
+    const [fetchedInstructors, setFetchedInstructors] = useState([]);
+
+    // Filter instructors - prefer our text-fetched list
     const instructors = useMemo(() => {
-        return allUsers.filter(u => {
-            const r = (u.role || u.roleName || '').toUpperCase();
-            return r === 'INSTRUCTOR' || r === 'ROLE_INSTRUCTOR' || r === 'ADMIN' || r === 'ROLE_ADMIN';
-        }).map(u => ({
-            ...u,
-            // Ensure name is populated for the dropdown
-            name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email
-        }));
-    }, [allUsers]);
+        let result = [];
+        if (fetchedInstructors.length > 0) {
+            result = fetchedInstructors;
+        } else {
+            // Legacy fallback
+            result = allUsers.filter(u => {
+                const r = (u.role || u.roleName || '').toUpperCase();
+                return r === 'INSTRUCTOR' || r === 'ROLE_INSTRUCTOR' || r === 'ADMIN' || r === 'ROLE_ADMIN';
+            }).map(u => ({
+                ...u,
+                name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+                id: u.userId // Fallback ID
+            }));
+        }
+        console.log("✅ Final Instructors List for Dropdown:", result);
+        return result;
+    }, [allUsers, fetchedInstructors]);
 
     const {
         batches,
@@ -95,7 +121,7 @@ const Batches = () => {
         instructorFilter,
         setInstructorFilter,
         loading: loadingBatches
-    } = useBatches(courses);
+    } = useBatches(courses, instructors);
 
     // Manual Enrichment: backend might not return live student counts.
     // We calculate it ourselves from enrollmentService.

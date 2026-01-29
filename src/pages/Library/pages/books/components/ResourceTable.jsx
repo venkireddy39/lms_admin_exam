@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Trash2, Book as BookIcon, Globe } from 'lucide-react';
+import { Edit, Trash2, Book as BookIcon, Globe, BookOpen } from 'lucide-react'; // Refreshing import
 
 const ResourceTable = ({
     resources,
@@ -7,6 +7,7 @@ const ResourceTable = ({
     viewMode,
     onEdit,
     onDelete,
+    onIssue,
     canManage = false
 }) => {
     return (
@@ -90,7 +91,7 @@ const ResourceTable = ({
 
                                     <td>
                                         <span className="badge bg-light text-dark border">
-                                            {res.category || 'General'}
+                                            {res.category?.categoryName || res.category || 'General'}
                                         </span>
                                     </td>
 
@@ -168,6 +169,14 @@ const ResourceTable = ({
                                     {canManage && (
                                         <td className="text-end">
                                             <div className="btn-group btn-group-sm">
+                                                <button
+                                                    className="btn btn-outline-primary"
+                                                    onClick={() => onIssue && onIssue(res)}
+                                                    disabled={!onIssue || (availableCopies === 0 && viewMode === 'PHYSICAL')}
+                                                    title={availableCopies === 0 && viewMode === 'PHYSICAL' ? "No copies available" : "Issue Book"}
+                                                >
+                                                    <BookOpen size={16} />
+                                                </button>
                                                 <button
                                                     className="btn btn-outline-secondary"
                                                     onClick={() => onEdit(res)}

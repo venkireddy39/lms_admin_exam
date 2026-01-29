@@ -149,28 +149,10 @@ export const enrollmentService = {
 
     // Get all enrollments (for User List batch info)
     getAllEnrollments: async () => {
-        let apiData = [];
-        try {
-            const res = await fetch(`${API_BASE_URL_SB}`, {
-                headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
-            });
-            if (res.ok) {
-                apiData = await res.json();
-            }
-        } catch (error) {
-            console.warn("API failed for getAllEnrollments, using storage", error);
-        }
-
+        // Backend does not support fetching ALL enrollments at once.
+        // Returning local storage or empty to prevent 500 errors.
         const localData = getStorage(STORAGE_KEYS.STUDENT_BATCHES);
-
-        if (apiData.length === 0 && localData.length > 0) return localData;
-
-        // Deduplicate using combination of studentId and batchId
-        // This ensures locally added enrollments appear in User List immediately
-        const apiKeys = new Set(apiData.map(e => `${e.studentId}-${e.batchId}`));
-        const uniqueLocal = localData.filter(e => !apiKeys.has(`${e.studentId}-${e.batchId}`));
-
-        return [...apiData, ...uniqueLocal];
+        return localData;
     },
 
     // ================= TRANSFERS =================

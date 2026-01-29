@@ -1,5 +1,5 @@
 import React from 'react';
-import { User as UserIcon, CheckCircle, Ban, Edit, Trash2 } from 'lucide-react';
+import { User as UserIcon, CheckCircle, Ban, Edit, Trash2, BookOpen } from 'lucide-react';
 import { ROLES, STATUS } from '../../../utils/constants';
 
 const roleBadge = (role) => {
@@ -8,7 +8,7 @@ const roleBadge = (role) => {
     return 'bg-info';
 };
 
-const MemberTable = ({ members, loading, onEdit, onDelete }) => (
+const MemberTable = ({ members, loading, onEdit, onDelete, onIssue }) => (
     <div className="table-responsive">
         <table className="table table-hover align-middle">
             <thead className="table-light">
@@ -60,6 +60,14 @@ const MemberTable = ({ members, loading, onEdit, onDelete }) => (
                         <td>{m.issuedBooks || 0}</td>
 
                         <td className="text-end">
+                            <button
+                                className="btn btn-sm btn-outline-primary me-1"
+                                onClick={() => onIssue && onIssue(m)}
+                                disabled={!onIssue || m.status !== STATUS.ACTIVE}
+                                title={m.status !== STATUS.ACTIVE ? "Member is blocked" : "Issue Book"}
+                            >
+                                <BookOpen size={14} />
+                            </button>
                             <button
                                 className="btn btn-sm btn-outline-secondary me-1"
                                 onClick={() => onEdit && onEdit(m)}

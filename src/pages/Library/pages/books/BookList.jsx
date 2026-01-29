@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Upload } from 'lucide-react';
 import { BookService } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
@@ -16,6 +17,7 @@ import './BookList.css';
 
 const BookList = () => {
     const toast = useToast();
+    const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const canManage = hasPermission('MANAGE_BOOKS');
 
@@ -65,9 +67,15 @@ const BookList = () => {
         setSelectedResource({ ...resource });
     };
 
-    const handleDeleteClick = (id) => {
+    const handleDeleteClick = (resource) => {
         if (!canManage) return;
-        setDeleteTargetId(id);
+        setDeleteTargetId(resource.id);
+    };
+
+    const handleIssueBook = (resource) => {
+        navigate('/library/issues/new', {
+            state: { preSelectedBook: resource }
+        });
     };
 
     const handleConfirmDelete = async () => {
@@ -83,7 +91,7 @@ const BookList = () => {
         }
     };
 
-    /* ===================== SAVE (FIXED) ===================== */
+    /* ===================== SAVE ===================== */
 
     const handleSaveResource = async (resourceData) => {
         try {
@@ -141,20 +149,20 @@ const BookList = () => {
         const term = searchTerm.toLowerCase();
 
         const matchesSearch =
-            res.title?.toLowerCase().includes(term) ||
-            res.author?.toLowerCase().includes(term) ||
-            res.category?.toLowerCase().includes(term) ||
-            res.isbn?.includes(term) ||
-            res.copies?.some(c => c.barcode?.includes(term));
+            (res.title || '').toLowerCase().includes(term) ||
+            (res.author || '').toLowerCase().includes(term) ||
+            (res.category?.categoryName || '').toLowerCase().includes(term) ||
+            (res.isbn || '').includes(term) ||
+            (res.copies || []).some(c => (c.barcode || '').toLowerCase().includes(term));
 
         const matchesCategory =
-            filterCategory === 'ALL' || res.category === filterCategory;
+            filterCategory === 'ALL' || res.category?.categoryName === filterCategory;
 
         return matchesSearch && matchesCategory;
     });
 
     const uniqueCategories = [
-        ...new Set(resources.map(r => r.category).filter(Boolean))
+        ...new Set(resources.map(r => r.category?.categoryName).filter(Boolean))
     ];
 
     /* ===================== RENDER ===================== */
@@ -212,6 +220,7 @@ const BookList = () => {
                         viewMode={viewMode}
                         onEdit={handleEditClick}
                         onDelete={handleDeleteClick}
+                        onIssue={handleIssueBook}
                         canManage={canManage}
                     />
                 </div>

@@ -1,9 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-// Secret from your environment or guess - usually HS512 requires long secret
 const secret = 'lms_prod_jwt_secret_change_this_very_long_random_string_987654321';
 
-// Detailed permissions list to ensure we cover all bases
 const permissions = [
     "COURSE_CREATE", "COURSE_UPDATE", "COURSE_DELETE", "COURSE_VIEW",
     "TOPIC_CREATE", "TOPIC_UPDATE", "TOPIC_DELETE", "TOPIC_VIEW",
@@ -30,9 +28,9 @@ const token = jwt.sign({
     sub: 'admin@gmail.com',
     userId: 1,
     roleName: 'ROLE_ADMIN',
-    roles: ['ROLE_ADMIN'], // Keep for backward compat
-    permissions: permissions, // Keep for backward compat
-    authorities: authorities, // NEW: Standard Spring Security claim
+    roles: ['ROLE_ADMIN'],
+    permissions: permissions,
+    authorities: authorities,
     iat: Math.floor(Date.now() / 1000)
 }, secret, { algorithm: 'HS512', expiresIn: '365d' });
 

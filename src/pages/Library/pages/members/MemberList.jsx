@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import { useMembers } from '../../hooks/useMembers';
 import { useToast } from '../../context/ToastContext';
@@ -79,6 +80,15 @@ const MemberList = () => {
         }
     };
 
+    /* ---------- NAVIGATION ---------- */
+    const navigate = useNavigate();
+
+    const handleIssueBook = (member) => {
+        navigate('/library/issues/new', {
+            state: { preSelectedMember: member }
+        });
+    };
+
     /* ---------- UI ---------- */
 
     return (
@@ -112,7 +122,8 @@ const MemberList = () => {
                         members={filteredMembers}
                         loading={loading}
                         onEdit={setEditingMember}
-                        onDelete={handleToggleStatus} // Reusing prop name for now, but it triggers toggle
+                        onDelete={handleToggleStatus}
+                        onIssue={handleIssueBook}
                     />
                 </div>
             </div>

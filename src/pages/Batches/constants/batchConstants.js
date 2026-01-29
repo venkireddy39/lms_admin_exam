@@ -8,6 +8,7 @@ export const BATCH_STATUS = {
 export const INITIAL_BATCH_FORM = {
     batchName: "",
     courseId: "",
+    trainerId: "",
     trainerName: "",
     startDate: "",
     endDate: "",

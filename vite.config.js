@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/student-batches': {
-        target: 'http://localhost:9191', // Local Transport backend for student batches
+        target: 'http://192.168.1.20:5151', // Corrected: StudentBatchController is in Main LMS (5151)
         changeOrigin: true,
         secure: false,
       },

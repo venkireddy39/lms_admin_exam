@@ -72,14 +72,29 @@ const BatchModal = ({
                             <label>Assigned Instructor</label>
                             <select
                                 className="form-select"
-                                name="trainerName"
-                                value={formData.trainerName}
-                                onChange={handleInputChange}
+                                name="trainerId"
+                                value={formData.trainerId || ""}
+                                onChange={(e) => {
+                                    const selectedId = e.target.value;
+                                    const instructor = instructors.find(i => String(i.id || i.userId) === String(selectedId));
+                                    handleInputChange({
+                                        target: {
+                                            name: 'trainerId',
+                                            value: selectedId
+                                        }
+                                    });
+                                    handleInputChange({
+                                        target: {
+                                            name: 'trainerName',
+                                            value: instructor ? instructor.name : ""
+                                        }
+                                    });
+                                }}
                             >
                                 <option value="">Select an instructor</option>
                                 {instructors.map(inst => (
-                                    <option key={inst.id || inst.userId} value={inst.name}>
-                                        {inst.name} ({inst.role})
+                                    <option key={inst.id || inst.userId || Math.random()} value={inst.id || inst.userId}>
+                                        {inst.name || "Unknown Name"} {inst.role ? `(${inst.role})` : ""}
                                     </option>
                                 ))}
                             </select>
