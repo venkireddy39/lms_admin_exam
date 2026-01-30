@@ -6,5 +6,8 @@
         {
             "path": "E:/campus-facilities-management-system"
         }
-    ]
+    ],
+    "settings": {
+        "powershell.cwd": "new learning clone git"
+    }
 }

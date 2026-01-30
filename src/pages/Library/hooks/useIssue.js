@@ -68,8 +68,8 @@ export const useIssue = () => {
                 m.memberId?.toLowerCase().includes(query.toLowerCase())
             );
             setMemberResults(filtered);
-        } catch {
-            toast.error('Search failed');
+        } catch (error) {
+            toast.error(error.message || 'Search failed');
         } finally {
             setLoading(false);
         }
@@ -146,7 +146,7 @@ export const useIssue = () => {
         setLoading(true);
         try {
             const issue = await IssueService.issueCopy({
-                memberId: selectedMember.id,
+                userId: selectedMember.id,
                 resourceId: selectedBook.id,
                 copyId: selectedCopy.uuid // or id
             });

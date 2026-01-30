@@ -10,10 +10,7 @@ export const STATUS = {
 };
 
 export const CATEGORIES = {
-    UG_ENGINEERING: 'UG_ENGINEERING',
-    PG_ENGINEERING: 'PG_ENGINEERING',
-    MBA: 'MBA',
-    PHD: 'PHD',
-    FACULTY: 'FACULTY',
-    STAFF: 'STAFF' // For System users who are not borrowing members
+    STUDENT: 'Student',
+    FACULTY: 'Faculty',
+    STAFF: 'Staff'
 };

@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
 // Secret from your environment or guess - usually HS512 requires long secret
 const secret = 'lms_prod_jwt_secret_change_this_very_long_random_string_987654321';

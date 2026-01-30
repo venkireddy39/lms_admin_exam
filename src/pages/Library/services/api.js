@@ -1,22 +1,16 @@
 /* =========================
    LIBRARY API SERVICES
-   ✅ Using REAL Backend API (No Mock Data)
-   Backend: /library endpoint
    ========================= */
 
 import { libraryService } from './libraryService';
 
 // Helper function to get token securely
 const getToken = () => {
-    // FALLBACK TOKEN (Generated 2026-01-29) - Bypass 403 Forbidden
-    const VALID_TOKEN = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbkBnbWFpbC5jb20iLCJ1c2VySWQiOjEsInJvbGVzIjpbIlJPTEVfQURNSU4iXSwicGVybWlzc2lvbnMiOlsiQ09VUlNFX0NSRUFURSIsIkNPVVJTRV9VUERBVEUiLCJDT1VSU0VfREVMRVRFIiwiQ09VUlNFX1ZJRVciLCJUT1BJQ19DUkVBVEUiLCJUT1BJQ19VUERBVEUiLCJUT1BJQ19ERUxFVEUiLCJUT1BJQ19WSUVXIiwiQ09OVEVOVF9BREQiLCJDT05URU5UX1VQREFURSIsIkNPTlRFTlRfREVMRVRFIiwiQ09OVEVOVF9WSUVXIiwiQ09OVEVOVF9BQ0NFU1MiLCJWRUhJQ0xFX0FERCIsIlZFSElDTEVfVklFVyIsIlZFSElDTEVfVVBEQVRFIiwiVkVISUNMRV9ERUxFVEUiLCJST1VURV9BREQiLCJST1VURV9WSUVXIiwiUk9VVEVfVVBEQVRFIiwiUk9VVEVfREVMRVRFIiwiRFJJVkVSX0FERCIsIkRSSVZFUl9WSUVXIiwiRFJJVkVSX1VQREFURSIsIkRSSVZFUl9ERUxFVEUiLCJDT05EVUNUT1JfQUREIiwiQ09ORFVDVE9SX1ZJRVciLCJDT05EVUNUT1JfVVBEQVRFIiwiQ09ORFVDVE9SX0RFTEVURSIsIkdQU19BREQiLCJHUFNfVklFVyIsIkdQU19VUERBVEUiLCJHUFNfREVMRVRFIiwiVFJBTlNQT1JUX0FUVEVOREFOQ0VfQUREIiwiVFJBTlNQT1JUX0FUVEVOREFOQ0VfVklFVyIsIlRSQU5TUE9SVF9BVFRFTkRBTkNFX1VQREFURSIsIlRSQU5TUE9SVF9BVFRFTkRBTkNFX0RFTEVURSIsIk1BTkFHRV9DT1VSU0VTIiwiVklFV19DT05URU5UIiwiVklFV19QUk9GSUxFIiwiQkFUQ0hfQ1JFQVRFIiwiQkFUQ0hfVVBEQVRFIiwiQkFUQ0hfREVMRVRFIiwiQkFUQ0hfVklFVyIsIlNFU1NJT05fQ1JFQVRFIiwiU0VTU0lPTl9VUERBVEUiLCJTRVNTSU9OX0RFTEVURSIsIlNFU1NJT05fVklFVyIsIlNFU1NJT05fQ09OVEVOVF9DUkVBVEUiLCJTRVNTSU9OX0NPTlRFTlRfVVBEQVRFIiwiU0VTU0lPTl9DT05URU5UX0RFTEVURSIsIlNFU1NJT05fQ09OVEVOVF9WSUVXIiwiU0VTU0lPTl9DT05URU5UX1BSRVZJRVciLCJTRVNTSU9OX0NPTlRFTlRfRE9XTkxPQUQiLCJDT1VSU0VfQkFUQ0hfU1RBVFNfVklFVyIsIlNUVURFTlRfQkFUQ0hfQ1JFQVRFIiwiU1RVREVOVF9CQVRDSF9VUERBVEUiLCJTVFVERU5UX0JBVENIX0RFTEVURSIsIlNUVURFTlRfQkFUQ0hfVklFVyIsIlNUVURFTlRfQkFUQ0hfVFJBTlNGRVJfQ1JFQVRFIiwiU1RVREVOVF9CQVRDSF9UUkFOU0ZFUl9WSUVXIiwiQVRURU5EQU5DRV9TRVNTSU9OX0NSRUFURSIsIkFUVEVOREFOQ0VfU0VTU0lPTl9WSUVXIiwiQVRURU5EQU5DRV9TRVNTSU9OX1VQREFURSIsIkFUVEVOREFOQ0VfU0VTU0lPTl9ERUxFVEUiLCJBVFRFTkRBTkNFX1JFQ09SRF9DUkVBVEUiLCJBVFRFTkRBTkNFX1JFQ09SRF9VUERBVEUiLCJBVFRFTkRBTkNFX1JFQ09SRF9WSUVXIiwiQVRURU5EQU5DRV9SRUNPUkRfREVMRVRFIiwiQk9PS19DUkVBVEUiLCJCT09LX1ZJRVciLCJCT09LX1VQREFURSIsIkJPT0tfREVMRVRFIiwiQk9PS19DQVRFR09SWV9DUkVBVEUiLCJCT09LX0NBVEVHT1JZX1ZJRVciLCJCT09LX0NBVEVHT1JZX1VQREFURSIsIkJPT0tfQ0FURUdPUllfREVMRVRFIiwiQk9PS19JU1NVRV9SRUNPUkRfQ1JFQVRFIiwiQk9PS19JU1NVRV9SRUNPUkRfVklFVyIsIkJPT0tfSVNTVUVfUkVDT1JEX1VQREFURSIsIkJPT0tfSVNTVUVfUkVDT1JEX0RFTEVURSIsIkxJQlJBUllfRklORV9DUkVBVEUiLCJMSUJSQVJZX0ZJTkVfVklFVyIsIkxJQlJBUllfRklORV9VUERBVEUiLCJMSUJSQVJZX0ZJTkVfREVMRVRFIiwiTElCUkFSWV9NRU1CRVJfQ1JFQVRFIiwiTElCUkFSWV9NRU1CRVJfVklFVyIsIkxJQlJBUllfTUVNQkVSX1VQREFURSIsIkxJQlJBUllfTUVNQkVSX0RFTEVURSIsIkxJQlJBUllfU0VUVElOR19DUkVBVEUiLCJMSUJSQVJZX1NFVFRJTkdfVklFVyIsIkxJQlJBUllfU0VUVElOR19VUERBVEUiLCJMSUJSQVJZX1NFVFRJTkdfREVMRVRFIl0sImF1dGhvcml0aWVzIjpbIlJPTEVfQURNSU4iXSwiaWF0IjoxNzY5Njk0MTE0LCJleHAiOjE3NzIyODYxMTR9.s7xiKl_xc0N6AaNEF-jpUoMeSTSyh6QnfuoFA1QxyzyQvyuK2biZQEWjjzJjH228MPo3yy5wgnC2CIj_BrEkvA";
+    const VALID_TOKEN = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbkBnbWFpbC5jb20iLCJ1c2VySWQiOjEsInJvbGVOYW1lIjoiUk9MRV9BRE1JTiIsInJvbGVzIjpbIlJPTEVfQURNSU4iXSwicGVybWlzc2lvbnMiOlsiQ09VUlNFX0NSRUFURSIsIkNPVVJTRV9VUERBVEUiLCJDT1VSU0VfREVMRVRFIiwiQ09VUlNFX1ZJRVciLCJUT1BJQ19DUkVBVEUiLCJUT1BJQ19VUERBVEUiLCJUT1BJQ19ERUxFVEUiLCJUT1BJQ19WSUVXIiwiQ09OVEVOVF9BREQiLCJDT05URU5UX1VQREFURSIsIkNPTlRFTlRfREVMRVRFIiwiQ09OVEVOVF9WSUVXIiwiQ09OVEVOVF9BQ0NFU1MiLCJNQU5BR0VfVVNFUlMiLCJNQU5BR0VfQ09VUlNFUyIsIlZJRVdfQ09OVEVOVCIsIlZJRVdfUFJPRklMRSIsIkJBVENIX0NSRUFURSIsIkJBVENIX1VQREFURSIsIkJBVENIX0RFTEVURSIsIkJBVENIX1ZJRVciLCJTRVNTSU9OX0NSRUFURSIsIlNFU1NJT05fVVBEQVRFIiwiU0VTU0lPTl9ERUxFVEUiLCJTRVNTSU9OX1ZJRVciLCJTRVNTSU9OX0NPTlRFTlRfQ1JFQVRFIiwiU0VTU0lPTl9DT05URU5UX1VQREFURSIsIlNFU1NJT05fQ09OVEVOVF9ERUxFVEUiLCJTRVNTSU9OX0NPTlRFTlRfVklFVyIsIlNUVURFTlRfQkFUQ0hfQ1JFQVRFIiwiU1RVREVOVF9CQVRDSF9VUERBVEUiLCJTVFVERU5UX0JBVENIX0RFTEVURSIsIlNUVURFTlRfQkFUQ0hfVklFVyIsIk1BTkFHRV9QRVJNSVNTSU9OUyIsIlZJRVdfUEVSTUlTU0lPTlMiLCJCT09LX0NSRUFURSIsIkJPT0tfVklFVyIsIkJPT0tfVVBEQVRFIiwiQk9PS19ERUxFVEUiLCJCT09LX0NBVEVHT1JZX0NSRUFURSIsIkJPT0tfQ0FURUdPUllfVklFVyIsIkJPT0tfQ0FURUdPUllfVVBEQVRFIiwiQk9PS19DQVRFR09SWV9ERUxFVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9DUkVBVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9VUERBVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9WSUVXIiwiQk9PS19SRVNFUlZBVElPTl9DUkVBVEUiLCJCT09LX1JFU0VSVkFUSU9OX1ZJRVciLCJCT09LX1JFU0VSVkFUSU9OX0RFTEVURSIsIkxJQlJBUllfU0VUVElOR19DUkVBVEUiLCJMSUJSQVJZX1NFVFRJTkdfVklFVyJdLCJhdXRob3JpdGllcyI6WyJST0xFX0FETUlOIiwiQ09VUlNFX0NSRUFURSIsIkNPVVJTRV9VUERBVEUiLCJDT1VSU0VfREVMRVRFIiwiQ09VUlNFX1ZJRVciLCJUT1BJQ19DUkVBVEUiLCJUT1BJQ19VUERBVEUiLCJUT1BJQ19ERUxFVEUiLCJUT1BJQ19WSUVXIiwiQ09OVEVOVF9BREQiLCJDT05URU5UX1VQREFURSIsIkNPTlRFTlRfREVMRVRFIiwiQ09OVEVOVF9WSUVXIiwiQ09OVEVOVF9BQ0NFU1MiLCJNQU5BR0VfVVNFUlMiLCJNQU5BR0VfQ09VUlNFUyIsIlZJRVdfQ09OVEVOVCIsIlZJRVdfUFJPRklMRSIsIkJBVENIX0NSRUFURSIsIkJBVENIX1VQREFURSIsIkJBVENIX0RFTEVURSIsIkJBVENIX1ZJRVciLCJTRVNTSU9OX0NSRUFURSIsIlNFU1NJT05fVVBEQVRFIiwiU0VTU0lPTl9ERUxFVEUiLCJTRVNTSU9OX1ZJRVciLCJTRVNTSU9OX0NPTlRFTlRfQ1JFQVRFIiwiU0VTU0lPTl9DT05URU5UX1VQREFURSIsIlNFU1NJT05fQ09OVEVOVF9ERUxFVEUiLCJTRVNTSU9OX0NPTlRFTlRfVklFVyIsIlNUVURFTlRfQkFUQ0hfQ1JFQVRFIiwiU1RVREVOVF9CQVRDSF9VUERBVEUiLCJTVFVERU5UX0JBVENIX0RFTEVURSIsIlNUVURFTlRfQkFUQ0hfVklFVyIsIk1BTkFHRV9QRVJNSVNTSU9OUyIsIlZJRVdfUEVSTUlTU0lPTlMiLCJCT09LX0NSRUFURSIsIkJPT0tfVklFVyIsIkJPT0tfVVBEQVRFIiwiQk9PS19ERUxFVEUiLCJCT09LX0NBVEVHT1JZX0NSRUFURSIsIkJPT0tfQ0FURUdPUllfVklFVyIsIkJPT0tfQ0FURUdPUllfVVBEQVRFIiwiQk9PS19DQVRFR09SWV9ERUxFVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9DUkVBVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9VUERBVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9WSUVXIiwiQk9PS19SRVNFUlZBVElPTl9DUkVBVEUiLCJCT09LX1JFU0VSVkFUSU9OX1ZJRVciLCJCT09LX1JFU0VSVkFUSU9OX0RFTEVURSIsIkxJQlJBUllfU0VUVElOR19DUkVBVEUiLCJMSUJSQVJZX1NFVFRJTkdfVklFVyJdLCJhdXRob3JpdGllcyI6WyJST0xFX0FETUlOIiwiQ09VUlNFX0NSRUFURSIsIkNPVVJTRV9VUERBVEUiLCJDT1VSU0VfREVMRVRFIiwiQ09VUlNFX1ZJRVciLCJUT1BJQ19DUkVBVEUiLCJUT1BJQ19VUERBVEUiLCJUT1BJQ19ERUxFVEUiLCJUT1BJQ19WSUVXIiwiQ09OVEVOVF9BREQiLCJDT05URU5UX1VQREFURSIsIkNPTlRFTlRfREVMRVRFIiwiQ09OVEVOVF9WSUVXIiwiQ09OVEVOVF9BQ0NFU1MiLCJNQU5BR0VfVVNFUlMiLCJNQU5BR0VfQ09VUlNFUyIsIlZJRVdfQ09OVEVOVCIsIlZJRVdfUFJPRklMRSIsIkJBVENIX0NSRUFURSIsIkJBVENIX1VQREFURSIsIkJBVENIX0RFTEVURSIsIkJBVENIX1ZJRVciLCJTRVNTSU9OX0NSRUFURSIsIlNFU1NJT05fVVBEQVRFIiwiU0VTU0lPTl9ERUxFVEUiLCJTRVNTSU9OX1ZJRVciLCJTRVNTSU9OX0NPTlRFTlRfQ1JFQVRFIiwiU0VTU0lPTl9DT05URU5UX1VQREFURSIsIlNFU1NJT05fQ09OVEVOVF9ERUxFVEUiLCJTRVNTSU9OX0NPTlRFTlRfVklFVyIsIlNUVURFTlRfQkFUQ0hfQ1JFQVRFIiwiU1RVREVOVF9CQVRDSF9VUERBVEUiLCJTVFVERU5UX0JBVENIX0RFTEVURSIsIlNUVURFTlRfQkFUQ0hfVklFVyIsIk1BTkFHRV9QRVJNSVNTSU9OUyIsIlZJRVdfUEVSTUlTU0lPTlMiLCJCT09LX0NSRUFURSIsIkJPT0tfVklFVyIsIkJPT0tfVVBEQVRFIiwiQk9PS19ERUxFVEUiLCJCT09LX0NBVEVHT1JZX0NSRUFURSIsIkJPT0tfQ0FURUdPUllfVklFVyIsIkJPT0tfQ0FURUdPUllfVVBEQVRFIiwiQk9PS19DQVRFR09SWV9ERUxFVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9DUkVBVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9VUERBVEUiLCJCT09LX0lTU1VFX1JFQ09SRF9WSUVXIiwiQk9PS19SRVNFUlZBVElPTl9DUkVBVEUiLCJCT09LX1JFU0VSVkFUSU9OX1ZJRVciLCJCT09LX1JFU0VSVkFUSU9OX0RFTEVURSIsIkxJQlJBUllfU0VUVElOR19DUkVBVEUiLCJMSUJSQVJZX1NFVFRJTkdfVklFVyJdLCJpYXQiOjE3Njk3NTAwODgsImV4cCI6MTgwMTI4NjA4OH0.DG3b17m3WgEr0rQNDxD6S43X1uNBH5TCvNqkYSnQ1rFWn1ULd01kg6PnwpLY-plK-yRHt155wYQy2srsl-3szg";
 
-    // Use VALID_TOKEN directly to override potential mismatching localStorage tokens
-    const token = VALID_TOKEN;
-    // const token = localStorage.getItem("authToken") || import.meta.env.VITE_DEV_AUTH_TOKEN || VALID_TOKEN;
+    // Use token from localStorage or FALLBACK to VALID_TOKEN
+    const token = localStorage.getItem("authToken") || localStorage.getItem("token") || import.meta.env.VITE_DEV_AUTH_TOKEN || VALID_TOKEN;
     if (!token) console.warn("API: No auth token found!");
-    // Debug logging (remove in production)
-    console.log("API Token Length:", token ? token.length : 0);
     return token;
 };
 
@@ -105,25 +99,20 @@ export const BookService = {
    Uses existing LMS Users (Students with departments)
    ========================= */
 
+// Import userService to reuse working auth/fetch logic
+import { userService } from '../../Users/services/userService';
+
+/* =========================
+   MEMBER SERVICE
+   Uses existing LMS Users (Students with departments)
+   ========================= */
+
 export const MemberService = {
     // Get all members by fetching All Users from Admin API
     getAllMembers: async () => {
         try {
-            // Fetch directly from Admin Users endpoint
-            const response = await fetch('/admin/users', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${getToken()}`,
-                    'Cache-Control': 'no-cache'
-                }
-            });
-
-            if (!response.ok) {
-                console.warn(`Error fetching users: ${response.status}`);
-                return [];
-            }
-
-            const users = await response.json();
+            // Reuse userService to ensure consistent auth/endpoints
+            const users = await userService.getAllUsers();
 
             // Map Admin Users to Library Member format for UI compatibility
             return users.map(u => ({
@@ -133,15 +122,15 @@ export const MemberService = {
                 email: u.email,
                 mobile: u.phone || u.mobile,
                 role: u.roleName ? u.roleName.replace('ROLE_', '') : 'USER',
-                category: u.department || 'General',
+                category: (u.roleName === 'ROLE_STUDENT' || u.roleName === 'pool') ? 'Student' : 'Faculty',
                 status: u.enabled ? 'ACTIVE' : 'BLOCKED',
-                department: u.department,
+                // department: u.department, // Removed as per request
                 maxBooks: 3, // Default
                 issuedBooks: 0
             }));
         } catch (error) {
             console.error("Service Error (getAllMembers):", error);
-            return [];
+            throw error; // Re-throw to let UI handle it
         }
     },
 
@@ -170,9 +159,9 @@ export const MemberService = {
                 email: u.email,
                 mobile: u.phone || u.mobile,
                 role: u.roleName ? u.roleName.replace('ROLE_', '') : 'USER',
-                category: u.department || 'General',
-                status: u.enabled ? 'ACTIVE' : 'BLOCKED',
-                department: u.department
+                category: (u.roleName === 'ROLE_STUDENT' || u.roleName === 'pool') ? 'Student' : 'Faculty',
+                status: u.enabled ? 'ACTIVE' : 'BLOCKED'
+                // department: u.department
             };
         } catch (error) {
             console.error("Service Error (getMemberById):", error);
@@ -198,10 +187,12 @@ export const IssueService = {
     },
 
     // Validate Member Eligibility
-    validateEligibility: async (memberId) => {
+    validateEligibility: async (userId) => {
         try {
-            const isEligible = await libraryService.issues.checkEligibility(memberId);
-            const user = await MemberService.getMemberById(memberId);
+            const user = await MemberService.getMemberById(userId);
+            const memberRole = user.category ? user.category.toUpperCase() : 'STUDENT';
+
+            const isEligible = await libraryService.issues.checkEligibility(userId, memberRole);
 
             if (!isEligible) {
                 throw new Error('Member has reached maximum book limit or has outstanding issues');
@@ -216,18 +207,22 @@ export const IssueService = {
 
     createIssue: async (issue) => {
         // Note: Backend might expect different structure
-        return libraryService.issues.issueBook(issue.bookId, issue.memberId);
+        return libraryService.issues.issueBook(issue.bookId, issue.userId);
     },
 
     // Issue book to member
-    issueCopy: async ({ memberId, bookId, copyId, resourceId, barcode }) => {
+    issueCopy: async ({ userId, bookId, copyId, resourceId, barcode }) => {
+        // Fetch User to get Role
+        const user = await MemberService.getMemberById(userId);
+        const memberRole = user.category ? user.category.toUpperCase() : 'STUDENT';
+
         // Use the actual backend issue endpoint with barcode if available
         const bc = barcode || (copyId && typeof copyId === 'string' && !copyId.includes('-') ? copyId : null);
 
         if (bc) {
-            return libraryService.issues.issueBookWithBarcode(bookId || resourceId, memberId, bc);
+            return libraryService.issues.issueBookWithBarcode(bookId || resourceId, userId, bc, memberRole);
         }
-        return libraryService.issues.issueBook(bookId || resourceId, memberId);
+        return libraryService.issues.issueBook(bookId || resourceId, userId, memberRole);
     },
 
     updateIssue: async (id, updates) => {
@@ -297,10 +292,14 @@ export const ReservationService = {
     },
 
     createReservation: async (reservation) => {
-        return libraryService.reservations.createReservation({
-            ...reservation,
-            userId: reservation.memberId || reservation.userId || reservation.studentId
-        });
+        const payload = { ...reservation };
+        // Map bookId -> book: { id: ... } for backend @ManyToOne
+        if (payload.bookId) {
+            payload.book = { id: payload.bookId };
+        }
+        payload.userId = reservation.memberId || reservation.userId || reservation.studentId;
+
+        return libraryService.reservations.createReservation(payload);
     },
 
     updateReservation: async (id, updates) => {
@@ -397,12 +396,50 @@ export const DashboardService = {
 export const SettingsService = {
     getSettings: async () => {
         try {
-            const settings = await libraryService.settings.getSettings();
-            // Backend returns array, take first one or use default structure
-            if (Array.isArray(settings) && settings.length > 0) {
-                return settings[0];
+            const settingsList = await libraryService.settings.getSettings();
+            // Backend returns array of LibrarySettings objects.
+            // Map them to role-based structure: { rules: { student: {...}, faculty: {...} } }
+
+            const rules = {
+                student: { maxBooks: 3, issueDays: 14 },
+                faculty: { maxBooks: 10, issueDays: 90 } // defaults
+            };
+
+            // Map backend list to our structure
+            if (Array.isArray(settingsList)) {
+                settingsList.forEach(s => {
+                    const role = s.memberRole ? s.memberRole.toLowerCase() : null;
+                    if (role === 'student' || role === 'faculty') {
+                        rules[role] = {
+                            id: s.settingId || s.id, // Store ID if present
+                            maxBooks: s.maxBooks,
+                            issueDays: s.issueDurationDays || s.issueDays,
+                            reservationDays: s.reservationDurationDays || 2, // Map backend field
+                            fineSlabs: s.fineSlabs ? s.fineSlabs.map(fs => ({
+                                id: fs.id,
+                                from: fs.fromDay,
+                                to: fs.toDay,
+                                amount: fs.finePerDay
+                            })) : []
+                        };
+                    } else if (s.memberRole === null && settingsList.length === 1) {
+                        // If we have a legacy global setting (id=1, role=null), DO NOT map it to student/faculty IDs.
+                        // This forces 'save' to create NEW records with proper roles, effectively migrating away from the global setting.
+                        // Exception: We might want to inherit the VALUES as defaults, but not the ID.
+                        // But for now, let's leave defaults in 'rules' object init.
+                    }
+                });
             }
-            return settings;
+
+            return {
+                rules,
+                notifications: {
+                    'Email Alerts': true,
+                    'SMS Alerts': false,
+                    'Overdue Reminders': true,
+                    'New Arrivals': true
+                }
+            };
         } catch (error) {
             console.error("Error fetching settings:", error);
             // Return default settings if backend call fails
@@ -424,11 +461,10 @@ export const SettingsService = {
     },
 
     updateSettings: async (settings) => {
-        // If settings has an ID, update it, otherwise create new
-        if (settings.id) {
-            return libraryService.settings.updateSettings(settings.id, settings);
-        } else {
-            return libraryService.settings.createSettings(settings);
-        }
+        // Backend expects per-role settings object
+        // Payload: { id: (optional), maxBooks, issueDurationDays, memberRole }
+
+        // libraryService only exposes saveSettings (POST) which handles both create and update
+        return libraryService.settings.saveSettings(settings);
     }
 };

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash, AlertCircle } from 'lucide-react';
 
-const RulesSettings = ({ rules, setRules }) => {
+const RulesSettings = ({ rules, setRules, onSave }) => {
     // Get the first category key as default active
     const categoryKeys = Object.keys(rules);
     const [activeCategory, setActiveCategory] = useState(categoryKeys[0] || '');
@@ -75,8 +75,13 @@ const RulesSettings = ({ rules, setRules }) => {
             {/* Config Area */}
             <div className="col-md-9">
                 <div className="card shadow-sm border-0">
-                    <div className="card-header bg-white py-3">
+                    <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                         <h5 className="mb-0 text-primary">{currentRule.label} Configuration</h5>
+                        {onSave && (
+                            <button className="btn btn-sm btn-primary" onClick={onSave}>
+                                Apply Changes
+                            </button>
+                        )}
                     </div>
                     <div className="card-body">
                         {/* Basic Rules */}
@@ -102,6 +107,17 @@ const RulesSettings = ({ rules, setRules }) => {
                                     onChange={(e) => updateField('issueDays', parseInt(e.target.value) || 0)}
                                 />
                                 <div className="form-text">Default return period</div>
+                            </div>
+                            <div className="col-md-6">
+                                <label className="form-label fw-medium">Reservation Keep (Days)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    className="form-control"
+                                    value={currentRule.reservationDays || 2}
+                                    onChange={(e) => updateField('reservationDays', parseInt(e.target.value) || 0)}
+                                />
+                                <div className="form-text">Days to hold book for user</div>
                             </div>
                         </div>
 

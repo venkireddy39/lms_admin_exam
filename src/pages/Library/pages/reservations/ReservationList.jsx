@@ -56,28 +56,32 @@ const ReservationList = () => {
     /* ---------- FILTER ---------- */
 
     const filteredReservations = useMemo(() => {
+        const currentFilter = filterStatus; // Use state value
+
         return reservations.filter(r => {
-            const resource = resourceMap[r.resourceId];
-            const user = userMap[r.userId];
+            // Support both direct object (if backend sends populated) or ID mapping
+            const resourceTitle = r.book?.title || resourceMap[r.book?.id || r.bookId]?.title || '';
+            const userName = r.userId ? (userMap[r.userId]?.name || 'Unknown') : 'Unknown';
             const q = searchTerm.toLowerCase();
 
             const matchesSearch =
-                resource?.title?.toLowerCase().includes(q) ||
-                user?.name?.toLowerCase().includes(q);
+                resourceTitle.toLowerCase().includes(q) ||
+                userName.toLowerCase().includes(q);
 
-            const expired = r.expiryDate && isPast(parseISO(r.expiryDate));
+            // Logic for Expired: reserveUntil is past AND status is still RESERVED
+            const isExpired = r.reserveUntil && isPast(parseISO(r.reserveUntil)) && r.status === 'RESERVED';
 
-            if (filterStatus === 'ACTIVE')
-                return matchesSearch && r.status === 'PENDING' && !expired;
+            if (currentFilter === 'ACTIVE')
+                return matchesSearch && (r.status === 'RESERVED' || r.status === 'AVAILABLE') && !isExpired;
 
-            if (filterStatus === 'EXPIRED')
-                return matchesSearch && expired;
+            if (currentFilter === 'EXPIRED')
+                return matchesSearch && (isExpired || r.status === 'NO_RESPONSE');
 
-            if (filterStatus === 'FULFILLED')
-                return matchesSearch && r.status === 'FULFILLED';
+            if (currentFilter === 'FULFILLED')
+                return matchesSearch && (r.status === 'COLLECTED' || r.status === 'COMPLETED');
 
-            if (filterStatus === 'REJECTED')
-                return matchesSearch && r.status === 'REJECTED';
+            if (currentFilter === 'REJECTED')
+                return matchesSearch && (r.status === 'CANCELLED' || r.status === 'REJECTED');
 
             return matchesSearch;
         });
@@ -86,20 +90,22 @@ const ReservationList = () => {
     /* ---------- ACTIONS ---------- */
 
     const cancelReservation = async (id) => {
-        if (window.confirm('Are you sure you want to delete this reservation?')) {
+        if (window.confirm('Are you sure you want to cancel this reservation?')) {
             await ReservationService.cancelReservation(id);
             loadData();
         }
     };
 
     const rejectReservation = async (id) => {
-        if (window.confirm('Mark this reservation as rejected?')) {
-            await ReservationService.rejectReservation(id);
+        // "Reject" in our new flow is basically Cancel
+        if (window.confirm('Cancel this reservation?')) {
+            await ReservationService.cancelReservation(id);
             loadData();
         }
     };
 
     const fulfillReservation = async (id) => {
+        // Likely means "Issue Book" or "Mark Collected"
         await ReservationService.fulfillReservation(id);
         loadData();
     };
@@ -107,16 +113,21 @@ const ReservationList = () => {
     /* ---------- STATUS ---------- */
 
     const getStatusBadge = (r) => {
-        if (r.status === 'FULFILLED')
-            return <span className="badge bg-success">FULFILLED</span>;
+        const isExpired = r.reserveUntil && isPast(parseISO(r.reserveUntil)) && r.status === 'RESERVED';
 
-        if (r.status === 'REJECTED')
-            return <span className="badge bg-secondary">REJECTED</span>;
+        if (r.status === 'COLLECTED' || r.status === 'COMPLETED')
+            return <span className="badge bg-success">COLLECTED</span>;
 
-        if (r.expiryDate && isPast(parseISO(r.expiryDate)))
+        if (r.status === 'AVAILABLE')
+            return <span className="badge bg-info text-dark">AVAILABLE FOR PICKUP</span>;
+
+        if (r.status === 'CANCELLED' || r.status === 'REJECTED')
+            return <span className="badge bg-secondary">CANCELLED</span>;
+
+        if (isExpired || r.status === 'NO_RESPONSE')
             return <span className="badge bg-danger">EXPIRED</span>;
 
-        return <span className="badge bg-warning text-dark">PENDING</span>;
+        return <span className="badge bg-warning text-dark">RESERVED</span>;
     };
 
     /* ---------- UI ---------- */
@@ -153,8 +164,8 @@ const ReservationList = () => {
                         onChange={e => setFilterStatus(e.target.value)}
                     >
                         <option value="ACTIVE">Active Queue</option>
-                        <option value="FULFILLED">Fulfilled</option>
-                        <option value="REJECTED">Rejected</option>
+                        <option value="FULFILLED">Collected</option>
+                        <option value="REJECTED">Cancelled</option>
                         <option value="EXPIRED">Expired</option>
                         <option value="ALL">All</option>
                     </select>
@@ -169,7 +180,8 @@ const ReservationList = () => {
                             <th>Book</th>
                             <th>Member</th>
                             <th>Reserved On</th>
-                            <th>Expires</th>
+                            <th>Available On</th>
+                            <th>Valid Until</th>
                             <th>Status</th>
                             <th className="text-end">Actions</th>
                         </tr>
@@ -181,41 +193,42 @@ const ReservationList = () => {
                             <tr><td colSpan="6" className="text-center text-muted">No reservations</td></tr>
                         ) : (
                             filteredReservations.map(r => {
-                                const resource = resourceMap[r.resourceId];
+                                // Resolve Book/User (handling nested objects vs IDs)
+                                const resource = r.book ? r.book : resourceMap[r.bookId];
                                 const user = userMap[r.userId];
-                                const expired = r.expiryDate && isPast(parseISO(r.expiryDate));
+
+                                const isExpired = r.reserveUntil && isPast(parseISO(r.reserveUntil)) && r.status === 'RESERVED';
 
                                 return (
-                                    <tr key={r.id} className={expired ? 'table-danger' : ''}>
+                                    <tr key={r.id || r.reservation_id} className={isExpired ? 'table-secondary' : ''}>
                                         <td>
-                                            <div className="fw-medium">{resource?.title || 'Unknown'}</div>
-                                            <div className="small text-muted">{resource?.author}</div>
+                                            <div className="fw-medium">{resource?.title || 'Unknown Title'}</div>
+                                            <div className="small text-muted">{resource?.author || ''}</div>
                                         </td>
                                         <td>
-                                            <div>{user?.name || 'Unknown'}</div>
-                                            {r.priority === 'HIGH' && (
-                                                <span className="badge bg-warning text-dark mt-1">
-                                                    <CalendarClock size={12} className="me-1" />
-                                                    Priority
-                                                </span>
-                                            )}
+                                            <div>{user?.name || 'Unknown User'}</div>
+                                            <div className="small text-muted">ID: {r.userId}</div>
                                         </td>
-                                        <td>{r.reservationDate ? format(parseISO(r.reservationDate), 'dd MMM yyyy') : '-'}</td>
-                                        <td>{r.expiryDate ? format(parseISO(r.expiryDate), 'dd MMM yyyy') : '-'}</td>
+                                        <td>{r.reservedAt ? format(parseISO(r.reservedAt), 'dd MMM yyyy') : '-'}</td>
+                                        <td>{r.adminHoldFrom ? format(parseISO(r.adminHoldFrom), 'dd MMM yyyy') : '-'}</td>
+                                        <td>
+                                            {r.reserveUntil ? format(parseISO(r.reserveUntil), 'dd MMM yyyy') : '-'}
+                                        </td>
                                         <td>{getStatusBadge(r)}</td>
                                         <td className="text-end">
-                                            {r.status === 'PENDING' && !expired && (
+                                            {(r.status === 'RESERVED' || r.status === 'AVAILABLE') && !isExpired && (
                                                 <div className="btn-group btn-group-sm">
                                                     <button
                                                         className="btn btn-outline-success"
                                                         onClick={() => fulfillReservation(r.id)}
+                                                        title="Mark Collected"
                                                     >
                                                         <CheckCircle size={14} />
                                                     </button>
                                                     <button
                                                         className="btn btn-outline-danger"
-                                                        onClick={() => rejectReservation(r.id)}
-                                                        title="Reject"
+                                                        onClick={() => cancelReservation(r.id)}
+                                                        title="Cancel"
                                                     >
                                                         <XCircle size={14} />
                                                     </button>

@@ -50,6 +50,12 @@ export default defineConfig({
         target: 'http://localhost:9191', // Library backend on local laptop
         changeOrigin: true,
         secure: false,
+        bypass: (req, res, options) => {
+          if (req.headers.accept && req.headers.accept.indexOf('html') !== -1) {
+            console.log('Skipping proxy for browser request.');
+            return '/index.html';
+          }
+        }
       }
     }
   }

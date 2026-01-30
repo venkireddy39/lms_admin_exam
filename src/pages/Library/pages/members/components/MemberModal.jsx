@@ -76,27 +76,15 @@ const MemberModal = ({ member, onClose, onSave, isNew }) => {
                         </div>
 
                         <div className="row g-2 mb-3">
-                            <div className="col-md-6">
+                            <div className="col-md-12">
                                 <select
                                     className="form-select"
                                     value={form.category}
                                     onChange={e => handleChange('category', e.target.value)}
                                 >
-                                    <option value={CATEGORIES.UG_ENGINEERING}>UG Engineering</option>
-                                    <option value={CATEGORIES.PG_ENGINEERING}>PG Engineering</option>
-                                    <option value={CATEGORIES.MBA}>MBA</option>
-                                    <option value={CATEGORIES.PHD}>PhD</option>
-                                    <option value={CATEGORIES.FACULTY}>Faculty</option>
+                                    <option value="Student">Student</option>
+                                    <option value="Faculty">Faculty</option>
                                 </select>
-                            </div>
-
-                            <div className="col-md-6">
-                                <input
-                                    className="form-control"
-                                    placeholder="Department"
-                                    value={form.department || ''}
-                                    onChange={e => handleChange('department', e.target.value)}
-                                />
                             </div>
                         </div>
 
