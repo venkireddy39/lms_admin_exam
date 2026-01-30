@@ -30,7 +30,7 @@ const AddEditResourceModal = ({
         edition: resource?.edition || '',
         year: resource?.year || resource?.publicationYear || '', // Check both for safety
         language: resource?.language || '',
-        category: resource?.category?.id || resource?.category || '',
+        category: resource?.category?.id || '',
         type: resource?.type || viewMode,
 
         // Physical only

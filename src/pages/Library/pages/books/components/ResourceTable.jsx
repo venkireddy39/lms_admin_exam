@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Trash2, Book as BookIcon, Globe, BookOpen } from 'lucide-react'; // Refreshing import
+import { Edit, Trash2, Book as BookIcon, Globe, BookOpen, Calendar, Barcode } from 'lucide-react';
 
 const ResourceTable = ({
     resources,
@@ -8,6 +8,8 @@ const ResourceTable = ({
     onEdit,
     onDelete,
     onIssue,
+    onReserve,
+    onGenerateBarcodes,
     canManage = false
 }) => {
     return (
@@ -177,6 +179,24 @@ const ResourceTable = ({
                                                 >
                                                     <BookOpen size={16} />
                                                 </button>
+                                                {viewMode === 'PHYSICAL' && availableCopies === 0 && (
+                                                    <button
+                                                        className="btn btn-outline-warning"
+                                                        onClick={() => onReserve && onReserve(res)}
+                                                        title="Reserve Book"
+                                                    >
+                                                        <Calendar size={16} />
+                                                    </button>
+                                                )}
+                                                {canManage && viewMode === 'PHYSICAL' && (
+                                                    <button
+                                                        className="btn btn-outline-info"
+                                                        onClick={() => onGenerateBarcodes && onGenerateBarcodes(res)}
+                                                        title="Print/View Barcodes"
+                                                    >
+                                                        <Barcode size={16} />
+                                                    </button>
+                                                )}
                                                 <button
                                                     className="btn btn-outline-secondary"
                                                     onClick={() => onEdit(res)}

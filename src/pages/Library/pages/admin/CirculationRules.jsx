@@ -42,13 +42,15 @@ const CirculationRules = () => {
                 setRules(prev => {
                     const newRules = { ...prev };
 
-                    if (settings.rules) {
+                    if (settings && settings.rules) {
                         // Map Student Rules
                         if (settings.rules.student) {
                             newRules['Student'] = {
                                 ...newRules['Student'],
                                 maxBooks: settings.rules.student.maxBooks || 4,
-                                issueDays: settings.rules.student.issueDays || 14
+                                issueDays: settings.rules.student.issueDays || 14,
+                                reservationDays: settings.rules.student.reservationDays || 2,
+                                fineSlabs: settings.rules.student.fineSlabs || []
                             };
                         }
 
@@ -57,14 +59,13 @@ const CirculationRules = () => {
                             newRules['Faculty'] = {
                                 ...newRules['Faculty'],
                                 maxBooks: settings.rules.faculty.maxBooks || 15,
-                                issueDays: settings.rules.faculty.issueDays || 180
+                                issueDays: settings.rules.faculty.issueDays || 180,
+                                reservationDays: settings.rules.faculty.reservationDays || 1,
+                                fineSlabs: settings.rules.faculty.fineSlabs || []
                             };
                         }
-
-                        // Note: Backend 'fines' object is global per day, but frontend expects slabs.
-                        // Ideally, we'd fetch slabs from a dedicated /slabs endpoint if it exists.
-                        // For now, we keep the default slabs in state or could generate a simple slab from settings.rules.fines.perDay
                     }
+
                     return newRules;
                 });
             } catch (error) {
@@ -90,7 +91,14 @@ const CirculationRules = () => {
                     id: rule.id,
                     maxBooks: rule.maxBooks,
                     issueDurationDays: rule.issueDays,
-                    memberRole: memberRole
+                    reservationDurationDays: rule.reservationDays,
+                    memberRole: memberRole,
+                    fineSlabs: rule.fineSlabs ? rule.fineSlabs.map(slab => ({
+                        // Map frontend fields (amount, from, to) to Backend entity fields
+                        fromDay: Number(slab.from),
+                        toDay: Number(slab.to),
+                        finePerDay: Number(slab.amount)
+                    })) : []
                 };
 
                 return SettingsService.updateSettings(payload);

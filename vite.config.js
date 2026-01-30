@@ -7,12 +7,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/student-batches': {
-        target: 'http://192.168.1.20:5151', // Corrected: StudentBatchController is in Main LMS (5151)
+        target: 'http://192.168.1.20:5151',
         changeOrigin: true,
         secure: false,
       },
       '/api': {
-        target: 'http://192.168.1.20:5151', // Gateway / Other Modules
+        target: 'http://192.168.1.20:5151',
         changeOrigin: true,
         secure: false,
       },
@@ -31,31 +31,10 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/users': {
-        target: 'http://192.168.1.22:8081',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/uploads': {
-        target: 'http://192.168.1.20:5151',
-        changeOrigin: true,
-        secure: false,
-        configure: (proxy, _options) => {
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            delete proxyRes.headers['x-frame-options'];
-          });
-        }
-      },
       '/library': {
-        target: 'http://localhost:9191', // Library backend on local laptop
+        target: 'http://localhost:9191',
         changeOrigin: true,
         secure: false,
-        bypass: (req, res, options) => {
-          if (req.headers.accept && req.headers.accept.indexOf('html') !== -1) {
-            console.log('Skipping proxy for browser request.');
-            return '/index.html';
-          }
-        }
       }
     }
   }

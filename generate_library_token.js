@@ -59,7 +59,7 @@ const payload = {
 };
 
 // Generate token
-const token = jwt.sign(payload, SECRET_KEY, { algorithm: 'HS512' });
+const token = jwt.sign(payload, SECRET_KEY, { algorithm: 'HS256' });
 
 console.log("\n=".repeat(80));
 console.log("GENERATED JWT TOKEN WITH LIBRARY PERMISSIONS");

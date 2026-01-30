@@ -1,11 +1,13 @@
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
-const ProtectedRoute = ({ permission, children }) => {
-    const { user, hasPermission } = useAuth();
+export default function ProtectedRoute({ permission, children }) {
+    const { user, loading, hasPermission } = useAuth();
+
+    if (loading) return null;
 
     if (!user) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/login" replace />;
     }
 
     if (permission && !hasPermission(permission)) {
@@ -13,6 +15,4 @@ const ProtectedRoute = ({ permission, children }) => {
     }
 
     return children;
-};
-
-export default ProtectedRoute;
+}

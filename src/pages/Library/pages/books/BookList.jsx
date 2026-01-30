@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Upload } from 'lucide-react';
 import { BookService } from '../../services/api';
+import { libraryService } from '../../services/libraryService';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -12,6 +13,8 @@ import ResourceTable from './components/ResourceTable';
 import AddEditResourceModal from './components/AddEditResourceModal';
 import ImportResourcesModal from './components/ImportResourcesModal';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
+import ReserveBookModal from './components/ReserveBookModal';
+import BarcodeListModal from './components/BarcodeListModal';
 
 import './BookList.css';
 
@@ -33,6 +36,8 @@ const BookList = () => {
     const [selectedResource, setSelectedResource] = useState(null);
     const [showImportModal, setShowImportModal] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState(null);
+    const [reserveTarget, setReserveTarget] = useState(null);
+    const [barcodeTarget, setBarcodeTarget] = useState(null);
 
     /* ===================== LOAD ===================== */
 
@@ -58,7 +63,7 @@ const BookList = () => {
     const handleAddClick = () => {
         setSelectedResource({
             type: viewMode,
-            category: 'Software Engineering'
+            category: ''
         });
     };
 
@@ -89,6 +94,14 @@ const BookList = () => {
         } finally {
             setDeleteTargetId(null);
         }
+    };
+
+    const handleReserveClick = (resource) => {
+        setReserveTarget(resource);
+    };
+
+    const handleGenerateBarcodesClick = (resource) => {
+        setBarcodeTarget(resource);
     };
 
     /* ===================== SAVE ===================== */
@@ -221,6 +234,8 @@ const BookList = () => {
                         onEdit={handleEditClick}
                         onDelete={handleDeleteClick}
                         onIssue={handleIssueBook}
+                        onReserve={handleReserveClick}
+                        onGenerateBarcodes={handleGenerateBarcodesClick}
                         canManage={canManage}
                     />
                 </div>
@@ -254,6 +269,21 @@ const BookList = () => {
                     onConfirm={handleConfirmDelete}
                 />
 
+            )}
+
+            {reserveTarget && (
+                <ReserveBookModal
+                    book={reserveTarget}
+                    onClose={() => setReserveTarget(null)}
+                    onReserved={loadResources}
+                />
+            )}
+
+            {barcodeTarget && (
+                <BarcodeListModal
+                    book={barcodeTarget}
+                    onClose={() => setBarcodeTarget(null)}
+                />
             )}
         </div>
     );

@@ -1,3 +1,5 @@
+import { AUTH_TOKEN_KEY } from './auth.constants';
+
 export const authService = {
     login: async (email, password) => {
         const res = await fetch('/auth/login', {
@@ -23,7 +25,7 @@ export const authService = {
     },
 
     logout: () => {
-        localStorage.removeItem('authToken');
+        localStorage.removeItem(AUTH_TOKEN_KEY);
         localStorage.removeItem('auth_user');
         window.location.href = '/login';
     }

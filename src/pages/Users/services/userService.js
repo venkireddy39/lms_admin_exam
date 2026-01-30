@@ -1,13 +1,6 @@
+import { apiFetch } from "../../../services/api";
 
 const BASE_URL = "/admin";
-
-const getAuthHeader = () => {
-    // Attempt to get token from storage, fallback to env for dev
-    const token = localStorage.getItem("authToken")
-        || localStorage.getItem("token")
-        || import.meta.env.VITE_DEV_AUTH_TOKEN;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 // Helper to split name for backend compatibility
 const splitName = (fullName) => {
@@ -22,31 +15,13 @@ const splitName = (fullName) => {
 
 export const userService = {
     // Get all users
-    getAllUsers: async () => {
-        const res = await fetch(`${BASE_URL}/users`, {
-            headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
-        });
-        if (!res.ok) throw new Error(`Status: ${res.status} - ${await res.text()}`);
-        return await res.json();
-    },
+    getAllUsers: () => apiFetch(`${BASE_URL}/users`),
 
     // Get all students (Joined Data)
-    getAllStudents: async () => {
-        const res = await fetch(`${BASE_URL}/getstudents`, {
-            headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
-        });
-        if (!res.ok) throw new Error(`Status: ${res.status} - ${await res.text()}`);
-        return await res.json();
-    },
+    getAllStudents: () => apiFetch(`${BASE_URL}/getstudents`),
 
     // Get all instructors
-    getAllInstructors: async () => {
-        const res = await fetch(`${BASE_URL}/getinstructors`, {
-            headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
-        });
-        if (!res.ok) throw new Error(`Status: ${res.status} - ${await res.text()}`);
-        return await res.json();
-    },
+    getAllInstructors: () => apiFetch(`${BASE_URL}/getinstructors`),
 
     // Create User (Student, Instructor, Parent)
     createUser: async (userData) => {
@@ -57,16 +32,13 @@ export const userService = {
             case 'Learner':
             case 'Student':
                 endpoint = "/students";
-
                 let sFName = userData.firstName;
                 let sLName = userData.lastName;
-
                 if (!sFName && userData.name) {
                     const split = splitName(userData.name);
                     sFName = split.firstName;
                     sLName = split.lastName;
                 }
-
                 body = {
                     firstName: sFName,
                     lastName: sLName,
@@ -81,16 +53,13 @@ export const userService = {
 
             case 'Instructor':
                 endpoint = "/instructors";
-                // Prefer explicit first/last name, fallback to split if only name provided
                 let iFName = userData.firstName;
                 let iLName = userData.lastName;
-
                 if (!iFName && userData.name) {
                     const split = splitName(userData.name);
                     iFName = split.firstName;
                     iLName = split.lastName;
                 }
-
                 body = {
                     firstName: iFName,
                     lastName: iLName,
@@ -114,52 +83,23 @@ export const userService = {
                 };
                 break;
 
-            // TODO: Add Admin/Affiliate when endpoints are available
             default:
                 throw new Error(`Creation for role '${userData.role}' is not supported yet.`);
         }
 
-        const res = await fetch(`${BASE_URL}${endpoint}`, {
+        return apiFetch(`${BASE_URL}${endpoint}`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...getAuthHeader()
-            },
             body: JSON.stringify(body)
         });
-
-        if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(errorText || "Failed to create user");
-        }
-
-        return await res.text();
     },
 
     // Delete User
-    deleteUser: async (userId) => {
-        const res = await fetch(`${BASE_URL}/users/${userId}`, {
-            method: "DELETE",
-            headers: getAuthHeader()
-        });
-        if (!res.ok) throw new Error("Failed to delete user");
-        return true;
-    },
+    deleteUser: (userId) => apiFetch(`${BASE_URL}/users/${userId}`, { method: "DELETE" }),
 
     // Toggle Status (Enable/Disable)
-    toggleStatus: async (userId, currentStatus) => {
-        // currentStatus in backend is 'enabled' (boolean), frontend might use "Active"/"Inactive"
-        // If passed status is "Active", we want to disable.
-
+    toggleStatus: (userId, currentStatus) => {
         const isCurrentlyActive = currentStatus === 'Active' || currentStatus === true;
         const action = isCurrentlyActive ? 'disable' : 'enable';
-
-        const res = await fetch(`${BASE_URL}/users/${userId}/${action}`, {
-            method: "PATCH",
-            headers: getAuthHeader()
-        });
-
-        if (!res.ok) throw new Error("Failed to update status");
-        return true;
+        return apiFetch(`${BASE_URL}/users/${userId}/${action}`, { method: "PATCH" });
     }
 };

@@ -1,127 +1,60 @@
+import { apiFetch } from "../../../services/api";
+
 export const API_BASE_URL = "/api/sessions";
 export const API_BASE_URL_CONTENT = "/api/session-contents";
-export const API_BASE_URL_UPLOAD = "/api/upload";
-
-const getAuthHeader = () => {
-    const token = localStorage.getItem("authToken") || import.meta.env.VITE_DEV_AUTH_TOKEN;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 export const sessionService = {
     // ================= SESSIONS (REAL BACKEND) =================
 
-    getSessionsByBatchId: async (batchId) => {
-        const res = await fetch(`${API_BASE_URL}/batch/${batchId}`, {
-            headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-    },
+    getSessionsByBatchId: (batchId) =>
+        apiFetch(`${API_BASE_URL}/batch/${batchId}`, { headers: { "Cache-Control": "no-cache" } }),
 
-    getSessionById: async (sessionId) => {
-        const res = await fetch(`${API_BASE_URL}/${sessionId}`, {
-            headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-    },
+    getSessionById: (sessionId) =>
+        apiFetch(`${API_BASE_URL}/${sessionId}`, { headers: { "Cache-Control": "no-cache" } }),
 
-    createSession: async (sessionData) => {
-        // MATCHING BACKEND: POST /api/sessions/batch/{batchId}
+    createSession: (sessionData) => {
         const { batchId, ...payload } = sessionData;
-
         if (!batchId) throw new Error("Batch ID is required to create a session");
-
-        const res = await fetch(`${API_BASE_URL}/batch/${batchId}`, {
+        return apiFetch(`${API_BASE_URL}/batch/${batchId}`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...getAuthHeader(),
-            },
             body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
     },
 
-    updateSession: async (sessionId, sessionData) => {
-        // MATCHING BACKEND: PUT /api/sessions/{sessionId}
-        const res = await fetch(`${API_BASE_URL}/${sessionId}`, {
+    updateSession: (sessionId, sessionData) =>
+        apiFetch(`${API_BASE_URL}/${sessionId}`, {
             method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                ...getAuthHeader(),
-            },
             body: JSON.stringify(sessionData),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-    },
+        }),
 
-    deleteSession: async (sessionId) => {
-        const res = await fetch(`${API_BASE_URL}/${sessionId}`, {
-            method: "DELETE",
-            headers: getAuthHeader(),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return true;
-    },
+    deleteSession: (sessionId) =>
+        apiFetch(`${API_BASE_URL}/${sessionId}`, { method: "DELETE" }),
 
     // ================= CONTENT (VIDEO/PDF) =================
-    getSessionContents: async (sessionId) => {
-        const res = await fetch(`${API_BASE_URL_CONTENT}/session/${sessionId}`, {
-            headers: { ...getAuthHeader(), "Cache-Control": "no-cache" }
-        });
-        if (!res.ok) {
-            // Fallback: If 404, return empty
-            if (res.status === 404) return [];
-            throw new Error(await res.text());
-        }
-        return res.json();
-    },
+    getSessionContents: (sessionId) =>
+        apiFetch(`${API_BASE_URL_CONTENT}/session/${sessionId}`, { headers: { "Cache-Control": "no-cache" } }),
 
-    createSessionContent: async (sessionId, contentData) => {
-        const res = await fetch(`${API_BASE_URL_CONTENT}/session/${sessionId}`, {
+    createSessionContent: (sessionId, contentData) =>
+        apiFetch(`${API_BASE_URL_CONTENT}/session/${sessionId}`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...getAuthHeader(),
-            },
             body: JSON.stringify(contentData),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
-    },
+        }),
 
-    deleteSessionContent: async (contentId) => {
-        const res = await fetch(`${API_BASE_URL_CONTENT}/${contentId}`, {
-            method: "DELETE",
-            headers: getAuthHeader(),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return true;
-    },
+    deleteSessionContent: (contentId) =>
+        apiFetch(`${API_BASE_URL_CONTENT}/${contentId}`, { method: "DELETE" }),
 
     // ================= UPLOAD (Multipart PUT) =================
-    uploadSessionContentFile: async (contentId, file) => {
+    uploadSessionContentFile: (contentId, file) => {
         const formData = new FormData();
         formData.append("file", file);
-
-        const res = await fetch(`${API_BASE_URL_CONTENT}/${contentId}/upload`, {
+        return apiFetch(`${API_BASE_URL_CONTENT}/${contentId}/upload`, {
             method: "PUT",
-            headers: getAuthHeader(),
+            headers: { 'Content-Type': null }, // Signal to apiFetch
             body: formData,
         });
-        if (!res.ok) throw new Error(await res.text());
-        return res.json();
     },
 
     // ================= PREVIEW (BLOB) =================
-    previewSessionContent: async (contentId) => {
-        const res = await fetch(`${API_BASE_URL_CONTENT}/preview/${contentId}`, {
-            headers: getAuthHeader()
-        });
-        if (!res.ok) throw new Error(await res.text());
-        return res.blob();
-    }
+    previewSessionContent: (contentId) =>
+        apiFetch(`${API_BASE_URL_CONTENT}/preview/${contentId}`), // Note: apiFetch expects JSON by default, need to handle BLOB
 };

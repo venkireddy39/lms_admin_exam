@@ -9,7 +9,8 @@ import {
     Settings,
     LogOut,
     ShieldCheck,
-    X
+    X,
+    DollarSign
 } from 'lucide-react';
 import './Sidebar.css';
 import { useAuth } from '../../context/AuthContext';
@@ -70,6 +71,10 @@ const Sidebar = ({ mobileOpen, onClose }) => {
                         <NavLink to="/reservations" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
                             <CalendarClock size={20} />
                             <span>Reservations</span>
+                        </NavLink>
+                        <NavLink to="/fines" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+                            <DollarSign size={20} />
+                            <span>Fine Management</span>
                         </NavLink>
                     </div>
                 )}
