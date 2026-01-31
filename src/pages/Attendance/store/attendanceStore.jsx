@@ -1,16 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { generateSessionToken } from '../utils/qrTimer';
+import { attendanceService } from '../services/attendanceService';
 
 const AttendanceContext = createContext();
 
 export const AttendanceProvider = ({ children }) => {
     const [session, setSession] = useState({
-        id: null,
+        id: null,       // Attendance Session ID (from API)
+        classId: null,  // LMS Academic Session ID
         status: 'IDLE', // IDLE, LIVE, ENDED
         mode: null,     // QR, MANUAL
         qrData: null,   // { token, expiresAt }
         settings: {
-            expiryMinutes: 1, // Default to 1 min for demo speed or 5 as requested
+            expiryMinutes: 1,
             autoRefresh: true
         }
     });
@@ -23,12 +25,6 @@ export const AttendanceProvider = ({ children }) => {
         if (session.status === 'LIVE' && session.mode === 'QR' && session.settings.autoRefresh) {
             interval = setInterval(() => {
                 const timeLeft = session.qrData ? session.qrData.expiresAt - Date.now() : 0;
-                // If close to expiry (e.g., < 2 seconds) or expired, refresh
-                // OR simple periodic refresh based on expiryMinutes
-
-                // For this demo, let's just refresh when it actually expires or simple interval?
-                // The requirement says "Set expiry... QR auto-refreshes". 
-                // Usually implies new QR is generated before old one dies or when old one dies.
                 if (timeLeft <= 0) {
                     refreshQR();
                 }
@@ -40,49 +36,57 @@ export const AttendanceProvider = ({ children }) => {
     // --- Session Lock Logic ---
 
     // Helper to check if session is locked
-    const isSessionLocked = () => {
-        if (!session.endTime || session.status === 'ENDED') return true;
+    const isSessionLocked = useCallback(() => {
+        // Only consider the session locked if it matches the current active attendance session PK
+        if (!session.id || !session.endTime || session.status === 'ENDED') return true;
         return Date.now() > session.endTime;
-    };
+    }, [session.id, session.endTime, session.status]);
 
-    const startSession = (sessionId, mode = 'QR', expiryMinutes = 5, durationMinutes = 60) => {
-        const qrData = generateSessionToken(sessionId, expiryMinutes);
+    const startSession = useCallback((attendanceSessionId, classId, mode = 'QR', expiryMinutes = 5, durationMinutes = 60) => {
+        console.log(`[attendanceStore] Initializing store with attendanceSessionId: ${attendanceSessionId}, classId: ${classId}`);
+        const qrData = generateSessionToken(attendanceSessionId, expiryMinutes);
         const startTime = Date.now();
         const endTime = startTime + durationMinutes * 60 * 1000;
 
         setSession({
-            id: sessionId,
+            id: attendanceSessionId,
+            classId: classId,
             status: 'LIVE',
             mode,
             qrData,
             startTime,
             endTime,
-            settings: { ...session.settings, expiryMinutes }
+            settings: {
+                expiryMinutes,
+                autoRefresh: true
+            }
         });
-        setAttendanceList([]); // Clear for new session
-    };
+        setAttendanceList([]);
+    }, []);
 
-    const stopSession = () => {
+    const stopSession = useCallback(() => {
+        console.log("[attendanceStore] Stopping session", session.id);
         setSession(prev => ({ ...prev, status: 'ENDED', qrData: null }));
-    };
+    }, [session.id]);
 
-    const refreshQR = () => {
+    const refreshQR = useCallback(() => {
         if (!session.id) return;
         const qrData = generateSessionToken(session.id, session.settings.expiryMinutes);
         setSession(prev => ({ ...prev, qrData }));
-    };
+    }, [session.id, session.settings.expiryMinutes]);
 
     // --- Offline Logic ---
 
-    const queueOfflineAttendance = (studentId, status = 'PRESENT', customDate = null, customSessionId = null, metadata = {}) => {
+    const queueOfflineAttendance = useCallback((studentId, status = 'PRESENT', customDate = null, customSessionId = null, metadata = {}) => {
         const record = {
             id: crypto.randomUUID(),
-            sessionId: customSessionId || session.id || 'OFFLINE_SESSION',
+            attendanceSessionId: customSessionId || session.id || 'OFFLINE_SESSION',
+            classId: session.classId,
             studentId,
             status,
             synced: false,
             timestamp: customDate ? new Date(customDate).toISOString() : new Date().toISOString(),
-            ...metadata // Spread metadata like minutesLate
+            ...metadata
         };
 
         const stored = JSON.parse(localStorage.getItem('offline_attendance') || '[]');
@@ -90,45 +94,74 @@ export const AttendanceProvider = ({ children }) => {
         localStorage.setItem('offline_attendance', JSON.stringify(stored));
 
         return record;
-    };
+    }, [session.id, session.classId]);
 
-    const getPendingSyncCount = () => {
+    const getPendingSyncCount = useCallback(() => {
         const stored = JSON.parse(localStorage.getItem('offline_attendance') || '[]');
         return stored.length;
-    };
+    }, []);
 
-    const getModeFromSource = (source) => {
+    const getModeFromSource = useCallback((source) => {
         const onlineSources = ['QR', 'FACE', 'STUDENT_SELF', 'ONLINE'];
         return onlineSources.includes(source) ? 'ONLINE' : 'OFFLINE';
-    };
+    }, []);
 
-    const syncOfflineData = async () => {
+    // Implement real sync logic using attendanceService's offline queue
+    const syncOfflineData = useCallback(async () => {
         const stored = JSON.parse(localStorage.getItem('offline_attendance') || '[]');
         if (stored.length === 0) return { count: 0 };
 
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log(`[attendanceStore] Syncing ${stored.length} offline records to backend queue...`);
+        let syncedCount = 0;
 
-        // Merge into current list for demo purposes
-        setAttendanceList(prev => {
-            const newRecords = stored.map(s => ({
-                sessionId: s.sessionId,
-                studentId: s.studentId,
-                timestamp: s.timestamp,
-                source: 'OFFLINE_SYNC',
-                mode: 'OFFLINE',
-                status: s.status
-            }));
+        try {
+            for (const record of stored) {
+                try {
+                    await attendanceService.saveToOfflineQueue({
+                        sessionId: record.attendanceSessionId,
+                        batchId: record.batchId || session.id, // Fallback to current session ID if batchId missing
+                        studentId: record.studentId,
+                        status: record.status,
+                        remarks: record.remarks || ''
+                    });
+                    syncedCount++;
+                } catch (err) {
+                    console.error(`Failed to push record for student ${record.studentId} to offline queue`, err);
+                }
+            }
 
-            // Filter duplicates if needed, simplified here
-            return [...newRecords, ...prev];
-        });
+            // If we pushed everything, clear local storage
+            if (syncedCount === stored.length) {
+                localStorage.removeItem('offline_attendance');
+            } else if (syncedCount > 0) {
+                const remaining = stored.slice(syncedCount);
+                localStorage.setItem('offline_attendance', JSON.stringify(remaining));
+            }
 
+            return { count: syncedCount };
+        } catch (error) {
+            console.error("Sync to backend queue failed:", error);
+            return { count: 0 };
+        }
+    }, [session.id]);
+
+    // Trigger the backend to move records from offline-queue to attendance_record
+    const triggerBackendSync = useCallback(async () => {
+        try {
+            console.log("[attendanceStore] Triggering backend sync...");
+            await attendanceService.syncOfflineQueue();
+            return { success: true };
+        } catch (error) {
+            console.error("[attendanceStore] Backend sync failed:", error);
+            return { success: false, error };
+        }
+    }, []);
+
+    const clearOfflineQueue = useCallback(() => {
         localStorage.removeItem('offline_attendance');
-        return { count: stored.length };
-    };
+    }, []);
 
-    const markAttendance = (studentId, status = 'PRESENT', source = 'MANUAL', overrideReason = null) => {
+    const markAttendance = useCallback((studentId, status = 'PRESENT', source = 'MANUAL', overrideReason = null) => {
         // Session Lock Check
         if (isSessionLocked()) {
             if (source === 'QR' || source === 'STUDENT_SELF') {
@@ -151,13 +184,14 @@ export const AttendanceProvider = ({ children }) => {
         setAttendanceList(prev => {
             const existingIndex = prev.findIndex(a => a.studentId === studentId);
             const newRecord = {
-                sessionId: session.id,
+                attendanceSessionId: session.id,
+                classId: session.classId, // Include classId in local state record
                 studentId,
                 timestamp: new Date().toISOString(),
                 source,
                 mode,
                 status,
-                overrideReason // Store reason if provided
+                overrideReason
             };
 
             if (existingIndex >= 0) {
@@ -171,22 +205,48 @@ export const AttendanceProvider = ({ children }) => {
             }
         });
         return { success: true };
-    };
+        return { success: true };
+    }, [isSessionLocked, attendanceList, getModeFromSource, session.id, session.classId]);
+
+    const markAsSynced = useCallback((studentIds) => {
+        setAttendanceList(prev => prev.map(record =>
+            studentIds.includes(record.studentId)
+                ? { ...record, synced: true }
+                : record
+        ));
+    }, []);
 
     // --- exposure ---
 
-    const value = {
+    const value = useMemo(() => ({
         session,
         attendanceList,
         startSession,
         stopSession,
         refreshQR,
         markAttendance,
+        markAsSynced, // Added
         queueOfflineAttendance,
         syncOfflineData,
+        triggerBackendSync,
+        clearOfflineQueue,
         getPendingSyncCount,
         isSessionLocked
-    };
+    }), [
+        session,
+        attendanceList,
+        startSession,
+        stopSession,
+        refreshQR,
+        markAttendance,
+        markAsSynced, // Added
+        queueOfflineAttendance,
+        syncOfflineData,
+        triggerBackendSync,
+        clearOfflineQueue,
+        getPendingSyncCount,
+        isSessionLocked
+    ]);
 
     return (
         <AttendanceContext.Provider value={value}>

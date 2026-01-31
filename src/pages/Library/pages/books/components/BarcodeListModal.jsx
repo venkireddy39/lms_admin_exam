@@ -1,10 +1,10 @@
 import React from 'react';
-import { X, QrCode, Printer } from 'lucide-react';
+import { X, Printer, Barcode as BarcodeIcon } from 'lucide-react';
+// Now safe to import
+import Barcode from 'react-barcode';
 
 const BarcodeListModal = ({ book, onClose }) => {
     if (!book) return null;
-
-    const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:9191";
 
     const handlePrint = () => {
         window.print();
@@ -18,29 +18,70 @@ const BarcodeListModal = ({ book, onClose }) => {
                     body * {
                         visibility: hidden;
                     }
-                    .print-area, .print-area * {
-                        visibility: visible;
+                    
+                    /* Hide everything by default, then show print-area */
+                    #root > * {
+                        display: none;
                     }
+
+                    .print-area, .print-area * {
+                        visibility: visible !important;
+                        display: block; /* Fallback */
+                    }
+                    
+                    /* Grid support inside print area */
+                    .print-area .row {
+                        display: grid !important;
+                        grid-template-columns: repeat(3, 1fr) !important;
+                        gap: 20px !important;
+                    }
+
+                    .print-area .col-md-6 {
+                        width: auto !important;
+                    }
+
                     .print-area {
-                        position: absolute;
+                        position: fixed;
                         left: 0;
                         top: 0;
                         width: 100%;
+                        min-height: 100vh;
+                        z-index: 9999;
+                        background: white;
+                        margin: 0;
+                        padding: 20px;
                     }
-                    .no-print {
-                        display: none !important;
-                    }
+                    
                     .barcode-card {
+                        border: 1px solid #000 !important;
                         break-inside: avoid;
                         page-break-inside: avoid;
-                        margin-bottom: 20px;
-                        border: 1px solid #ddd !important;
-                        padding: 10px !important;
-                        text-align: center;
+                        padding: 15px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        background: white !important;
+                        box-shadow: none !important;
                     }
-                    .modal-backdrop, .modal {
+
+                    .no-print, .modal-header, .modal-footer, .btn-close {
+                        display: none !important;
+                    }
+                    
+                    /* Reset Modal wrappers to not interfere */
+                    .modal, .modal-dialog, .modal-content, .modal-body {
                         position: static !important;
-                        background: none !important;
+                        display: block !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        border: none !important;
+                        box-shadow: none !important;
+                        background: transparent !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        overflow: visible !important;
+                        transform: none !important;
                     }
                 }
                 `}
@@ -51,7 +92,7 @@ const BarcodeListModal = ({ book, onClose }) => {
                     <div className="modal-content shadow-lg border-0">
                         <div className="modal-header bg-light no-print">
                             <h5 className="modal-title d-flex align-items-center">
-                                <QrCode className="me-2 text-primary" size={24} />
+                                <BarcodeIcon className="me-2 text-primary" size={24} />
                                 Print Labels: {book.title}
                             </h5>
                             <button type="button" className="btn-close" onClick={onClose}></button>
@@ -65,19 +106,21 @@ const BarcodeListModal = ({ book, onClose }) => {
                                 ) : (
                                     (book.copies || []).map((copy, index) => (
                                         <div key={copy.uuid || index} className="col-md-6 col-lg-4 col-print-6 barcode-card">
-                                            <div className="text-center p-2 border rounded bg-white">
-                                                <div className="small fw-bold mb-1 text-truncate">{book.title}</div>
-                                                <div className="mb-2 d-flex justify-content-center">
-                                                    <img
-                                                        src={`${API_BASE}/library/qr-code?data=${encodeURIComponent(copy.barcode)}`}
-                                                        alt="QR Code"
-                                                        style={{ width: '120px', height: '120px' }}
-                                                        className="img-fluid"
-                                                        crossOrigin="anonymous"
+                                            <div className="text-center p-2 border rounded bg-white h-100 d-flex flex-column justify-content-center align-items-center">
+                                                <div className="small fw-bold mb-1 text-truncate w-100">{book.title}</div>
+                                                <div className="my-2 bg-white d-flex justify-content-center w-100">
+                                                    <Barcode
+                                                        value={copy.barcode}
+                                                        width={1.5}
+                                                        height={50}
+                                                        fontSize={14}
+                                                        margin={0}
+                                                        displayValue={true}
                                                     />
                                                 </div>
-                                                <div className="fw-bold small" style={{ letterSpacing: '2px' }}>{copy.barcode}</div>
-                                                <div className="text-muted" style={{ fontSize: '10px' }}>Library Property</div>
+                                                <div className="text-muted small" style={{ fontSize: '10px', marginTop: '4px' }}>
+                                                    Library Property
+                                                </div>
                                             </div>
                                         </div>
                                     ))

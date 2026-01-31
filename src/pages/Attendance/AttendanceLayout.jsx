@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
+import { useAttendanceStore } from './store/attendanceStore';
 import './styles/attendance.css';
 
 const AttendanceLayout = () => {
@@ -15,8 +16,11 @@ const AttendanceLayout = () => {
 
                 <div className="d-flex gap-2 mb-4 border-bottom pb-3 overflow-auto">
                     <Tab to="/attendance/dashboard">Dashboard</Tab>
-
-                    <Tab to="/attendance/offline-sync">Offline Upload</Tab>
+                    <Tab to="/attendance/sessions">Sessions</Tab>
+                    <Tab to="/attendance/offline-sync">
+                        Sync & Manual
+                        <PendingSyncBadge />
+                    </Tab>
                     <Tab to="/attendance/reports">Reports</Tab>
                     <Tab to="/attendance/settings">Settings</Tab>
                 </div>
@@ -40,5 +44,26 @@ const Tab = ({ to, children }) => (
         {children}
     </NavLink>
 );
+
+const PendingSyncBadge = () => {
+    const { getPendingSyncCount } = useAttendanceStore();
+    const [count, setCount] = React.useState(0);
+
+    // Update count periodically or on interaction
+    React.useEffect(() => {
+        const update = () => setCount(getPendingSyncCount());
+        update();
+        const interval = setInterval(update, 5000); // Check every 5s
+        return () => clearInterval(interval);
+    }, [getPendingSyncCount]);
+
+    if (count === 0) return null;
+
+    return (
+        <span className="badge rounded-pill bg-danger ms-2" style={{ fontSize: '0.65rem' }}>
+            {count}
+        </span>
+    );
+};
 
 export default AttendanceLayout;

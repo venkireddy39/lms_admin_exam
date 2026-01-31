@@ -25,7 +25,7 @@ export async function apiFetch(url, options = {}) {
         headers,
     });
 
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
         // If we're in guest mode/dev mode, don't kick the user out to the login page
         if (token === "dev-mock-token") {
             console.warn("Unauthorized API call in Guest Mode. Bypassing redirect.");
@@ -38,6 +38,10 @@ export async function apiFetch(url, options = {}) {
             window.location.href = "/login";
         }
         throw new Error("Unauthorized");
+    }
+
+    if (res.status === 403) {
+        throw new Error("Access Denied: You do not have permission to perform this action.");
     }
 
     if (!res.ok) {

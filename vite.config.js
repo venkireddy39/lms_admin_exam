@@ -11,6 +11,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/api/attendance': {
+        target: 'http://192.168.1.20:5151',
+        changeOrigin: true,
+        secure: false,
+      },
       '/api': {
         target: 'http://192.168.1.20:5151',
         changeOrigin: true,
@@ -35,6 +40,11 @@ export default defineConfig({
         target: 'http://localhost:9191',
         changeOrigin: true,
         secure: false,
+        bypass: (req, res, options) => {
+          if (req.headers.accept && req.headers.accept.indexOf('html') !== -1) {
+            return req.url;
+          }
+        }
       }
     }
   }

@@ -100,9 +100,32 @@ export const BookService = {
 export const MemberService = {
     getAllMembers: async () => {
         try {
-            const users = await libraryService.members.getAllMembers();
+            // Fetch Users and Issues in parallel to calculate active loans
+            const [users, issues] = await Promise.all([
+                libraryService.members.getAllMembers(),
+                libraryService.issues.getAllIssues().catch(err => {
+                    console.warn("Failed to fetch issues for member stats", err);
+                    return [];
+                })
+            ]);
+
             // Check if data is valid, but ALLOW empty array (meaning 0 users found, which is valid)
             if (!users || !Array.isArray(users)) throw new Error("Invalid users data");
+
+            // Calculate active issues per user
+            const issueCounts = {};
+            const issueList = Array.isArray(issues) ? issues : (issues.content || []);
+
+            issueList.forEach(i => {
+                // Check for active status
+                if (['ISSUED', 'OVERDUE', 'RENEWED'].includes(i.status)) {
+                    // Try to resolve userId from various possible fields
+                    const uid = i.userId || i.member?.id || i.memberId;
+                    if (uid) {
+                        issueCounts[uid] = (issueCounts[uid] || 0) + 1;
+                    }
+                }
+            });
 
             return users.map(u => ({
                 id: u.userId || u.id,
@@ -113,8 +136,8 @@ export const MemberService = {
                 role: u.roleName ? u.roleName.replace('ROLE_', '') : 'USER',
                 category: (u.roleName === 'ROLE_STUDENT' || u.roleName === 'pool') ? 'Student' : 'Faculty',
                 status: u.enabled ? 'ACTIVE' : 'BLOCKED',
-                maxBooks: 3,
-                issuedBooks: 0
+                maxBooks: (u.roleName === 'ROLE_FACULTY') ? 10 : 3, // Basic default, ideally from settings
+                issuedBooks: issueCounts[u.userId || u.id] || 0
             }));
         } catch (error) {
             console.error("Failed to fetch members", error);
@@ -164,11 +187,23 @@ export const IssueService = {
     issueCopy: async ({ userId, bookId, copyId, resourceId, barcode }) => {
         const user = await MemberService.getMemberById(userId);
         const memberRole = user.category ? user.category.toUpperCase() : 'STUDENT';
-        const bc = barcode || (copyId && typeof copyId === 'string' && !copyId.includes('-') ? copyId : null);
+
+        // Prioritize explicit barcode, then barcode-like copyId
+        // If copyId is a complex UUID-like string (e.g. "1-1"), it might be a virtual ID, 
+        // but if it's a real barcode, we use it. 
+        // Ideally, frontend should pass 'barcode' explicitely.
+        const bc = barcode || (copyId && !copyId.includes('-') ? copyId : null);
+
+        // Debug log to ensure we are sending what we think we are sending
+        console.log("Issuer Service - Issue Copy:", { userId, bookId, copyId, barcode, finalBarcode: bc });
 
         if (bc) {
             return libraryService.issues.issueBookWithBarcode(bookId || resourceId, userId, bc, memberRole);
         }
+
+        // If we have a copyId that LOOKS like a generated ID (e.g. 1-1),
+        // we might still want to try to find the real barcode?
+        // But for now, fallback to generic issue if no clean barcode found.
         return libraryService.issues.issueBook(bookId || resourceId, userId, memberRole);
     },
 
@@ -190,7 +225,12 @@ export const IssueService = {
     },
 
     getReturnPreview: async (issueId) => {
-        const issues = await libraryService.issues.getAllIssues();
+        // Fetch Issue, Settings, and Member details needed for calculation
+        const [issues, settings] = await Promise.all([
+            libraryService.issues.getAllIssues(),
+            SettingsService.getSettings()
+        ]);
+
         const issue = issues.find(i => i.id === issueId);
         if (!issue) throw new Error('Issue not found');
 
@@ -199,7 +239,30 @@ export const IssueService = {
         const diffTime = now - due;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const overdueDays = diffDays > 0 ? diffDays : 0;
-        const fineAmount = overdueDays * 5;
+
+        // Calculate Fine based on Slabs
+        let fineAmount = 0;
+        if (overdueDays > 0) {
+            // Determine Role
+            // issue might have memberRole or we check member object
+            const role = (issue.memberRole || (issue.member && issue.member.roleName) || 'student').toLowerCase().includes('faculty') ? 'faculty' : 'student';
+            const rule = settings.rules[role] || settings.rules['student'];
+            const slabs = rule ? (rule.fineSlabs || []) : [];
+
+            // Calculate per day incrementally
+            if (slabs.length > 0) {
+                for (let day = 1; day <= overdueDays; day++) {
+                    // Find slab where current 'day' falls between fromDay and toDay
+                    // If toDay is null/0, assume infinity
+                    const slab = slabs.find(s => day >= s.from && (day <= s.to || !s.to));
+                    const dailyFine = slab ? slab.amount : 0; // If no slab defined for this day, 0 (or fallback)
+                    fineAmount += dailyFine;
+                }
+            } else {
+                // Fallback if no slabs configured
+                fineAmount = overdueDays * 5;
+            }
+        }
 
         return {
             issue,
@@ -245,11 +308,15 @@ export const ReservationService = {
     },
 
     fulfillReservation: async (id) => {
-        return libraryService.reservations.patchReservation(id, { status: 'FULFILLED' });
+        return libraryService.reservations.patchReservation(id, { status: 'COLLECTED' });
+    },
+
+    patchReservation: async (id, updates) => {
+        return libraryService.reservations.patchReservation(id, updates);
     },
 
     rejectReservation: async (id) => {
-        return libraryService.reservations.patchReservation(id, { status: 'REJECTED' });
+        return libraryService.reservations.patchReservation(id, { status: 'CANCELLED' });
     }
 };
 
@@ -297,18 +364,55 @@ export const DashboardService = {
     },
 
     getRecentActivity: async () => {
-        const issues = await libraryService.issues.getAllIssues();
-        return issues
-            .sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate))
-            .slice(0, 10)
-            .map(issue => ({
-                id: issue.issueId || issue.id,
-                type: (issue.status === 'RETURNED' || issue.status === 'RETURNED_LATE') ? 'return' : 'issue',
-                user: issue.member?.fullName || issue.memberName || 'Unknown',
-                resource: issue.book?.title || issue.bookTitle || 'Unknown',
-                date: issue.issueDate,
-                status: issue.status
-            }));
+        try {
+            const [issues, members] = await Promise.all([
+                libraryService.issues.getAllIssues(),
+                MemberService.getAllMembers()
+            ]);
+
+            // Create Member Lookup Map
+            const memberMap = {};
+            if (Array.isArray(members)) {
+                members.forEach(m => {
+                    if (m.id) {
+                        memberMap[m.id] = m.name;
+                        memberMap[m.id.toString()] = m.name;
+                        // Also Map memberId if it differs
+                        if (m.memberId) memberMap[m.memberId] = m.name;
+                    }
+                });
+            }
+
+            if (!Array.isArray(issues)) return [];
+
+            return issues
+                .sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate))
+                .slice(0, 10)
+                .map(issue => {
+                    const memberId = issue.userId || issue.memberId || (issue.member ? (issue.member.id || issue.member.userId) : null);
+
+                    let userName = 'Unknown';
+                    if (memberId && memberMap[memberId]) {
+                        userName = memberMap[memberId];
+                    } else if (issue.memberName) {
+                        userName = issue.memberName;
+                    } else if (issue.member && issue.member.fullName) {
+                        userName = issue.member.fullName;
+                    }
+
+                    return {
+                        id: issue.issueId || issue.id,
+                        type: (issue.status === 'RETURNED' || issue.status === 'RETURNED_LATE') ? 'return' : 'issue',
+                        user: userName,
+                        resource: issue.book?.title || issue.bookTitle || issue.book?.bookTitle || 'Unknown',
+                        date: issue.issueDate,
+                        status: issue.status
+                    };
+                });
+        } catch (error) {
+            console.error(error);
+            return [];
+        }
     }
 };
 
@@ -328,18 +432,25 @@ export const SettingsService = {
             settingsList.forEach(s => {
                 const role = s.memberRole ? s.memberRole.toLowerCase() : null;
                 if (role === 'student' || role === 'faculty') {
-                    rules[role] = {
-                        id: s.settingId || s.id,
-                        maxBooks: s.maxBooks,
-                        issueDays: s.issueDurationDays || s.issueDays,
-                        reservationDays: s.reservationDurationDays || 2,
-                        fineSlabs: s.fineSlabs ? s.fineSlabs.map(fs => ({
-                            id: fs.id,
-                            from: fs.fromDay,
-                            to: fs.toDay,
-                            amount: fs.finePerDay
-                        })) : []
-                    };
+                    // Check if we already found a rule for this role
+                    const existing = rules[role];
+                    const hasSlabs = s.fineSlabs && s.fineSlabs.length > 0;
+
+                    // If no existing rule, OR if current row has slabs (prioritize data availability), OR existing has no slabs
+                    if (!existing.id || hasSlabs) {
+                        rules[role] = {
+                            id: s.settingId || s.id,
+                            maxBooks: s.maxBooks,
+                            issueDays: s.issueDurationDays || s.issueDays,
+                            reservationDays: s.reservationDurationDays || 2,
+                            fineSlabs: hasSlabs ? s.fineSlabs.map(fs => ({
+                                id: fs.id || Math.random(), // Ensure ID exists
+                                from: fs.fromDay,
+                                to: fs.toDay,
+                                amount: fs.finePerDay
+                            })) : []
+                        };
+                    }
                 }
             });
         }

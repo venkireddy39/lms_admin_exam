@@ -47,10 +47,8 @@ const StudentAttendanceProfile = ({ student, studentHistory = [], onClose }) => 
 
     if (!student) return null;
 
-    // Helper to generate a cleaner mock email
-    const safeEmail = student.studentId
-        ? `student.${student.studentId.toLowerCase()}@classx360.com`
-        : 'student@classx360.com';
+    // Use student's real email or fallback to N/A
+    const studentEmail = student.email || student.studentEmail || 'No email provided';
 
     return (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
@@ -92,12 +90,12 @@ const StudentAttendanceProfile = ({ student, studentHistory = [], onClose }) => 
                             <h6 className="fw-bold text-muted mb-3 small text-uppercase letter-spacing-1">Contact & Academic Info</h6>
                             <div className="row g-3">
                                 <div className="col-md-6">
-                                    <DetailRow icon={FiMail} label="Email Address" value={safeEmail} />
-                                    <DetailRow icon={FiPhone} label="Contact Number" value="+1 (555) 123-4567" />
+                                    <DetailRow icon={FiMail} label="Email Address" value={studentEmail} />
+                                    <DetailRow icon={FiPhone} label="Contact Number" value={student.phone || student.contact || 'N/A'} />
                                 </div>
                                 <div className="col-md-6">
-                                    <DetailRow icon={FiBook} label="Course" value={student.courseName || "React Fundamentals"} />
-                                    <DetailRow icon={FiCalendar} label="Enrolled Date" value="Sep 15, 2023" />
+                                    <DetailRow icon={FiBook} label="Course/Batch" value={student.courseName || student.batchName || "N/A"} />
+                                    <DetailRow icon={FiCalendar} label="Enrolled Date" value={student.enrolledDate || 'N/A'} />
                                 </div>
                             </div>
                         </>
@@ -179,7 +177,7 @@ const StudentAttendanceProfile = ({ student, studentHistory = [], onClose }) => 
                 <div className="card-footer bg-light border-top py-3 px-4">
                     <div className="d-flex justify-content-between align-items-center w-100">
                         <div className="text-muted small">
-                            Joined: <strong>{new Date().toLocaleDateString()}</strong>
+                            Status: <strong>{student.isDeleted ? 'Inactive' : 'Active'}</strong>
                         </div>
                         <div className="d-flex gap-2">
                             <button className="btn btn-outline-secondary" onClick={onClose}>Close</button>

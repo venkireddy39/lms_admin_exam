@@ -66,7 +66,16 @@ const AttendanceTable = ({
                     {students.map(student => {
                         const name = student.name || 'Unknown';
                         const avatar = name.charAt(0).toUpperCase();
-                        const isOnline = student.mode === 'ONLINE';
+                        // Backend Entity uses 'source'. Map logic:
+                        // If source is 'MANUAL' or 'OFFLINE' or 'CSV' -> It's "Offline/Manual" mode usually
+                        // If source is 'QR' or 'FACE' (if supported) -> It's "Online"
+                        // Since backend source only lists MANUAL, CSV, OFFLINE, we assume:
+                        // If checking strictly against "ONLINE", we might need to check if we passed 'ONLINE' in source previously?
+                        // Let's rely on the prop passed from parent or fallback to checking source.
+                        // Assuming 'ONLINE' might be a source value not in the strict enum provided but used in frontend logic?
+                        // If backend strictly only saves MANUAL/CSV/OFFLINE, then 'ONLINE' attendance might be saved as 'MANUAL' (by the system)?
+                        // Let's assume 'source' reflects the truth.
+                        const isOnline = student.source === 'QR' || student.source === 'FACE' || student.source === 'ONLINE';
 
                         return (
                             <tr
@@ -92,7 +101,7 @@ const AttendanceTable = ({
                                         </span>
                                     ) : (
                                         <span className="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2">
-                                            Offline (Manual)
+                                            Offline ({student.source || 'Manual'})
                                         </span>
                                     )}
                                 </td>

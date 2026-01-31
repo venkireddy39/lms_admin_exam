@@ -1,9 +1,12 @@
-import React, { useMemo } from 'react';
-import { useAttendanceStore } from '../store/attendanceStore';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Download, CheckCircle, Clock } from 'lucide-react';
 import { ATTENDANCE_STATUS } from '../constants/attendanceConstants';
 import AttendanceTable from '../components/AttendanceTable';
+import { attendanceService } from '../services/attendanceService';
+import { batchService } from '../../Batches/services/batchService';
+import { enrollmentService } from '../../Batches/services/enrollmentService';
+import { FiEdit2, FiSave, FiUpload, FiX } from 'react-icons/fi';
 
 const COLORS = {
     PRESENT: '#22c55e',
@@ -14,33 +17,56 @@ const COLORS = {
 };
 
 const SessionReport = ({ sessionId }) => {
-    const { attendanceList } = useAttendanceStore();
+    const [sessionRecords, setSessionRecords] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [context, setContext] = useState({ batchName: '', courseName: '', totalEnrolled: 0, batchId: null });
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [pendingChanges, setPendingChanges] = useState([]); // Array of updated records
 
-    /* ---------------- MOCK DATA FOR DEMO ---------------- */
-    const MOCK_LOGS = useMemo(() => {
-        // Generate flexible mock data if no real data exists
-        return Array.from({ length: 42 }).map((_, i) => ({
-            studentId: `std-${i}`,
-            status: i < 30 ? 'PRESENT' : i < 35 ? 'LATE' : i < 40 ? 'ABSENT' : 'LEFT_EARLY',
-            timestamp: new Date().toISOString()
-        }));
-    }, []);
+    useEffect(() => {
+        const fetchReportData = async () => {
+            try {
+                // 1. Fetch Session Info (to get Batch ID)
+                const sessionInfo = await attendanceService.getSession(sessionId);
 
-    /* ---------------- FILTER BY SESSION ---------------- */
+                // 2. Fetch Records and Context simultaneously
+                // 2. Fetch Records and Context simultaneously
+                const [records, batchInfo, enrollment] = await Promise.all([
+                    attendanceService.getAttendance(sessionId).catch(() => []),
+                    sessionInfo?.batchId ? batchService.getBatchById(sessionInfo.batchId).catch(() => null) : null,
+                    sessionInfo?.batchId ? enrollmentService.getStudentsByBatch(sessionInfo.batchId).catch(() => []) : []
+                ]);
 
-    const sessionRecords = useMemo(
-        () => {
-            const realData = attendanceList.filter(a => a.sessionId === sessionId);
-            // If we have real data, use it. Otherwise, if it's a demo/mock session ID, show mock data.
-            if (realData.length > 0) return realData;
+                // 3. Merge enrollment with records (so we see students who weren't marked)
+                const mergedRecords = enrollment.map(student => {
+                    const record = (records || []).find(r => String(r.studentId) === String(student.studentId));
+                    return {
+                        studentId: student.studentId,
+                        name: student.studentName || student.name || `Student ${student.studentId}`,
+                        status: record ? record.status : 'ABSENT', // Default to absent if missing
+                        remarks: record?.remarks || '',
+                        source: record?.source || 'OFFLINE',
+                        id: record?.id // backend record id
+                    };
+                });
 
-            // Fallback for demo visualization
-            if (sessionId) return MOCK_LOGS;
+                setSessionRecords(mergedRecords);
+                setContext({
+                    batchName: batchInfo?.batchName || `Batch #${sessionInfo?.batchId}`,
+                    courseName: batchInfo?.courseName || 'N/A',
+                    totalEnrolled: enrollment.length,
+                    batchId: sessionInfo?.batchId
+                });
 
-            return [];
-        },
-        [attendanceList, sessionId, MOCK_LOGS]
-    );
+            } catch (error) {
+                console.error("Failed to load attendance report", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (sessionId) fetchReportData();
+    }, [sessionId]);
 
     /* ---------------- DERIVED STATS ---------------- */
 
@@ -96,6 +122,10 @@ const SessionReport = ({ sessionId }) => {
 
     /* ---------------- EMPTY STATE ---------------- */
 
+    if (loading) {
+        return <div className="p-5 text-center text-muted">Loading report...</div>;
+    }
+
     if (stats.total === 0) {
         return (
             <div className="p-5 text-center text-muted">
@@ -114,14 +144,74 @@ const SessionReport = ({ sessionId }) => {
 
     return (
         <div className="card border-0 shadow-sm">
-            <div className="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
-                <h5 className="fw-bold mb-0">Attendance Report</h5>
-                <button
-                    className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-                    onClick={handleDownload}
-                >
-                    <Download size={16} /> Export CSV
-                </button>
+            <div className="card-header bg-white border-bottom py-3">
+                <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 className="fw-bold mb-1">{context.batchName}</h4>
+                        <p className="text-primary small mb-0 fw-medium text-uppercase">{context.courseName}</p>
+                    </div>
+                    <div className="d-flex gap-2">
+                        {!isEditMode ? (
+                            <>
+                                <button
+                                    className="btn btn-primary btn-sm d-flex align-items-center gap-2 px-3"
+                                    onClick={() => setIsEditMode(true)}
+                                >
+                                    <FiEdit2 size={14} /> Correct Records
+                                </button>
+                                <button
+                                    className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                                    onClick={handleDownload}
+                                >
+                                    <Download size={16} /> Export CSV
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn btn-success btn-sm d-flex align-items-center gap-2 px-3 shadow-sm"
+                                    onClick={async () => {
+                                        try {
+                                            await attendanceService.saveAttendance(sessionId, sessionRecords);
+                                            setIsEditMode(false);
+                                            alert("Records updated successfully!");
+                                        } catch (e) { alert("Save failed."); }
+                                    }}
+                                >
+                                    <FiSave size={14} /> Save Changes
+                                </button>
+                                <div className="btn-group btn-group-sm shadow-sm">
+                                    <button
+                                        className="btn btn-outline-success px-3"
+                                        onClick={() => {
+                                            if (window.confirm("Mark all students as Present?")) {
+                                                setSessionRecords(prev => prev.map(r => ({ ...r, status: 'PRESENT' })));
+                                            }
+                                        }}
+                                    >
+                                        Mark All Present
+                                    </button>
+                                    <button
+                                        className="btn btn-outline-danger px-3"
+                                        onClick={() => {
+                                            if (window.confirm("Mark all students as Absent?")) {
+                                                setSessionRecords(prev => prev.map(r => ({ ...r, status: 'ABSENT' })));
+                                            }
+                                        }}
+                                    >
+                                        Mark All Absent
+                                    </button>
+                                </div>
+                                <button
+                                    className="btn btn-light btn-sm d-flex align-items-center gap-2"
+                                    onClick={() => { setIsEditMode(false); window.location.reload(); }}
+                                >
+                                    <FiX size={14} /> Cancel
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
 
             <div className="card-body">
@@ -163,17 +253,17 @@ const SessionReport = ({ sessionId }) => {
                         <ul className="list-group list-group-flush">
                             <li className="list-group-item d-flex justify-content-between px-0">
                                 <span>
+                                    <Clock size={16} className="text-secondary me-2" />
+                                    Total Students (Enrolled)
+                                </span>
+                                <strong>{context.totalEnrolled} Students</strong>
+                            </li>
+                            <li className="list-group-item d-flex justify-content-between px-0">
+                                <span>
                                     <CheckCircle size={16} className="text-success me-2" />
                                     Attendance Rate
                                 </span>
                                 <strong>{stats.presentPct}%</strong>
-                            </li>
-                            <li className="list-group-item d-flex justify-content-between px-0">
-                                <span>
-                                    <Clock size={16} className="text-secondary me-2" />
-                                    Session Duration
-                                </span>
-                                <strong>60 mins</strong>
                             </li>
                         </ul>
                     </div>
@@ -181,17 +271,58 @@ const SessionReport = ({ sessionId }) => {
                     {/* Detailed List for Corrections */}
                     <div className="col-12">
                         <div className="mt-4 border-top pt-4">
-                            <h6 className="fw-bold mb-3 text-secondary text-uppercase small">Detailed Attendance Log (Corrections)</h6>
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                <h6 className="fw-bold text-secondary text-uppercase mb-0 small">
+                                    {isEditMode ? "Edit Mode: Update Statuses and Remarks" : "Detailed Attendance Log"}
+                                </h6>
+                                {isEditMode && (
+                                    <div className="d-flex gap-2">
+                                        <input
+                                            type="file"
+                                            id="csv-patch"
+                                            className="d-none"
+                                            accept=".csv"
+                                            onChange={async (e) => {
+                                                const file = e.target.files[0];
+                                                if (!file) return;
+                                                const formData = new FormData();
+                                                formData.append('file', file);
+                                                try {
+                                                    await attendanceService.uploadAttendanceCsv(formData, {
+                                                        sessionId: sessionId,
+                                                        batchId: context.batchId
+                                                    });
+                                                    alert("CSV Uploaded Successfully! Refreshing...");
+                                                    window.location.reload();
+                                                } catch (err) { alert("CSV processing failed."); }
+                                            }}
+                                        />
+                                        <label htmlFor="csv-patch" className="btn btn-outline-info btn-sm cursor-pointer">
+                                            <FiUpload size={14} className="me-1" /> Patch via CSV
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
                             <AttendanceTable
                                 students={sessionRecords.map(r => ({
+                                    ...r,
                                     studentId: r.studentId,
-                                    name: r.studentId, // We might not have names in logs, fallback to ID
+                                    name: r.name || r.studentName || `Student ${r.studentId}`,
                                     status: r.status,
-                                    remarks: ''
+                                    remarks: r.remarks || '',
+                                    source: r.source || 'OFFLINE'
                                 }))}
-                                onStatusChange={() => { }}
-                                onRemarkChange={() => { }}
-                                isEditable={false}
+                                onStatusChange={(id, status) => {
+                                    setSessionRecords(prev => prev.map(r =>
+                                        String(r.studentId) === String(id) ? { ...r, status } : r
+                                    ));
+                                }}
+                                onRemarkChange={(id, remarks) => {
+                                    setSessionRecords(prev => prev.map(r =>
+                                        String(r.studentId) === String(id) ? { ...r, remarks } : r
+                                    ));
+                                }}
+                                isEditable={isEditMode}
                             />
                         </div>
                     </div>

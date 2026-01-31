@@ -48,7 +48,7 @@ const ReserveBookModal = ({ book, onClose, onReserved }) => {
             onClose();
         } catch (err) {
             console.error(err);
-            toast.error('Failed to reserve book');
+            toast.error(err.message || 'Failed to reserve book');
         } finally {
             setSubmitting(false);
         }

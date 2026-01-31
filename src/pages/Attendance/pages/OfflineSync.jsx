@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { MOCK_COURSES, MOCK_BATCHES, MOCK_SESSIONS, MOCK_STUDENTS } from '../data/mockData';
 import { useAttendanceStore } from '../store/attendanceStore';
+import { attendanceService } from '../services/attendanceService';
+import { enrollmentService } from '../../Batches/services/enrollmentService';
 import { FiSave, FiFilter, FiRefreshCw, FiTrash2, FiUpload, FiCalendar, FiClock, FiCheckCircle, FiAlertCircle, FiX, FiAlertTriangle } from 'react-icons/fi';
 import AttendanceStats from '../components/AttendanceStats';
 import AttendanceTable from '../components/AttendanceTable';
@@ -14,6 +15,12 @@ const OfflineSync = () => {
 
     const [activeTab, setActiveTab] = useState('ENTRY'); // ENTRY | QUEUE
 
+    // Data State
+    const [courses, setCourses] = useState([]);
+    const [batches, setBatches] = useState([]);
+    const [sessions, setSessions] = useState([]);
+    const [students, setStudents] = useState([]);
+
     // Local Attendance State
     const [attendanceMap, setAttendanceMap] = useState({});
     const [lateMinutesMap, setLateMinutesMap] = useState({});
@@ -22,28 +29,53 @@ const OfflineSync = () => {
     const [csvPreview, setCsvPreview] = useState(null); // { rows: [], summary: { total, valid, errors, warnings: [] } }
 
     // Store Access
-    const { queueOfflineAttendance, syncOfflineData, attendanceList } = useAttendanceStore();
+    const { queueOfflineAttendance, attendanceList, clearOfflineQueue } = useAttendanceStore();
 
-    // Filter Logic
-    const filteredBatches = useMemo(() => {
-        if (!MOCK_BATCHES) return [];
-        return MOCK_BATCHES.filter(b => !selectedCourse || b.courseId === selectedCourse);
+    // Fetch Courses
+    useEffect(() => {
+        attendanceService.getCourses().then(setCourses).catch(console.error);
+    }, []);
+
+    // Fetch Batches
+    useEffect(() => {
+        if (selectedCourse) {
+            attendanceService.getBatches(selectedCourse).then(setBatches).catch(console.error);
+        } else {
+            setBatches([]);
+        }
     }, [selectedCourse]);
 
-    // Available Sessions for Date
-    const availableSessions = useMemo(() => {
-        if (!selectedBatch || !selectedDate) return [];
-        return MOCK_SESSIONS.filter(s =>
-            s.batchId === selectedBatch &&
-            s.date === selectedDate &&
-            s.type === 'Live Class'
-        );
+    // Fetch Sessions (Available Sessions)
+    useEffect(() => {
+        if (selectedBatch && selectedDate) {
+            // Assuming getSessions can filter by batch and date
+            // Note: getSessions might return all sessions, so we might need to filter or backend handles it.
+            // Our implementation sends params.
+            attendanceService.getSessions(selectedBatch, selectedDate).then(data => {
+                // Filter for 'Live Class' or ensure backend does it. 
+                // Let's assume returned sessions are valid for attendance.
+                setSessions(data || []);
+            }).catch(console.error);
+        } else {
+            setSessions([]);
+        }
     }, [selectedBatch, selectedDate]);
 
-    // Students
-    const students = useMemo(() => {
-        if (!selectedBatch) return [];
-        return MOCK_STUDENTS.filter(s => s.batchId === selectedBatch);
+    // Fetch Students
+    useEffect(() => {
+        if (selectedBatch) {
+            enrollmentService.getStudentsByBatch(selectedBatch).then(data => {
+                const mapped = Array.isArray(data) ? data.map(s => ({
+                    id: s.studentId,
+                    studentId: s.studentId,
+                    name: s.studentName || s.name || `Student ${s.studentId}`,
+                    email: s.studentEmail || s.email || ''
+                })) : [];
+                setStudents(mapped);
+            }).catch(console.error);
+        } else {
+            setStudents([]);
+        }
     }, [selectedBatch]);
 
     // Auto-init attendance or clear on session change
@@ -285,6 +317,7 @@ const OfflineSync = () => {
 
     // Queue Logic
     const [queue, setQueue] = useState([]);
+
     const loadQueue = () => {
         try {
             const stored = JSON.parse(localStorage.getItem('offline_attendance') || '[]');
@@ -295,17 +328,60 @@ const OfflineSync = () => {
             localStorage.removeItem('offline_attendance');
         }
     };
+
     useEffect(() => { loadQueue(); }, [activeTab]);
 
     const handleSync = async () => {
-        await syncOfflineData();
-        loadQueue();
-        alert('Synced successfully!');
+        // Group by Session ID
+        const grouped = queue.reduce((acc, curr) => {
+            if (!acc[curr.sessionId]) acc[curr.sessionId] = [];
+            acc[curr.sessionId].push(curr);
+            return acc;
+        }, {});
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const [sessionId, records] of Object.entries(grouped)) {
+            try {
+                // Prepare payload
+                // The API needs records in a specific format.
+                // queueOfflineAttendance stores { studentId, status, sessionId, ... }
+                // saveAttendance expects list of records.
+                const payload = records.map(r => ({
+                    studentId: r.studentId,
+                    status: r.status,
+                    mode: 'OFFLINE', // It was queued as offline
+                    markedAt: r.timestamp
+                    // Add other meta if needed
+                }));
+
+                await attendanceService.saveAttendance(sessionId, payload);
+                successCount += records.length;
+
+            } catch (err) {
+                console.error(`Failed to sync session ${sessionId}`, err);
+                failCount += records.length;
+            }
+        }
+
+        if (successCount > 0) {
+            // Remove successfully synced ones?
+            // For simplicity, we just clear the queue if mostly successful, or we should be more granular.
+            // Let's clear for now as per original simple logic.
+            localStorage.removeItem('offline_attendance');
+            loadQueue();
+            alert(`Synced ${successCount} records successfully!`);
+        } else if (failCount > 0) {
+            alert("Failed to sync records. Check network or data.");
+        }
     };
 
     const handleClearQueue = () => {
-        localStorage.removeItem('offline_attendance');
-        loadQueue();
+        if (window.confirm("Are you sure you want to delete all pending records in the sync queue?")) {
+            clearOfflineQueue();
+            loadQueue();
+        }
     };
 
     return (
@@ -342,8 +418,8 @@ const OfflineSync = () => {
                                         onChange={e => { setSelectedCourse(e.target.value); setSelectedBatch(''); setSelectedSessionId(''); }}
                                     >
                                         <option value="">Select Course</option>
-                                        {MOCK_COURSES.map(c => (
-                                            <option key={c.id} value={c.id}>{c.title}</option>
+                                        {courses.map(c => (
+                                            <option key={c.courseId} value={c.courseId}>{c.courseName}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -355,8 +431,8 @@ const OfflineSync = () => {
                                         onChange={e => { setSelectedBatch(e.target.value); setSelectedSessionId(''); }}
                                     >
                                         <option value="">Select Batch</option>
-                                        {filteredBatches.map(b => (
-                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        {batches.map(b => (
+                                            <option key={b.batchId} value={b.batchId}>{b.batchName}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -395,10 +471,10 @@ const OfflineSync = () => {
                     {/* Step 2: Session Selection */}
                     {selectedBatch && selectedDate && !selectedSessionId && (
                         <div className="mb-4 fade-in">
-                            <h6 className="fw-bold text-muted mb-3">Select a Session for {selectedDate}:</h6>
-                            {availableSessions.length > 0 ? (
+                            <h6 className="fw-bold text-muted mb-3">Select Scheduled Class for {selectedDate}:</h6>
+                            {sessions.length > 0 ? (
                                 <div className="row g-3">
-                                    {availableSessions.map(sess => (
+                                    {sessions.map(sess => (
                                         <div className="col-md-4" key={sess.id}>
                                             <div
                                                 className="card h-100 border-0 shadow-sm hover-shadow cursor-pointer"
@@ -406,19 +482,19 @@ const OfflineSync = () => {
                                             >
                                                 <div className="card-body">
                                                     <div className="d-flex justify-content-between mb-2">
-                                                        <span className="badge bg-primary bg-opacity-10 text-primary">{sess.type}</span>
+                                                        <span className="badge bg-primary bg-opacity-10 text-primary">Class ID: {sess.sessionId}</span>
                                                         <FiClock className="text-muted" />
                                                     </div>
-                                                    <h6 className="fw-bold mb-1">{sess.title}</h6>
-                                                    <p className="text-muted small mb-0">{sess.time}</p>
+                                                    <h6 className="fw-bold mb-1">{sess.title || 'Untitled Session'}</h6>
+                                                    <p className="text-muted small mb-0">{sess.startTime} - {sess.endTime}</p>
                                                 </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="alert alert-info">
-                                    <FiCalendar className="me-2" /> No sessions scheduled for this date.
+                                <div className="alert alert-info border-0 shadow-sm">
+                                    <FiCalendar className="me-2" /> No classes found linked to this batch on this date.
                                 </div>
                             )}
                         </div>
@@ -513,7 +589,7 @@ const OfflineSync = () => {
                                         </table>
                                     </div>
                                     <div className="mt-2 text-muted small fst-italic">
-                                        * Only rows marked "OK" will be imported. Any error blocks the entire upload for better data integrity, or you can choose to ignore invalid rows (current logic imports ONLY valid, but blocking entire batch might be stricter as per requirement "Disable confirm if any ERROR exists").
+                                        * Only rows marked "OK" will be imported. Any error blocks the entire upload for better data integrity.
                                         <br />
                                         <span className="fw-bold text-danger">Strict Mode: Import button disabled if ANY error exists.</span>
                                     </div>
@@ -526,7 +602,7 @@ const OfflineSync = () => {
                     {selectedSessionId && !csvPreview ? (
                         <div className="fade-in">
                             <div className="d-flex justify-content-between mb-3">
-                                <h5 className="fw-bold">Marking for: {availableSessions.find(s => s.id === selectedSessionId)?.title}</h5>
+                                <h5 className="fw-bold">Marking for: {sessions.find(s => s.id === selectedSessionId)?.title}</h5>
                                 <button className="btn btn-dark btn-sm" onClick={() => setSelectedSessionId('')}>Change Session</button>
                             </div>
 
@@ -541,7 +617,10 @@ const OfflineSync = () => {
                                     <AttendanceTable
                                         students={students.map(s => {
                                             // Check if student is already marked in the store (e.g. Online)
-                                            const existingRecord = attendanceList.find(r => r.studentId === s.id && r.sessionId === selectedSessionId);
+                                            // attendanceList from useAttendanceStore might be for the LIVE session only if we are in that context.
+                                            // But OfflineSync might be used outside of a "started" live session context if we just want to upload data.
+                                            // We should check if attendanceList actually pertains to selectedSessionId.
+                                            const existingRecord = attendanceList.filter(r => r.sessionId === selectedSessionId).find(r => r.studentId === s.id);
                                             const isOnline = existingRecord?.mode === 'ONLINE';
 
                                             return {

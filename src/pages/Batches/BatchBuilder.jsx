@@ -184,23 +184,14 @@ const BatchBuilder = () => {
         try {
             const targetBatch = otherBatches.find(b => String(b.batchId) === String(selectedTransferBatch));
 
-            // 1. Add to new batch (Enroll)
-            await enrollmentService.addStudentToBatch({
-                batchId: Number(selectedTransferBatch),
+            // Use the consolidated transfer service call
+            await enrollmentService.transferStudent({
+                studentBatchId: transferModal.student.studentBatchId, // ID for removal
                 studentId: transferModal.student.studentId,
                 studentName: transferModal.student.studentName,
-                courseId: targetBatch.courseId
-            });
-
-            // 2. Remove from current batch (Unenroll)
-            await enrollmentService.removeStudentFromBatch(transferModal.student.studentBatchId);
-
-            // 3. Log Transfer
-            await enrollmentService.transferStudent({
-                studentId: transferModal.student.studentId,
+                studentEmail: transferModal.student.studentEmail,
                 courseId: batchDetails.courseId,
-                fromBatchId: Number(id),
-                toBatchId: Number(selectedTransferBatch),
+                targetBatchId: Number(selectedTransferBatch), // ID for enrollment
                 reason: transferReason || "Administrative Transfer",
                 transferredBy: user?.name || user?.username || "Admin"
             });
@@ -241,7 +232,11 @@ const BatchBuilder = () => {
 
             <main className="bb-main">
                 {activeTab === 'overview' ? (
-                    <ClassesTab batchId={id} instructorName={batchDetails?.trainerName} />
+                    <ClassesTab
+                        batchId={id}
+                        courseId={batchDetails?.courseId}
+                        instructorName={batchDetails?.trainerName}
+                    />
                 ) : activeTab === 'students' ? (
                     <div className="students-manager">
                         <div className="sm-header">

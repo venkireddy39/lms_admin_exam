@@ -78,16 +78,47 @@ export const useIssue = () => {
     const selectMember = async (member) => {
         setLoading(true);
         try {
+            // 1. Validate Eligibility (Backend Check)
             const { eligible, user } = await IssueService.validateEligibility(member.id);
+
             if (eligible) {
-                if (eligible) {
-                    setSelectedMember(user);
-                    // If book was pre-selected, jump to Step 3 (Copy)
-                    if (selectedBook) {
-                        setStep(3);
-                    } else {
-                        setStep(2);
-                    }
+                // 2. Fetch Limits & Active Counts
+                // We fetch all issues and filter because there's no direct "issues by user" endpoint yet
+                const [settings, allIssues] = await Promise.all([
+                    SettingsService.getSettings(),
+                    IssueService.getAllIssues().catch(() => [])
+                ]);
+
+                // Determine Role & Limit
+                const role = (user.category || 'Student').toLowerCase(); // 'student' or 'faculty'
+                const roleRules = settings.rules[role] || settings.rules['student'];
+                const maxLimit = roleRules ? roleRules.maxBooks : 4; // Default to 4
+
+                // Count Active Issues
+                const userIssues = allIssues.filter(i =>
+                    (i.userId === member.id || i.userId === Number(member.id)) &&
+                    (i.status === 'ISSUED' || i.status === 'OVERDUE' || i.status === 'RENEWED')
+                );
+                const activeCount = userIssues.length;
+
+                // 3. Update State with Enriched User Data
+                setSelectedMember({
+                    ...user,
+                    activeCount,
+                    maxLimit
+                });
+
+                // STOP if limit reached
+                if (activeCount >= maxLimit) {
+                    toast.error(`Member has reached the limit (${activeCount}/${maxLimit} books). Cannot issue more.`);
+                    return; // Stay on Step 1
+                }
+
+                // Navigation Logic
+                if (selectedBook) {
+                    setStep(3);
+                } else {
+                    setStep(2);
                 }
             }
         } catch (err) {
@@ -148,7 +179,8 @@ export const useIssue = () => {
             const issue = await IssueService.issueCopy({
                 userId: selectedMember.id,
                 resourceId: selectedBook.id,
-                copyId: selectedCopy.uuid // or id
+                copyId: selectedCopy.uuid, // or id
+                barcode: selectedCopy.barcode
             });
             setCompletedIssue(issue);
             toast.success('Book Issued Successfully');

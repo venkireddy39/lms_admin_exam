@@ -123,8 +123,8 @@ const Batches = () => {
         loading: loadingBatches
     } = useBatches(courses, instructors);
 
-    // Manual Enrichment: backend might not return live student counts.
-    // We calculate it ourselves from enrollmentService.
+    // Manual Enrichment: We calculate student counts from enrollmentService
+    // by fetching students for each batch from the API.
     const [enrichedBatches, setEnrichedBatches] = useState([]);
 
     useEffect(() => {
@@ -135,19 +135,22 @@ const Batches = () => {
             }
 
             try {
-                // Fetch all enrollments (which now includes local storage fallback)
-                const enrollments = await enrollmentService.getAllEnrollments();
+                // Fetch students count for each batch in parallel from the REAL service
+                const enriched = await Promise.all(batches.map(async (b) => {
+                    try {
+                        const studentsList = await enrollmentService.getStudentsByBatch(b.batchId);
+                        return {
+                            ...b,
+                            students: studentsList.length
+                        };
+                    } catch (err) {
+                        return { ...b, students: b.students || 0 };
+                    }
+                }));
 
-                const updated = batches.map(b => {
-                    const batchEnrollments = enrollments.filter(e => String(e.batchId) === String(b.batchId));
-                    return {
-                        ...b,
-                        students: batchEnrollments.length // Override count
-                    };
-                });
-                setEnrichedBatches(updated);
+                setEnrichedBatches(enriched);
             } catch (e) {
-                console.error("Failed to enrich batches", e);
+                console.error("Failed to enrich batches:", e);
                 setEnrichedBatches(batches);
             }
         };

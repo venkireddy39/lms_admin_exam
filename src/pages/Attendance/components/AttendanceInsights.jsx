@@ -74,7 +74,7 @@ const InsightCard = ({
                     </div>
 
                     {/* Chart */}
-                    <div style={{ width: '100%', height: 50 }}>
+                    <div style={{ width: '100%', height: 60 }} className="mt-auto">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData}>
                                 <defs>

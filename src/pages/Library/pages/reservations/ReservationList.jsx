@@ -5,13 +5,17 @@ import {
     MoreVertical,
     XCircle,
     CheckCircle,
-    Ban
+    Ban,
+    BookOpen
 } from 'lucide-react';
 import { ReservationService, BookService, MemberService } from '../../services/api';
 import { format, isPast, parseISO } from 'date-fns';
 import '../books/BookList.css';
 
+import { useNavigate } from 'react-router-dom';
+
 const ReservationList = () => {
+    const navigate = useNavigate();
     const [reservations, setReservations] = useState([]);
     const [resources, setResources] = useState([]);
     const [users, setUsers] = useState([]);
@@ -91,15 +95,32 @@ const ReservationList = () => {
 
     const cancelReservation = async (id) => {
         if (window.confirm('Are you sure you want to cancel this reservation?')) {
-            await ReservationService.cancelReservation(id);
+            await ReservationService.patchReservation(id, { status: 'CANCELLED' });
             loadData();
+        }
+    };
+
+    const handleIssueBook = (r) => {
+        const resource = r.book ? r.book : resourceMap[r.bookId];
+        const user = userMap[r.userId]; // Getting the formatted user object from our map
+
+        if (resource && user) {
+            // Navigate to Issue Wizard with pre-selected data
+            navigate('/library/issues/new', {
+                state: {
+                    preSelectedMember: user,
+                    preSelectedBook: resource
+                }
+            });
+        } else {
+            console.error("Missing resource or user data for issue");
         }
     };
 
     const rejectReservation = async (id) => {
         // "Reject" in our new flow is basically Cancel
         if (window.confirm('Cancel this reservation?')) {
-            await ReservationService.cancelReservation(id);
+            await ReservationService.patchReservation(id, { status: 'CANCELLED' });
             loadData();
         }
     };
@@ -210,18 +231,31 @@ const ReservationList = () => {
                                             <div className="small text-muted">ID: {r.userId}</div>
                                         </td>
                                         <td>{r.reservedAt ? format(parseISO(r.reservedAt), 'dd MMM yyyy') : '-'}</td>
-                                        <td>{r.adminHoldFrom ? format(parseISO(r.adminHoldFrom), 'dd MMM yyyy') : '-'}</td>
                                         <td>
-                                            {r.reserveUntil ? format(parseISO(r.reserveUntil), 'dd MMM yyyy') : '-'}
+                                            {r.status === 'AVAILABLE' && r.adminHoldFrom
+                                                ? format(parseISO(r.adminHoldFrom), 'dd MMM yyyy')
+                                                : '-'}
+                                        </td>
+                                        <td>
+                                            {r.status === 'AVAILABLE' && r.adminHoldUntil
+                                                ? <span className="text-danger fw-bold" title="Pickup Deadline">{format(parseISO(r.adminHoldUntil), 'dd MMM yyyy')}</span>
+                                                : (r.reserveUntil ? format(parseISO(r.reserveUntil), 'dd MMM yyyy') : '-')}
                                         </td>
                                         <td>{getStatusBadge(r)}</td>
                                         <td className="text-end">
                                             {(r.status === 'RESERVED' || r.status === 'AVAILABLE') && !isExpired && (
                                                 <div className="btn-group btn-group-sm">
                                                     <button
+                                                        className="btn btn-outline-primary"
+                                                        onClick={() => handleIssueBook(r)}
+                                                        title="Issue Book"
+                                                    >
+                                                        <BookOpen size={14} />
+                                                    </button>
+                                                    <button
                                                         className="btn btn-outline-success"
                                                         onClick={() => fulfillReservation(r.id)}
-                                                        title="Mark Collected"
+                                                        title="Mark Collected (Manual)"
                                                     >
                                                         <CheckCircle size={14} />
                                                     </button>

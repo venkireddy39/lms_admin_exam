@@ -12,13 +12,7 @@ export const navigationConfig = [
         id: 'attendance',
         label: 'Attendance',
         path: '/attendance',
-        icon: 'bi-calendar-check',
-        subItems: [
-            { label: 'Overview', path: '/attendance/dashboard', icon: 'bi-grid' },
-            { label: 'Student Attendance', path: '/attendance/student', icon: 'bi-person-check' },
-            { label: 'Employee Attendance', path: '/attendance/employee', icon: 'bi-briefcase' },
-            { label: 'Leaves', path: '/attendance/leaves', icon: 'bi-door-open' }
-        ]
+        icon: 'bi-calendar-check'
     },
 
     {

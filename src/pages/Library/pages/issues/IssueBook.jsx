@@ -99,8 +99,18 @@ const IssueBook = () => {
                         <div>
                             <div className="d-flex justify-content-between mb-4">
                                 <h5>Select Book</h5>
-                                <div className="badge bg-primary-subtle text-primary p-2">
-                                    Member: {selectedMember?.name}
+                                <div className="d-flex gap-2 align-items-center">
+                                    <div className="badge bg-light text-dark border p-2">
+                                        Member: {selectedMember?.name}
+                                    </div>
+                                    <div className={`badge p-2 ${selectedMember?.activeCount >= selectedMember?.maxLimit
+                                        ? 'bg-danger'
+                                        : selectedMember?.activeCount >= (selectedMember?.maxLimit - 1)
+                                            ? 'bg-warning text-dark'
+                                            : 'bg-primary-subtle text-primary'
+                                        }`}>
+                                        Books: {selectedMember?.activeCount} / {selectedMember?.maxLimit}
+                                    </div>
                                 </div>
                             </div>
 
@@ -146,7 +156,9 @@ const IssueBook = () => {
                                 <h5>Scan or Select Copy</h5>
                                 <div className="text-end">
                                     <div className="fw-bold">{selectedBook?.title}</div>
-                                    <div className="small text-muted">{selectedMember?.name}</div>
+                                    <div className="small text-muted">
+                                        {selectedMember?.name} • Loans: {selectedMember?.activeCount}/{selectedMember?.maxLimit}
+                                    </div>
                                 </div>
                             </div>
 

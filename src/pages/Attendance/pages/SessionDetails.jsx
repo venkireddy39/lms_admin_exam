@@ -1,17 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useParams, useNavigate, Navigate } from 'react-router-dom';
-
-import { Users } from 'lucide-react'; // Added Icon
-
-
-import { MOCK_STUDENTS } from '../data/mockData';
-
+import { Users, Camera, QrCode, ListChecks } from 'lucide-react';
 import { useAttendanceStore } from '../store/attendanceStore.jsx';
 import AttendanceTable from '../components/AttendanceTable.jsx';
 import OfflineMarker from '../components/OfflineMarker.jsx';
 import SessionReport from '../components/SessionReport.jsx';
 import QRPanel from '../components/QRPanel.jsx';
-import { Camera, QrCode, ListChecks } from 'lucide-react';
+import { attendanceService } from '../services/attendanceService';
+import { enrollmentService } from '../../Batches/services/enrollmentService';
+import { batchService } from '../../Batches/services/batchService';
 
 /* ---------------- LIVE VIEW ---------------- */
 
@@ -28,17 +25,164 @@ const LiveView = () => {
         markAttendance
     } = useAttendanceStore();
 
-    const [activeTab, setActiveTab] = useState('QR'); // 'QR', 'FACE', 'MANUAL'
+    const [activeTab, setActiveTab] = useState('MANUAL'); // 'MANUAL' prioritized for offline flow
     const [isOfflineMode, setIsOfflineMode] = useState(false);
     const [pendingChanges, setPendingChanges] = useState(0);
+    const [students, setStudents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [contextInfo, setContextInfo] = useState({ batchName: '', lmsSessionId: '' });
 
     // Sync offline mode with tab
     useEffect(() => {
         setIsOfflineMode(activeTab === 'MANUAL');
     }, [activeTab]);
 
-    // Mock Batch Students for Demo (Assume Session is for Batch B-003)
-    const batchStudents = MOCK_STUDENTS.filter(s => s.batchId === 'B-003');
+    // Fetch Session and Students
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchContext = async () => {
+            // Avoid re-fetching if the store is already in sync with this sessionId and loading is done
+            if (String(session.id) === String(sessionId) && students.length > 0) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                console.log(`[SessionDetails] fetchContext triggered for sessionId: ${sessionId}`);
+
+                // 1. Fetch Session Details
+                const sessionData = await attendanceService.getSession(sessionId);
+
+                if (!isMounted) return;
+
+                if (sessionData && sessionData.batchId) {
+                    const classId = sessionData.classId || sessionData.sessionId;
+
+                    // 2. Initialize/Sync Store State - Only if needed
+                    if (String(session.id) !== String(sessionId)) {
+                        startSession(sessionId, classId, 'MANUAL');
+                    }
+
+                    // ---------------------------------------------------------
+                    // AUTO-CONFIG CHECK: Ensure Config exists or Dashboard crashes
+                    // ---------------------------------------------------------
+                    const courseId = sessionData.courseId || 1; // Fallback if missing
+                    try {
+                        await attendanceService.getAttendanceConfig(courseId, sessionData.batchId);
+                    } catch (configError) {
+                        console.warn("[SessionDetails] Config not found. Creating default...", configError);
+
+                        const defaultConfig = {
+                            courseId: courseId,
+                            batchId: Number(sessionData.batchId),
+                            examEligibilityPercent: 75,
+                            atRiskPercent: 60,
+                            lateGraceMinutes: 15,
+                            minPresenceMinutes: 45,
+                            autoAbsentMinutes: 120,
+                            earlyExitAction: 'MARK_PARTIAL',
+                            allowOffline: true,
+                            allowManualOverride: true,
+                            requireOverrideReason: true,
+                            notifyParents: false,
+                            oneDevicePerSession: false, // Less strict for now
+                            logIpAddress: false,
+                            strictStart: false,
+                            qrCodeMode: 'ALWAYS',
+                            gracePeriodMinutes: 10,
+                            consecutiveAbsenceLimit: 3,
+                            // Audit fields
+                            createdBy: 1,
+                            updatedBy: 1
+                        };
+
+                        try {
+                            await attendanceService.createAttendanceConfig(defaultConfig);
+                            console.log("[SessionDetails] Default config created successfully.");
+                        } catch (createErr) {
+                            console.error("[SessionDetails] Failed to create default config:", createErr);
+                            // We don't block the UI here, but reports might fail later
+                        }
+                    }
+                    // ---------------------------------------------------------
+
+                    // 3. Fetch Batch, Students, AND Existing Attendance in parallel
+                    const [batchData, studentsData, existingAttendance] = await Promise.all([
+                        batchService.getBatchById(sessionData.batchId).catch(() => null),
+                        enrollmentService.getStudentsByBatch(sessionData.batchId),
+                        attendanceService.getAttendance(sessionId).catch(e => {
+                            console.warn("[SessionDetails] Failed to fetch existing attendance", e);
+                            return [];
+                        })
+                    ]);
+
+                    if (!isMounted) return;
+
+                    setContextInfo({
+                        batchName: batchData ? batchData.batchName : `Batch #${sessionData.batchId}`,
+                        lmsSessionId: classId
+                    });
+
+                    // Hydrate Store with existing records if it's empty
+                    if (existingAttendance && existingAttendance.length > 0 && attendanceList.length === 0) {
+                        console.log(`[SessionDetails] Hydrating store with ${existingAttendance.length} existing records.`);
+                        // We need to push these into the store somehow.
+                        // Since markAttendance updates state, we iterates.
+                        // BETTER: use a setInitialState logic in store, but iterating is fine for < 100 students.
+                        // However, markAttendance might toggle 'synced: false'. We want 'synced: true'.
+                        // We'll manually reconstruct the format expected by the store.
+
+                        // We can't easily reach into store state setter from here without exposing a setter.
+                        // Hack: We'll cycle through and 'mark' them, then forcefully set synced=true.
+                        // OR better: Just map them in the 'students' state logic below and rely on the fact 
+                        // that the Store's attendanceList is the "Pending Changes" and the 'existingAttendance' is "Saved State".
+
+                        // ACTUALLY: The UI merges `attendanceList` (pending) over basic student list.
+                        // If we don't put them in `attendanceList`, they show as UNMARKED.
+                        // So we MUST put them in `attendanceList`.
+
+                        // Let's use `markAttendance` but we need to mark them as synced.
+                        // The store exposes `markAsSynced`.
+
+                        existingAttendance.forEach(r => {
+                            markAttendance(r.studentId, r.status, r.source || 'MANUAL', r.remarks);
+                        });
+
+                        // Queue a microtask to mark them as synced immediately so they don't look like pending changes
+                        setTimeout(() => {
+                            if (isMounted) {
+                                markAsSynced(existingAttendance.map(r => r.studentId));
+                                setPendingChanges(0); // Reset pending counter
+                            }
+                        }, 100);
+                    }
+
+                    // Map enrollment data to UI student format
+                    const mappedStudents = Array.isArray(studentsData) ? studentsData.map(s => ({
+                        id: s.studentId,
+                        studentId: s.studentId,
+                        name: s.studentName || s.name || `Student ${s.studentId}`,
+                        email: s.studentEmail || s.email || '',
+                        source: 'MANUAL',
+                        classId: classId
+                    })) : [];
+
+                    setStudents(mappedStudents);
+                }
+            } catch (error) {
+                console.error("[SessionDetails] Failed to load session context", error);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+
+        if (sessionId) {
+            fetchContext();
+        }
+
+        return () => { isMounted = false; };
+    }, [sessionId, startSession, session.id, students.length]);
 
     // Helper to get effective attendance status (store vs default)
     const getStudentStatus = (student) => {
@@ -52,12 +196,12 @@ const LiveView = () => {
 
     const handleMarkAll = (status) => {
         // Filter out ONLINE students
-        const eligibleStudents = batchStudents.filter(s => {
+        const eligibleStudents = students.filter(s => {
             const { mode } = getStudentStatus(s);
             return mode !== 'ONLINE';
         });
 
-        const onlineCount = batchStudents.length - eligibleStudents.length;
+        const onlineCount = students.length - eligibleStudents.length;
 
         if (eligibleStudents.length === 0) {
             alert("No eligible offline students to mark. (Online students are protected)");
@@ -81,26 +225,66 @@ const LiveView = () => {
         }
     };
 
-    const handleSaveChanges = () => {
-        // Simulate API Save
-        setPendingChanges(0);
-        alert('Changes saved successfully!');
+    const {
+        triggerBackendSync,
+        syncOfflineData,
+        getPendingSyncCount,
+        markAsSynced
+    } = useAttendanceStore();
+
+    const handleSaveChanges = async () => {
+        try {
+            // Filter to find only unsynced changes to prevent duplicates
+            const unsyncedRecords = attendanceList.filter(r => !r.synced);
+
+            if (unsyncedRecords.length > 0) {
+                console.log(`[SessionDetails] Pushing ${unsyncedRecords.length} new marks to queue...`);
+
+                for (const record of unsyncedRecords) {
+                    await attendanceService.saveToOfflineQueue({
+                        sessionId: session.classId || contextInfo.lmsSessionId, // USE ACADEMIC ID (Class ID) not Attendance ID
+                        attendanceSessionId: sessionId, // Pass this for reference/linking if backend supports it
+                        batchId: session.batchId || session.id, // Ensure this isn't sending Attendance ID as batch ID. Use sessionData.batchId if available in closure, or session.batchId
+                        studentId: record.studentId,
+                        status: record.status,
+                        remarks: record.remarks || record.overrideReason || ""
+                    });
+                }
+
+                // Mark them as synced in local store so we don't send them again
+                markAsSynced(unsyncedRecords.map(r => r.studentId));
+            } else {
+                console.log("[SessionDetails] No new manual changes to push.");
+            }
+
+            // Also sync any totally offline records from LocalStorage if they exist
+            if (getPendingSyncCount() > 0) {
+                await syncOfflineData();
+            }
+
+            // Finally, trigger the backend to promote all queue items to official records
+            await triggerBackendSync();
+
+            setPendingChanges(0);
+            alert('Attendance synchronized and finalized successfully!');
+        } catch (error) {
+            console.error("Failed to synchronize attendance", error);
+            alert("Sync failed. Check console for details.");
+        }
     };
 
-    // Initialize session if missing (Simulate fetching)
-    useEffect(() => {
-        if (!session.id || session.id !== sessionId) {
-            // For demo purposes, we auto-start/load the session if hitting this URL
-            startSession(sessionId, 'QR', 5, 60);
-        }
-    }, [sessionId, session.id, startSession]);
-
-    // Guard: wait for session to exist
-    if (!session || !session.id) {
-        return <div className="p-5 text-center text-muted">Loading session context...</div>;
+    // Guard: wait for session to exist AND match the current URL context
+    if (loading || !session.id || String(session.id) !== String(sessionId)) {
+        return (
+            <div className="p-5 text-center text-muted">
+                <div className="spinner-border spinner-border-sm me-2 text-primary" role="status"></div>
+                Synchronizing attendance session...
+            </div>
+        );
     }
 
-    // Redirect if locked
+    // Redirect if session is locked/ended
+    // Only check if we have an active session in context
     if (isSessionLocked()) {
         return <Navigate to={`/attendance/sessions/${sessionId}/report`} replace />;
     }
@@ -110,11 +294,12 @@ const LiveView = () => {
             {/* Top Tracker / Header */}
             <div className="mb-4 d-flex flex-wrap gap-3 justify-content-between align-items-center bg-white p-3 rounded shadow-sm border">
                 <div>
-                    <h4 className="m-0 fw-bold">Live Session: {sessionId}</h4>
-                    <div className="d-flex align-items-center gap-2 mt-1">
+                    <h4 className="m-0 fw-bold">Live Session: {contextInfo.batchName}</h4>
+                    <div className="d-flex align-items-center gap-3 mt-1">
+                        <span className="text-secondary small fw-bold">LMS Class ID: {contextInfo.lmsSessionId}</span>
                         <span className="badge bg-success bg-opacity-10 text-success">Active</span>
                         {pendingChanges > 0 && (
-                            <span className="badge bg-warning text-dark animate-pulse">
+                            <span className="badge bg-warning text-dark animate-pulse ms-2">
                                 {pendingChanges} Unsaved Changes
                             </span>
                         )}
@@ -147,35 +332,16 @@ const LiveView = () => {
 
             <div className="row g-4">
                 <div className="col-12">
-                    {/* Offline Mode Banner integrated? User wanted it red/orange. 
-                        OfflineMarker component now handles that. Use it here if needed or separate. 
-                        The previous code had OfflineMarker in the header line. 
-                        Ideally it should be distinct. 
-                        Let's put OfflineMarker outside the table card for better visibility if active. */}
-
-                    {/* Note: OfflineMarker has its own 'isActive' check. We pass it `true` to show. 
-                         In this view, the user might want it visible always if 'Manual' logic is primary? 
-                         Or maybe toggleable? 
-                         Currently strict requirement: "Only OFFLINE students can be marked manually".
-                         Let's keep it visible.
-                     */}
-
                     <div className="card border-0 shadow-sm h-100">
                         <div className="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-3">
                             <div className="d-flex align-items-center gap-3">
                                 <h5 className="mb-0 fw-bold">Master Attendance List</h5>
                                 <span className="badge bg-light text-secondary border">
-                                    {batchStudents.length} Students
+                                    {students.length} Students
                                 </span>
                             </div>
 
                             <div className="d-flex gap-2 align-items-center">
-                                {/* We keep OfflineMarker component usage but perhaps styled differently? 
-                                    Actually OfflineMarker is a Block component (card). 
-                                    Putting a Card inside this header flex is layout breaking.
-                                    Let's MOVE OfflineMarker out of here to above the table card.
-                                */}
-
                                 <div className="d-flex gap-2" style={{ minWidth: 'fit-content' }}>
                                     <button
                                         className="btn btn-outline-success btn-sm text-nowrap d-flex align-items-center gap-1"
@@ -195,30 +361,28 @@ const LiveView = () => {
                             </div>
                         </div>
 
-                        {/* Insert OfflineMarker here if needed, but it's a big block.
-                            Let's put it in the body before table? 
-                            Or effectively replace the "QR" panel location? 
-                            For now, let's place it above the table content. 
-                        */}
                         <div className="px-3 pt-3">
                             <OfflineMarker isActive={true} />
                         </div>
 
                         <div className="card-body p-0">
                             <AttendanceTable
-                                students={batchStudents.map(s => {
+                                students={students.map(s => {
                                     const { status, remarks, mode } = getStudentStatus(s);
                                     return {
                                         ...s,
                                         studentId: s.id,
                                         status,
-                                        mode, // Pass mode explicitly
+                                        source: mode, // AttendanceTable expects 'source'
                                         remarks
                                     };
                                 })}
                                 onStatusChange={handleManualMark}
-                                onRemarkChange={() => { setPendingChanges(prev => prev + 1) }}
-                                isEditable={true} // Always editable for Offline students in Live logic
+                                onRemarkChange={(id, val) => {
+                                    const res = markAttendance(id, getStudentStatus({ id }).status, 'MANUAL', val);
+                                    if (res.success) setPendingChanges(prev => prev + 1);
+                                }}
+                                isEditable={true}
                             />
                         </div>
                     </div>
