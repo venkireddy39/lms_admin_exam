@@ -65,8 +65,14 @@ const ClassCard = ({ session, onDelete, onEdit, onViewContent, instructorName, b
                     const classId = session.classId || session.sessionId;
                     console.log(`[ClassesTab] Starting attendance for classId: ${classId}`);
 
-                    // userId: 1 (placeholder for current user)
-                    const newAtt = await attendanceService.startSession(classId, courseId, batchId, 1);
+                    // Get real user ID from localStorage
+                    let userId = 1;
+                    try {
+                        const authUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+                        userId = authUser.userId || authUser.id || 1;
+                    } catch (e) { console.warn("Failed to get userId for startSession", e); }
+
+                    const newAtt = await attendanceService.startSession(classId, courseId, batchId, userId);
                     onAttendanceUpdate(); // Refresh parent state
                     navigate(`/attendance/sessions/${newAtt.id}/live`);
                 } catch (e) {

@@ -8,11 +8,14 @@ import StatCard from '../components/StatCard';
 import SessionList from '../components/SessionList';
 import StartSessionModal from '../components/StartSessionModal';
 
+import { useNavigate } from 'react-router-dom';
+
 const SessionDashboard = () => {
     // 1. State
     const [activeTab, setActiveTab] = useState('live'); // 'live' | 'ended'
     const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
     const [showStartModal, setShowStartModal] = useState(false);
+    const navigate = useNavigate();
 
     // 2. Hooks
     const { liveSessions, refreshLive } = useLiveSessions();
@@ -25,26 +28,42 @@ const SessionDashboard = () => {
 
     const stats = useDashboardStats(liveSessions, pendingSyncCount);
 
-    // Helper to get current user ID
-    const getCurrentUserId = () => {
+    // Helper to get current user info (ID and Role)
+    const getCurrentUser = () => {
         try {
             const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
-            return user.id || 1; // Fallback to 1 if not found
-        } catch { return 1; }
+            return {
+                id: user.userId || user.id || 1,
+                role: (user.role || '').toUpperCase()
+            };
+        } catch { return { id: 1, role: 'STUDENT' }; }
     };
+
+    const currentUser = getCurrentUser();
 
     // 3. Handlers
     const handleQuickStart = async (session) => {
-        if (!window.confirm(`Start attendance for ${session.title}?`)) return;
+        console.log(`[SessionDashboard] handleQuickStart calling: /api/attendance/session/start`);
         try {
-            await attendanceService.startSession(
+            const res = await attendanceService.startSession(
                 session.classId || session.sessionId,
                 session.courseId,
                 session.batchId,
-                getCurrentUserId()
+                currentUser.id
             );
-            refreshLive();
-            toast.success("Attendance Session Started!");
+
+            const status = (res.status || '').toUpperCase();
+
+            if (status === 'ENDED' || status === 'COMPLETED') {
+                toast.info("Attendance already marked. Opening Report...");
+                navigate(`/attendance/sessions/${res.id}/report`);
+            } else {
+                toast.success("Attendance Session Active!");
+                refreshLive();
+                // Optional: Auto-navigate to live view
+                // navigate(`/attendance/sessions/${res.id}/live`);
+            }
+
         } catch (error) {
             console.error("Start Session Error:", error);
             let msg = error.message;
@@ -162,6 +181,7 @@ const SessionDashboard = () => {
                         type="LIVE"
                         onStart={handleQuickStart}
                         onDelete={handleDelete}
+                        userRole={currentUser.role}
                         emptyMessage='No live sessions running. Click "Start New Session" to begin.'
                     />
                 </div>
@@ -187,6 +207,7 @@ const SessionDashboard = () => {
                         type="ENDED"
                         onStart={handleQuickStart}
                         onDelete={handleDelete}
+                        userRole={currentUser.role}
                         emptyMessage={`No ended sessions found for ${filterDate}.`}
                     />
                 </div>

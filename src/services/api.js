@@ -10,8 +10,14 @@ export async function apiFetch(url, options = {}) {
         ...(options.headers || {}),
     };
 
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
+    let finalToken = token;
+    // Auto-swap mock token with real dev token if available
+    if ((token === "mock-admin-token" || token === "mock-student-token" || !token) && import.meta.env.VITE_DEV_AUTH_TOKEN) {
+        finalToken = import.meta.env.VITE_DEV_AUTH_TOKEN;
+    }
+
+    if (finalToken) {
+        headers.Authorization = `Bearer ${finalToken}`;
     }
 
     if (options.headers && options.headers["Content-Type"] === null) {
@@ -27,9 +33,9 @@ export async function apiFetch(url, options = {}) {
 
     if (res.status === 401) {
         // If we're in guest mode/dev mode, don't kick the user out to the login page
-        if (token === "dev-mock-token") {
-            console.warn("Unauthorized API call in Guest Mode. Bypassing redirect.");
-            throw new Error("Unauthorized (Guest Mode)");
+        if (token === "dev-mock-token" || token === "mock-student-token" || token === "mock-admin-token") {
+            console.warn("Unauthorized API call in Mock Mode. Bypassing redirect.");
+            throw new Error("Unauthorized (Mock Mode)");
         }
 
         localStorage.removeItem(AUTH_TOKEN_KEY);

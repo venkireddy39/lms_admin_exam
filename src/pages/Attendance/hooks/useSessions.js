@@ -8,18 +8,40 @@ import { sessionService } from '../../Batches/services/sessionService';
 
 // Helper: Fetch scheduled academic sessions for all batches for a specific date
 const fetchAllAcademicSessions = async (batches, dateStr) => {
-    if (!batches || batches.length === 0) return [];
+    if (!batches || batches.length === 0) {
+        console.warn("[useSessions] No batches available to fetch academic sessions.");
+        return [];
+    }
 
     try {
-        const results = await Promise.all(
-            batches.map(b => sessionService.getSessionsByBatchId(b.batchId).catch(() => []))
+        console.log(`[useSessions] Fetching academic sessions for ${batches.length} batches on ${dateStr}`);
+
+        // Use allSettled to ensure one bad batch doesn't kill the whole process
+        const results = await Promise.allSettled(
+            batches.map(b => sessionService.getSessionsByBatchId(b.batchId))
         );
-        const flat = results.flat();
+
+        const flat = [];
+        results.forEach((res, index) => {
+            if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+                flat.push(...res.value);
+            } else {
+                console.warn(`[useSessions] Failed to fetch sessions for batch ${batches[index]?.batchId}`, res.reason || "Invalid format");
+            }
+        });
+
+        console.log(`[useSessions] Total raw academic sessions found: ${flat.length}`);
 
         // Filter by date
-        return flat.filter(s => {
+        const filtered = flat.filter(s => {
             // Check various date fields
-            let d = s.date || s.sessionDate || s.scheduleDate || s.startDate;
+            let d = s.date || s.sessionDate || s.scheduleDate || s.startDate || s.start_date || s.attendanceDate;
+
+            if (!d) {
+                // Formatting fallback: try to find ANYTHING that looks like a date
+                // console.log("No date found in session:", s); 
+                return false;
+            }
 
             // Handle Java LocalDate Array [YYYY, MM, DD]
             if (Array.isArray(d)) {
@@ -32,39 +54,78 @@ const fetchAllAcademicSessions = async (batches, dateStr) => {
                 d = d.split('T')[0];
             }
 
-            return d === dateStr || (s.startTime && String(s.startTime).startsWith(dateStr));
+            // Normalize DateStr (just in case user passes full ISO)
+            const target = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+
+            // Direct string comparison or StartTime startsWith (for YYYY-MM-DD start times)
+            const dateMatch = d === target;
+            const startMatch = (s.startTime && String(s.startTime).startsWith(target));
+
+            return dateMatch || startMatch;
         });
+
+        console.log(`[useSessions] Sessions matching date ${dateStr}: ${filtered.length}`);
+        return filtered;
     } catch (e) {
         console.error("Failed to fetch academic sessions", e);
         return [];
     }
 };
 
-// Helper: Hydrate attendance sessions with missing duration
-const hydrateWithDuration = async (sessions) => {
+// Helper: Hydrate attendance sessions with missing duration AND student count
+const hydrateWithDetails = async (sessions) => {
     if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return [];
 
     const candidates = sessions.map(async (s) => {
+        // 1. Hydrate Duration (existing logic)
         const status = (s.status || '').toUpperCase();
         const isActive = status === 'ACTIVE' || status === 'LIVE';
         const needsDuration = isActive && !s.endTime && !s.duration && (s.classId || s.sessionId);
 
-        if (needsDuration) {
-            try {
-                const acadId = s.classId || s.sessionId;
-                const acadDetails = await sessionService.getSessionById(acadId);
+        // 2. Hydrate Student Count (NEW LOGIC)
+        // If it's an attendance session but has 0 students, we might need to fetch details
+        const possibleCount = s.totalStudents || s.presentCount || s.studentCount || s.attendanceCount || 0;
+        const needsCount = possibleCount === 0;
 
-                if (acadDetails) {
-                    const foundDuration = acadDetails.duration || acadDetails.durationMinutes || acadDetails.length || acadDetails.sessionDuration;
-                    return {
-                        ...s,
-                        duration: foundDuration,
-                        title: acadDetails.sessionName || acadDetails.title || s.title || s.sessionName
-                    };
+        let updatedS = { ...s };
+
+        if (needsDuration || needsCount) {
+            try {
+                // If we need count, we might need the ATTENDANCE session details
+                if (needsCount && s.id) {
+                    // Fetch specific attendance session details if API supports it
+                    // Assuming 'attendanceService.getSession(id)' returns { records: [...] } or { presentCount: 5 }
+                    const fullAttSession = await attendanceService.getSession(s.id).catch(() => null);
+
+                    if (fullAttSession) {
+                        // PREFER calculating from records if available to ensure we only count PRESENT
+                        if (fullAttSession.records && Array.isArray(fullAttSession.records)) {
+                            const presentOnes = fullAttSession.records.filter(r =>
+                                ['PRESENT', 'LATE', 'PARTIAL'].includes((r.status || '').toUpperCase())
+                            );
+                            updatedS.presentCount = presentOnes.length;
+                            updatedS.records = fullAttSession.records;
+                        } else {
+                            // Fallback to pre-calculated fields
+                            const freshCount = fullAttSession.presentCount || fullAttSession.attendanceCount || fullAttSession.totalStudents || 0;
+                            updatedS.presentCount = freshCount;
+                        }
+                    }
+                }
+
+                // Academic details for duration
+                if (needsDuration) {
+                    const acadId = s.classId || s.sessionId;
+                    const acadDetails = await sessionService.getSessionById(acadId);
+                    if (acadDetails) {
+                        const foundDuration = acadDetails.duration || acadDetails.durationMinutes || acadDetails.length || acadDetails.sessionDuration;
+                        updatedS.duration = foundDuration;
+                        updatedS.title = acadDetails.sessionName || acadDetails.title || s.title || s.sessionName;
+                    }
                 }
             } catch (e) { }
         }
-        return s;
+        return updatedS;
     });
 
     return await Promise.all(candidates);
@@ -79,7 +140,19 @@ const mapSessionToUI = (s, batchMap, isDataFromAttendanceApi) => {
     }
 
     // 1. Unify Data Fields
-    const uiDate = s.attendanceDate || s.date || s.startDate || new Date().toISOString().split('T')[0];
+    let uiDate = s.attendanceDate || s.date || s.startDate;
+
+    // If no explicit date field, but we have startedAt (ISO), extract date from it
+    if (!uiDate && s.startedAt) {
+        if (typeof s.startedAt === 'string' && s.startedAt.includes('T')) {
+            uiDate = s.startedAt.split('T')[0];
+        }
+    }
+
+    if (!uiDate) {
+        uiDate = new Date().toISOString().split('T')[0];
+    }
+
     const uiStartTime = s.startTime || (s.startedAt ? String(s.startedAt).split('T')[1]?.substring(0, 5) : null);
 
     // Duration: Prioritize explicit minutes, fallback to 60 for ALL sessions if missing
@@ -99,16 +172,20 @@ const mapSessionToUI = (s, batchMap, isDataFromAttendanceApi) => {
     if (!dur) dur = 60; // Universal default to ensure end-time calculation works
 
     // 2. Calculate End Time & Over Status & Running Status
-    let finalEndTime = s.endTime || s.scheduledEndTime;
+    let finalEndTime = s.endTime || s.endedAt || s.scheduledEndTime;
 
     // Sanitize finalEndTime: Must be HH:MM format due to backend potentially sending "Ongoing" literal
+    // If it's a full ISO timestamp, extract time
+    if (finalEndTime && String(finalEndTime).includes('T')) {
+        finalEndTime = String(finalEndTime).split('T')[1].substring(0, 5);
+    }
+    // If it's invalid or "Ongoing", nullify it so we can calculate it
     if (finalEndTime && !String(finalEndTime).match(/^\d{1,2}:\d{2}/)) {
         finalEndTime = null;
     }
 
     let isOver = false;
-    let isRunning = false; // Logic from ClassesTab (start <= now <= end)
-
+    let isRunning = false;
     const now = new Date();
 
     // Construct Date Objects for precise comparison
@@ -118,41 +195,40 @@ const mapSessionToUI = (s, batchMap, isDataFromAttendanceApi) => {
         dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     } else if (String(uiDate).includes('T')) {
         dateStr = String(uiDate).split('T')[0];
+    } else if (!dateStr) {
+        dateStr = new Date().toISOString().split('T')[0];
     }
 
-    // Construct Session Start/End Dates
-    let sessionStart = null;
-    let sessionEnd = null;
-
     if (uiStartTime) {
-        sessionStart = new Date(`${dateStr}T${uiStartTime}`);
+        const sessionStart = new Date(`${dateStr}T${uiStartTime}`);
+        let sessionEnd = null;
 
-        // Handle finalEndTime logic
-        if (finalEndTime && finalEndTime !== 'Ongoing') {
+        // If we have an explicit finalEndTime (like real endedAt from backend), use it
+        // BUT strict rule: if dates are past, we assume it's ended.
+        if (finalEndTime) {
             sessionEnd = new Date(`${dateStr}T${finalEndTime}`);
-            // Handle Midnight Crossing (End time is smaller than Start time logic can be complex, 
-            // but if backend provided endTime that is small, assume next day)
-            if (sessionEnd < sessionStart) {
-                sessionEnd.setDate(sessionEnd.getDate() + 1);
-            }
         } else {
-            // Fallback: Add (dur) minutes to start
+            // Calculate: Add (dur) minutes to start
             sessionEnd = new Date(sessionStart.getTime() + (dur * 60000));
 
-            // Calculate finalEndTime string for display "HH:MM"
+            // Generate HH:MM string for display
             const dh = sessionEnd.getHours();
             const dm = sessionEnd.getMinutes();
             finalEndTime = `${String(dh).padStart(2, '0')}:${String(dm).padStart(2, '0')}`;
         }
 
         // Check Status
-        if (now > sessionEnd) {
-            isOver = true;
-        } else if (now >= sessionStart && now <= sessionEnd) {
-            isRunning = true;
+        if (now > sessionEnd) isOver = true;
+        else if (now >= sessionStart && now <= sessionEnd) isRunning = true;
+
+        // Handling midnight crossing logic (simplified)
+        if (sessionEnd < sessionStart) {
+            sessionEnd.setDate(sessionEnd.getDate() + 1);
+            if (now > sessionEnd) isOver = true;
         }
+
     } else {
-        // Fallback: If no time, assume end of day passed
+        // Fallback: If no time, assume end of day passed if date is past
         const todayStr = now.toISOString().split('T')[0];
         if (dateStr < todayStr) isOver = true;
     }
@@ -163,18 +239,48 @@ const mapSessionToUI = (s, batchMap, isDataFromAttendanceApi) => {
     if (isDataFromAttendanceApi && (status === 'ACTIVE' || status === 'LIVE')) status = 'LIVE';
     if (status === 'ENDED') isOver = true;
 
-    // Academic Logic Overrides
-    if (!isDataFromAttendanceApi) {
-        if (isOver) {
-            status = 'COMPLETED';
-        } else if (isRunning) {
-            status = 'LIVE';
-        }
+    // Force OVER status if dates strictly imply it (Past Date)
+    // Re-check date logic here to ensure status update matches filter logic
+    if (isDataFromAttendanceApi && !isOver) {
+        const today = new Date().toISOString().split('T')[0];
+        if (dateStr < today) isOver = true;
+    }
+
+    if (isOver) {
+        // Force visual status to COMPLETED if it's over, 
+        // regardless of whether it's Academic or Attendance source
+        status = 'COMPLETED';
+    } else if (isRunning && !isDataFromAttendanceApi) {
+        // Only infer LIVE for academic sessions. 
+        // For attendance, we trust the "LIVE" status from backend (unless isOver)
+        status = 'LIVE';
     }
 
     // Normalize ID
     const uiId = isDataFromAttendanceApi ? s.id : (s.sessionId || s.id);
     const uniqueKey = isDataFromAttendanceApi ? `att-${uiId}` : `acad-${uiId}`;
+
+    // Student Count Logic
+    // Goal: Show "X Attended" (Present + Late), not just total records (which might include Absent)
+    let studentCount = 0;
+
+    if (isDataFromAttendanceApi) {
+        // 1. Try explicit backend counts first
+        if (s.presentCount !== undefined) studentCount = s.presentCount;
+        else if (s.attendanceCount !== undefined) studentCount = s.attendanceCount;
+        else if (s.totalStudents !== undefined) studentCount = s.totalStudents; // Fallback
+
+        // 2. If 'records' array exists, calculate manually (Most accurate)
+        if (s.records && Array.isArray(s.records)) {
+            const attended = s.records.filter(r =>
+                ['PRESENT', 'LATE', 'PARTIAL', 'HALF_DAY'].includes((r.status || '').toUpperCase())
+            );
+            studentCount = attended.length;
+        } else if (studentCount === 0 && s.studentCount) {
+            // Weak fallback
+            studentCount = s.studentCount;
+        }
+    }
 
     return {
         id: uiId,
@@ -186,7 +292,7 @@ const mapSessionToUI = (s, batchMap, isDataFromAttendanceApi) => {
         date: dateStr,
         startTime: uiStartTime || '--:--',
         endTime: finalEndTime || 'Ongoing',
-        students: 0,
+        students: studentCount,
         status: status,
         classId: s.classId || s.sessionId || s.id,
         courseId: s.courseId,
@@ -197,17 +303,23 @@ const mapSessionToUI = (s, batchMap, isDataFromAttendanceApi) => {
 
 // Shared Logic to Fetch & Merge
 const loadSessionsAndMerge = async (dateStr) => {
-    // 1. Fetch Parallel
-    const [attSessions, allBatches] = await Promise.all([
+    // 1. Fetch Parallel with Settlement (Fail-Safe)
+    const results = await Promise.allSettled([
         attendanceService.getSessions(null, dateStr),
         batchService.getAllBatches().catch(() => [])
     ]);
+
+    const attSessions = results[0].status === 'fulfilled' ? (results[0].value || []) : [];
+    const allBatches = results[1].status === 'fulfilled' ? (results[1].value || []) : [];
+
+    if (results[0].status === 'rejected') console.error("Attendance API Failed:", results[0].reason);
+    if (results[1].status === 'rejected') console.error("Batches API Failed:", results[1].reason);
 
     // 2. Fetch Academic Sessions (The "Missing" ones)
     const acadSessions = await fetchAllAcademicSessions(allBatches, dateStr);
 
     // 3. Hydrate Attendance Sessions
-    const hydratedAtt = await hydrateWithDuration(attSessions || []);
+    const hydratedAtt = await hydrateWithDetails(attSessions);
 
     const batchMap = new Map(allBatches.map(b => [String(b.batchId), b]));
 
@@ -276,11 +388,39 @@ export const useEndedSessions = (filterDate) => {
 
             // Filter: (Status ENDED or COMPLETED) OR (Any Status + isOver)
             const ended = allSessions.filter(s => {
-                const st = s.status;
+                const st = (s.status || '').toUpperCase();
+
+                // Explicit Status
                 if (st === 'ENDED' || st === 'COMPLETED') return true;
+
+                // Implicit Status (Time Based)
+                // If the session date is strictly in the past (before today), it MUST be considered ended
+                const today = new Date().toISOString().split('T')[0];
+                const sessionDate = s.date || s.sessionDate || s.startDate || s.attendanceDate;
+
+                // Normalize date string for comparison
+                let sDateStr = sessionDate;
+                if (Array.isArray(sessionDate)) {
+                    const [y, m, d] = sessionDate;
+                    sDateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                } else if (typeof sessionDate === 'string' && sessionDate.includes('T')) {
+                    sDateStr = sessionDate.split('T')[0];
+                }
+
+                // If date exists and is BEFORE today, it's ended.
+                if (sDateStr && sDateStr < today) {
+                    return true;
+                }
+
                 if (s.isOver) return true;
+
                 return false;
             });
+
+            console.log(`[useEndedSessions] Date: ${filterDate}, Found: ${ended.length} ended sessions.`);
+            if (ended.length === 0 && allSessions.length > 0) {
+                console.log("[useEndedSessions] All found sessions were filtered out. Sample status:", allSessions[0].status, "isOver:", allSessions[0].isOver);
+            }
 
             setEndedSessions(ended);
 

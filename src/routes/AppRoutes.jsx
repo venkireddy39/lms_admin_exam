@@ -3,6 +3,7 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardLayout from '../components/layout/DashboardLayOut';
 import Loading from '../components/common/Loading';
+import { useAuth } from '../pages/Library/context/AuthContext';
 
 // Lazy Load Pages
 const Home = lazy(() => import('../pages/Home/Home'));
@@ -34,6 +35,19 @@ const StudentCourses = lazy(() => import('../pages/Student/StudentCourses'));
 const StudentBatches = lazy(() => import('../pages/Student/StudentBatches'));
 const StudentAttendance = lazy(() => import('../pages/Student/StudentAttendance'));
 const StudentLibrary = lazy(() => import('../pages/Student/StudentLibrary'));
+const LearningContent = lazy(() => import('../pages/Student/LearningContent'));
+const StudentLayout = lazy(() => import('../components/layout/StudentLayout'));
+
+const RootRedirect = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Loading />;
+
+  if (user?.role === 'STUDENT') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
+};
 
 const AppRoutes = () => {
   return (
@@ -46,16 +60,8 @@ const AppRoutes = () => {
         <Route path="/share/:shareCode" element={<CourseOverview />} />
         <Route path="/affiliate/join" element={<AffiliateRegister />} />
 
-        {/* ================= DASHBOARD ROUTES ================= */}
-        <Route element={<DashboardLayout />}>
-
-          {/* 🔴 FIX: ROOT NEVER RENDERS UI */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-          {/* ✅ REAL DASHBOARD ROUTE */}
-          <Route path="/dashboard" element={<Home />} />
-
-          {/* ===== STUDENT ROUTES ===== */}
+        {/* ================= STUDENT PORTAL (VERTICAL LAYOUT) ================= */}
+        <Route element={<StudentLayout />}>
           <Route path="/student">
             <Route index element={<Navigate to="/student/dashboard" replace />} />
             <Route path="dashboard" element={<StudentDashboard />} />
@@ -63,13 +69,27 @@ const AppRoutes = () => {
             <Route path="batches" element={<StudentBatches />} />
             <Route path="attendance" element={<StudentAttendance />} />
             <Route path="library" element={<StudentLibrary />} />
-            <Route path="exams" element={<div className="p-4"><h2>Exams</h2><p>Coming soon...</p></div>} />
-            <Route path="webinars" element={<div className="p-4"><h2>Webinars</h2><p>Coming soon...</p></div>} />
-            <Route path="transport" element={<div className="p-4"><h2>Transport</h2><p>Coming soon...</p></div>} />
-            <Route path="fees" element={<div className="p-4"><h2>Fee History</h2><p>Coming soon...</p></div>} />
-            <Route path="notifications" element={<div className="p-4"><h2>Notifications</h2><p>Coming soon...</p></div>} />
+            <Route path="content" element={<LearningContent />} />
+            <Route path="exams" element={<div className="p-4"><h2 className="text-white">Exams</h2><p className="text-secondary">Coming soon...</p></div>} />
+            <Route path="assignments" element={<div className="p-4"><h2 className="text-white">Assignments</h2><p className="text-secondary">Coming soon...</p></div>} />
+            <Route path="grades" element={<div className="p-4"><h2 className="text-white">Grades</h2><p className="text-secondary">Coming soon...</p></div>} />
+            <Route path="calendar" element={<div className="p-4"><h2 className="text-white">Calendar</h2><p className="text-secondary">Coming soon...</p></div>} />
+            <Route path="communication" element={<div className="p-4"><h2 className="text-white">Communication</h2><p className="text-secondary">Coming soon...</p></div>} />
+            <Route path="profile" element={<div className="p-4"><h2 className="text-white">Profile</h2><p className="text-secondary">Coming soon...</p></div>} />
+            <Route path="certificates" element={<div className="p-4"><h2 className="text-white">Certificates</h2><p className="text-secondary">Coming soon...</p></div>} />
+            <Route path="support" element={<div className="p-4"><h2 className="text-white">Support</h2><p className="text-secondary">Coming soon...</p></div>} />
             <Route path="*" element={<NotFound />} />
           </Route>
+        </Route>
+
+        {/* ================= ADMIN/GENERAL DASHBOARD ROUTES ================= */}
+        <Route element={<DashboardLayout />}>
+
+          {/* 🔴 ROLE-AWARE ROOT REDIRECT */}
+          <Route path="/" element={<RootRedirect />} />
+
+          {/* ✅ REAL DASHBOARD ROUTE */}
+          <Route path="/dashboard" element={<Home />} />
 
           {/* ... existing routes ... */}
 

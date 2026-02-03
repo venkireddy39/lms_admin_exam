@@ -123,9 +123,10 @@
 /* Grid */
 .courses-grid-layout {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 24px;
-    padding-bottom: 40px;
+    grid-template-columns: repeat(3, 1fr);
+    /* Force 3 columns */
+    gap: 32px;
+    padding: 24px 0 40px 0;
 }
 
 /* Card */
@@ -138,7 +139,10 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    height: 100%;
+    height: 440px;
+    width: 100%;
+    max-width: 480px;
+    /* Constrain width */
 }
 
 .course-card-item:hover {
@@ -149,6 +153,7 @@
 
 .card-image-wrapper {
     height: 180px;
+    /* Decreased image height to balance */
     width: 100%;
     /* Ensure full width */
     background: #f1f5f9;
@@ -627,7 +632,9 @@
         max-height: 85vh;
     }
 
-    .modal-head, .modal-body, .form-footer {
+    .modal-head,
+    .modal-body,
+    .form-footer {
         padding: 20px;
     }
 }

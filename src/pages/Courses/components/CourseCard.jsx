@@ -33,135 +33,111 @@ const CourseCard = ({
             : course.img;
 
     return (
-        <div className="card shadow-sm h-100">
-
-            {/* Image */}
-            <img
-                src={displayImage}
-                className="card-img-top"
-                alt={course?.name || "Course image"}
-                style={{ height: "200px", objectFit: "cover" }}
-                onError={() => setImgError(true)}
-            />
-
-            {/* Bookmark Overlay */}
-            <button
-                className="btn btn-light rounded-circle shadow-sm"
-                style={{
-                    position: "absolute",
-                    top: "10px",
-                    right: "10px",
-                    width: "32px",
-                    height: "32px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 10,
-                    border: "none"
-                }}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onBookmark?.(course.id);
-                }}
-                title={course.isBookmarked ? "Remove Bookmark" : "Bookmark Course"}
-            >
-                <FiBookmark
-                    fill={course.isBookmarked ? "#f59e0b" : "none"}
-                    color={course.isBookmarked ? "#f59e0b" : "#64748b"}
+        <div className="course-card-item">
+            {/* Image Section */}
+            <div className="card-image-wrapper">
+                <img
+                    src={displayImage}
+                    alt={course?.name || "Course image"}
+                    onError={() => setImgError(true)}
                 />
-            </button>
 
-            <div className="card-body d-flex flex-column">
-
-                {/* Header */}
-                <div className="d-flex justify-content-between align-items-start mb-2">
-
-                    <div className="d-flex align-items-center gap-2">
-                        <h6 className="mb-0 fw-semibold">
-                            {course?.name || "Untitled Course"}
-                        </h6>
-
-                        {/* Info */}
-                        <FiInfo
-                            className="text-secondary"
-                            title="View Course Details"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => onShowDetails?.(course)}
+                {/* Bookmark Overlay */}
+                <div className="card-badges">
+                    <button
+                        className="badge-pill bg-white border-0 shadow-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onBookmark?.(course.id);
+                        }}
+                        style={{ padding: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title={course.isBookmarked ? "Remove Bookmark" : "Bookmark Course"}
+                    >
+                        <FiBookmark
+                            fill={course.isBookmarked ? "#f59e0b" : "none"}
+                            color={course.isBookmarked ? "#f59e0b" : "#64748b"}
+                            size={18}
                         />
-                    </div>
+                    </button>
 
-                    {/* Dropdown */}
+                    {/* Status Pill (if needed, otherwise we use the dropdown for actions) */}
                     <div className="dropdown">
                         <button
-                            className="btn btn-sm btn-light"
+                            className="badge-pill bg-white border-0 shadow-sm"
                             data-bs-toggle="dropdown"
+                            style={{ padding: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
-                            <FiMoreVertical />
+                            <FiMoreVertical size={18} />
                         </button>
 
-                        <ul className="dropdown-menu dropdown-menu-end">
+                        <ul className="dropdown-menu dropdown-menu-end shadow border-0">
                             <li>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => onShare?.(course)}
-                                >
-                                    <FiShare2 className="me-2" /> Share
+                                <button className="dropdown-item py-2" onClick={() => onShare?.(course)}>
+                                    <FiShare2 className="me-2 text-primary" /> Share
                                 </button>
                             </li>
                             <li>
-                                <button
-                                    className="dropdown-item"
-                                    onClick={() => onEdit?.(course.id)}
-                                >
-                                    <FiEdit2 className="me-2" /> Edit
+                                <button className="dropdown-item py-2" onClick={() => onEdit?.(course.id)}>
+                                    <FiEdit2 className="me-2 text-secondary" /> Edit
                                 </button>
                             </li>
+                            <li><hr className="dropdown-divider" /></li>
                             <li>
-                                <button
-                                    className="dropdown-item text-danger"
-                                    onClick={() => onDelete?.(course.id)}
-                                >
+                                <button className="dropdown-item py-2 text-danger" onClick={() => onDelete?.(course.id)}>
                                     <FiTrash2 className="me-2" /> Delete
                                 </button>
                             </li>
                         </ul>
                     </div>
                 </div>
+            </div>
 
-                {/* Learners count */}
-                <div className="d-flex align-items-center text-muted mb-2">
-                    <FiUsers className="me-1" />
-                    <small>
-                        {typeof course?.learnersCount === "number"
-                            ? course.learnersCount
-                            : 0}{" "}
-                        learners
-                    </small>
+            <div className="card-content-body">
+                {/* Header */}
+                <div className="card-header-row d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 className="card-title-text" title={course?.name}>
+                            {course?.name || "Untitled Course"}
+                        </h3>
+                        <span className="card-trainer-text">
+                            <FiInfo
+                                size={14}
+                                className="me-1 text-primary"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => onShowDetails?.(course)}
+                            />
+                            View Details
+                        </span>
+                    </div>
                 </div>
 
-                {/* Description (hidden if empty) */}
-                {course?.desc && (
-                    <p className="text-muted small flex-grow-1">
-                        {course.desc.length > 80
-                            ? course.desc.slice(0, 80) + "..."
-                            : course.desc}
-                    </p>
-                )}
+                {/* Meta / Stats */}
+                <div className="d-flex align-items-center gap-3 mb-3">
+                    <div className="d-flex align-items-center text-muted small">
+                        <FiUsers className="me-1 text-primary" />
+                        <span>{course?.learnersCount || 0} Learners</span>
+                    </div>
+                </div>
 
-                {/* Actions */}
-                <div className="d-flex gap-2 mt-3">
+                {/* Description */}
+                <p className="card-desc-text">
+                    {course?.desc || "No description provided for this course."}
+                </p>
+
+                {/* Footer Actions */}
+                <div className="card-footer-actions mt-auto">
                     <button
-                        className="btn btn-secondary btn-sm w-100"
+                        className="action-btn-card edit"
                         onClick={() => onManageContent?.(course.id)}
                     >
-                        <FiLayers className="me-1" /> Course Content
+                        <FiLayers size={14} /> Course Builder
                     </button>
-
                     <button
-                        className="btn btn-outline-secondary btn-sm w-100"
+                        className="action-btn-card"
                         onClick={() => onViewLearners?.(course.id)}
+                        style={{ background: '#eff6ff', border: '1px solid #dbeafe', color: '#2563eb' }}
                     >
-                        <FiUsers className="me-1" /> Learners
+                        <FiUsers size={14} /> Learners
                     </button>
                 </div>
             </div>

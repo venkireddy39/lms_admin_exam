@@ -203,7 +203,7 @@ const AttendanceReport = ({ history = [], students = [] }) => {
                                                 courseName: student.courseName,
                                                 email: sInfo.email || sInfo.studentEmail || sInfo.userEmail,
                                                 phone: sInfo.phone || sInfo.phoneNumber || sInfo.studentPhone || sInfo.mobile,
-                                                enrolledDate: fullProfile.enrolledAt || fullProfile.enrolledDate || fullProfile.createdAt || sInfo.createdAt
+                                                enrolledDate: fullProfile.joinedAt || fullProfile.enrolledAt || fullProfile.enrolledDate || fullProfile.createdAt || sInfo.createdAt
                                             });
                                         }}
                                         className="cursor-pointer"
@@ -258,7 +258,7 @@ const AttendanceReport = ({ history = [], students = [] }) => {
                                                     courseName: record.courseName || sInfo.courseName,
                                                     email: sInfo.email || sInfo.studentEmail || sInfo.userEmail,
                                                     phone: sInfo.phone || sInfo.phoneNumber || sInfo.studentPhone || sInfo.mobile,
-                                                    enrolledDate: fullProfile.enrolledAt || fullProfile.enrolledDate || fullProfile.createdAt || sInfo.createdAt
+                                                    enrolledDate: fullProfile.joinedAt || fullProfile.enrolledAt || fullProfile.enrolledDate || fullProfile.createdAt || sInfo.createdAt
                                                 });
                                             }}
                                             style={{ cursor: 'pointer' }}

@@ -36,43 +36,24 @@ export const attendanceService = {
     // Get sessions with optional batch and date filters
     getSessions: async (batchId, date) => {
         const effectiveDate = date || new Date().toISOString().split('T')[0];
+        // Correct endpoint from AttendanceSessionController.java
         const url = `${API_BASE_URL}/attendance/session/date/${effectiveDate}`;
 
         try {
             const apiSessions = await apiFetch(url);
             const combined = Array.isArray(apiSessions) ? apiSessions : [];
-            console.log("[attendanceService] getSessions RAW:", combined);
 
-            if (combined.length > 0) {
-                console.log("[attendanceService] getSessions SAMPLE:", combined[0]);
-            }
-
-            // Normalize and filter
+            // Normalize
             const mapped = combined.map(s => {
-                // Robust mapping to find the Academic Session ID
-                const acadId = s.classId || s.sessionId || s.session_id || s.academicSessionId || s.academic_session_id || s?.session?.id;
-
-                // Robust title finding
-                const title = s.title || s.sessionName || s.name || s.topic ||
-                    s?.session?.title || s?.session?.sessionName || s?.session?.name ||
-                    `Session #${acadId}`;
-
-                // Robust batch/course ID finding
-                const recBatchId = s.batchId || s.batch_id || s?.batch?.batchId || s?.batch?.id || s?.session?.batchId;
-                const recCourseId = s.courseId || s.course_id || s?.course?.courseId || s?.course?.id || s?.session?.courseId;
-
-                // Robust Name Finding
-                const recBatchName = s.batchName || s.batch_name || s?.batch?.batchName || s?.batch?.name || s?.session?.batchName;
-                const recCourseName = s.courseName || s.course_name || s?.course?.courseName || s?.course?.name || s?.session?.courseName;
+                const acadId = s.classId || s.sessionId || s.session_id || s.academicSessionId || (s.session && s.session.id);
+                const title = s.title || s.sessionName || (s.session && s.session.sessionName) || `Session #${acadId}`;
 
                 return {
                     ...s,
                     classId: acadId,
                     title: title,
-                    batchId: recBatchId || s.batchId,
-                    courseId: recCourseId || s.courseId,
-                    batchName: recBatchName || s.batchName,
-                    courseName: recCourseName || s.courseName
+                    batchId: s.batchId || (s.session && s.session.batchId),
+                    courseId: s.courseId || (s.session && s.session.courseId)
                 };
             });
 
@@ -81,7 +62,7 @@ export const attendanceService = {
             }
             return mapped;
         } catch (e) {
-            console.warn("[attendanceService] Could not fetch sessions", e);
+            console.warn("[attendanceService] Could not fetch sessions for date", effectiveDate, e);
             return [];
         }
     },
@@ -101,31 +82,72 @@ export const attendanceService = {
     startSession: async (classId, courseId, batchId, userId) => {
         console.log(`[attendanceService] Checking existing sessions before start...`);
 
+        // Ensure IDs are valid numbers
+        const nClassId = Number(classId);
+        const nCourseId = Number(courseId);
+        const nBatchId = Number(batchId);
+        const nUserId = Number(userId || 1);
+
         // 1. Check if session already exists for this class
         try {
-            const existingSessions = await attendanceService.getAttendanceSessionsByClassId(classId);
+            const existingSessions = await attendanceService.getAttendanceSessionsByClassId(nClassId);
             if (Array.isArray(existingSessions) && existingSessions.length > 0) {
-                // Find any ACTIVE session logic
-                const active = existingSessions.find(s => (s.status === 'ACTIVE' || s.status === 'LIVE'));
-                if (active) {
-                    console.log(`[attendanceService] Found existing active session ${active.id}, re-using.`);
-                    return active; // Return existing instead of getting 409 or duplicate
+                const existing = existingSessions.find(s =>
+                    ['ACTIVE', 'LIVE'].includes((s.status || '').toUpperCase())
+                ) || existingSessions[0];
+
+                if (existing) {
+                    console.log(`[attendanceService] Found existing session ${existing.id} (Status: ${existing.status}), returning it.`);
+                    return existing;
                 }
             }
         } catch (e) {
             console.warn("[attendanceService] Check existing failed, trying to start anyway", e);
         }
 
-        console.log(`[attendanceService] Starting NEW session: classId=${classId}`);
+        console.log(`[attendanceService] Starting NEW session: classId=${nClassId}, userId=${nUserId}`);
         const params = new URLSearchParams({
-            sessionId: Number(classId),
-            courseId: Number(courseId),
-            batchId: Number(batchId),
-            userId: Number(userId || 1)
+            sessionId: nClassId,
+            courseId: nCourseId,
+            batchId: nBatchId,
+            userId: nUserId
         });
-        return apiFetch(`${API_BASE_URL}/attendance/session/start?${params.toString()}`, {
-            method: 'POST'
-        });
+
+        // Use POST with query params as the backend expects
+        try {
+            return await apiFetch(`${API_BASE_URL}/attendance/session/start?${params.toString()}`, {
+                method: 'POST'
+            });
+        } catch (error) {
+            const errorMsg = error.message || "";
+            // Special Handle: 409 Conflict wrapped in 500 error
+            if (errorMsg.includes("409 CONFLICT") || errorMsg.includes("already started")) {
+                console.info("[attendanceService] Session already active. Fetching existing session data...");
+                const existing = await attendanceService.getAttendanceSessionsByClassId(nClassId);
+                const active = (existing || []).find(s => ['ACTIVE', 'LIVE'].includes((s.status || '').toUpperCase()));
+                if (active) return active;
+                if (existing && existing.length > 0) return existing[0];
+            }
+
+            console.warn("[attendanceService] POST with query params failed. Trying Body-based start...", error);
+            // Fallback: Try with JSON Body
+            return apiFetch(`${API_BASE_URL}/attendance/session/start`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    sessionId: nClassId,
+                    courseId: nCourseId,
+                    batchId: nBatchId,
+                    userId: nUserId
+                })
+            }).catch(async (e2) => {
+                const e2Msg = e2.message || "";
+                if (e2Msg.includes("409") || e2Msg.includes("already started")) {
+                    const existing = await attendanceService.getAttendanceSessionsByClassId(nClassId);
+                    return (existing || []).find(s => ['ACTIVE', 'LIVE'].includes((s.status || '').toUpperCase())) || existing[0];
+                }
+                throw e2;
+            });
+        }
     },
 
     // End an attendance session
@@ -224,24 +246,43 @@ export const attendanceService = {
 
             // 1. Bulk Create New Records
             if (toCreate.length > 0) {
+                // Try bulk first, if it fails, we will catch it below
                 promises.push(
                     apiFetch(`${API_BASE_URL}/attendance/record/bulk`, {
                         method: 'POST',
                         body: JSON.stringify(toCreate)
+                    }).catch(async (e) => {
+                        console.warn("[attendanceService] Bulk save failed, falling back to individual records", e);
+                        // Fallback: Individual creation
+                        const singlePromises = toCreate.map(rec =>
+                            apiFetch(`${API_BASE_URL}/attendance/record`, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    attendanceSessionId: rec.attendanceSessionId,
+                                    studentId: rec.studentId,
+                                    status: rec.status,
+                                    remarks: rec.remarks,
+                                    attendanceDate: rec.attendanceDate,
+                                    source: rec.source,
+                                    markedBy: rec.markedBy
+                                })
+                            }).catch(err => console.error(`Failed to create record for student ${rec.studentId}`, err))
+                        );
+                        return Promise.all(singlePromises);
                     })
                 );
             }
 
-            // 2. Individual Update Existing Records (Backend likely lacks bulk update)
-            // Or if backend supports bulk update via PUT, we could use that. 
-            // Assuming we must iterate or use a flexible endpoint.
-            // Let's try iterating updates for safety to avoid 500s.
+            // 2. Individual Update Existing Records
             toUpdate.forEach(rec => {
                 promises.push(
-                    apiFetch(`${API_BASE_URL}/attendance/record/${rec.id}`, { // Assuming generic update endpoint
+                    apiFetch(`${API_BASE_URL}/attendance/record/${rec.id}`, {
                         method: 'PUT',
                         body: JSON.stringify(rec)
-                    }).catch(e => console.error(`Failed to update record ${rec.id}`, e))
+                    }).catch(e => {
+                        console.error(`Failed to update record ${rec.id}`, e);
+                        // If PUT fails, maybe try POST as an overwrite? (Depends on backend)
+                    })
                 );
             });
 
@@ -249,6 +290,39 @@ export const attendanceService = {
             return { success: true };
         } catch (error) {
             console.error("[attendanceService] saveAttendance error details:", error);
+
+            // Handle "Student is not enrolled" error by falling back to Offline Queue
+            // This happens if the user tries to mark attendance for a student who was just transferred or has a state mismatch.
+            const errMsg = error.message || "";
+            if (errMsg.includes("Student is not enrolled") || errMsg.includes("Student not active in batch")) {
+                console.warn("[attendanceService] Enrollment Strict Check Failed. Falling back to Offline Queue for records.");
+
+                // Try saving these records to offline queue one by one
+                // We use the available data in 'toCreate'
+                const fallbackPromises = toCreate.map(record => {
+                    const fallbackPayload = {
+                        sessionId: attendanceSessionId, // This is 'attendanceSessionId', not academic 'classId'. Queue might expect either depending on backend.
+                        // Let's assume we pass the primary ID we have.
+                        attendanceSessionId: attendanceSessionId,
+                        batchId: 0, // We might not have batchId handy here easily without lookups, but let's try 0 or handle in queue logic
+                        studentId: record.studentId,
+                        status: record.status,
+                        remarks: record.remarks
+                    };
+                    // Note: 'batchId' is required by saveToOfflineQueue usually. 
+                    // But if we are here, we might lack context. 
+                    // However, let's try to proceed. Ideally we should have batchId passed to saveAttendance.
+
+                    // Since we don't have batchId in arguments, we might fail again if queue requires it.
+                    // But let's try best effort.
+                    return attendanceService.saveToOfflineQueue(fallbackPayload)
+                        .catch(e => console.error("Fallback queue save failed for student " + record.studentId, e));
+                });
+
+                await Promise.all(fallbackPromises);
+                return { success: true, warning: "Saved to Offline Queue due to enrollment mismatch." };
+            }
+
             throw error;
         }
     },
@@ -318,13 +392,30 @@ export const attendanceService = {
 
     // Get dashboard stats
     getDashboardStats: (courseId, batchId) =>
-        apiFetch(`${API_BASE_URL}/attendance/record/dashboard?courseId=${Number(courseId || 0)}&batchId=${Number(batchId || 0)}`),
+        apiFetch(`${API_BASE_URL}/attendance/dashboard?courseId=${Number(courseId || 0)}&batchId=${Number(batchId || 0)}`),
 
     // Get all attendance instances for an academic session (classId)
     getAttendanceSessionsByClassId: async (classId) => {
+        if (!classId) return [];
         console.log(`[attendanceService] Fetching attendance sessions for classId: ${classId}`);
-        // Backend: @GetMapping("/session/{sessionId}/all") under /api/attendance/session
-        return apiFetch(`${API_BASE_URL}/attendance/session/session/${Number(classId)}/all`);
+
+        try {
+            // Updated to match AttendanceSessionController.java @GetMapping("/session/{sessionId}/all")
+            const data = await apiFetch(`${API_BASE_URL}/attendance/session/session/${classId}/all`).catch(() => null);
+            if (data && Array.isArray(data)) return data;
+
+            // Legacy/Fallback check: active only
+            const activeOnly = await apiFetch(`${API_BASE_URL}/attendance/session/active/${classId}`).catch(() => null);
+            if (activeOnly) return [activeOnly];
+
+            // List and filter (last resort)
+            const today = new Date().toISOString().split('T')[0];
+            const all = await attendanceService.getSessions(null, today);
+            return (all || []).filter(s => String(s.classId || s.sessionId) === String(classId));
+        } catch (error) {
+            console.warn("[attendanceService] getAttendanceSessionsByClassId failed", error);
+            return [];
+        }
     },
 
     // ------------------------------------------

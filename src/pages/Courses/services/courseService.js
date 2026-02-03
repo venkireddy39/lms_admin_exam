@@ -4,7 +4,21 @@ const API_BASE_URL = "/api/courses";
 
 export const courseService = {
     // Fetch all courses
-    getCourses: () => apiFetch(API_BASE_URL),
+    getCourses: async () => {
+        try {
+            const data = await apiFetch(API_BASE_URL);
+            if (Array.isArray(data)) {
+                localStorage.setItem('lms_courses_cache', JSON.stringify(data));
+                return data;
+            }
+            const cached = localStorage.getItem('lms_courses_cache');
+            return cached ? JSON.parse(cached) : [];
+        } catch (error) {
+            console.warn("API failed to get courses, using cache", error);
+            const cached = localStorage.getItem('lms_courses_cache');
+            return cached ? JSON.parse(cached) : [];
+        }
+    },
 
     // Get a course by ID
     getCourseById: (id) => apiFetch(`${API_BASE_URL}/${id}`),

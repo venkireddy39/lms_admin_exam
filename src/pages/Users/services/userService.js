@@ -17,6 +17,9 @@ export const userService = {
     // Get all users
     getAllUsers: () => apiFetch(`${BASE_URL}/users`),
 
+    // Get Single User
+    getUserById: (id) => apiFetch(`${BASE_URL}/users/${id}`),
+
     // Get all students (Joined Data)
     getAllStudents: () => apiFetch(`${BASE_URL}/getstudents`),
 

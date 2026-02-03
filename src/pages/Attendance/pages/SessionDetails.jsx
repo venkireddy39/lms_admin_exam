@@ -57,6 +57,14 @@ const LiveView = () => {
                 if (!isMounted) return;
 
                 if (sessionData && sessionData.batchId) {
+                    // Check if session is already ended/completed and redirect to report if so
+                    const st = (sessionData.status || '').toUpperCase();
+                    if (st === 'ENDED' || st === 'COMPLETED') {
+                        console.log(`[SessionDetails] Session ${sessionId} is ${st}. Redirecting to Report.`);
+                        navigate(`../report`, { replace: true });
+                        return;
+                    }
+
                     const classId = sessionData.classId || sessionData.sessionId;
 
                     // 2. Initialize/Sync Store State - Only if needed

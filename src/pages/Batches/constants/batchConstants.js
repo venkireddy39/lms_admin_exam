@@ -2,7 +2,8 @@
 export const BATCH_STATUS = {
     UPCOMING: 'Upcoming',
     ONGOING: 'Ongoing',
-    COMPLETED: 'Completed'
+    COMPLETED: 'Completed',
+    DELETED: 'Deleted'
 };
 
 export const INITIAL_BATCH_FORM = {
@@ -20,5 +21,6 @@ export const BATCH_TABS = {
     ALL: 'All',
     UPCOMING: 'Upcoming',
     ONGOING: 'Ongoing',
-    COMPLETED: 'Completed'
+    COMPLETED: 'Completed',
+    DELETED: 'Deleted'
 };

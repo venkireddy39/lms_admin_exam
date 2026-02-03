@@ -29,7 +29,9 @@ const LoginPage = () => {
             }
         } catch (err) {
             console.error(err);
-            setError('Invalid credentials or server error');
+            // Use the specific error message if it's not too long/messy
+            const msg = err.message || 'Invalid credentials or server error';
+            setError(msg.length < 100 ? msg : 'Invalid credentials or server error');
         } finally {
             setIsLoading(false);
         }
@@ -63,8 +65,8 @@ const LoginPage = () => {
         <div className="d-flex align-items-center justify-content-center vh-100 bg-light">
             <div className="card shadow p-4" style={{ maxWidth: '400px', width: '100%' }}>
                 <div className="text-center mb-4">
-                    <h3 className="mb-1">Admin Login</h3>
-                    <small className="text-muted">Enter credentials to access Library</small>
+                    <h3 className="mb-1">LMS Portal Login</h3>
+                    <small className="text-muted">Enter credentials to access your account</small>
                 </div>
 
                 {error && <div className="alert alert-danger py-2 small">{error}</div>}

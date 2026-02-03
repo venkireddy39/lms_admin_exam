@@ -1,0 +1,177 @@
+/* Student Dashboard Premium Styles */
+
+:root {
+    --student-primary: #6366f1;
+    --student-secondary: #a855f7;
+    --student-success: #10b981;
+    --student-warning: #f59e0b;
+    --student-danger: #ef4444;
+    --student-bg: #0f172a;
+    --student-card-bg: rgba(30, 41, 59, 0.7);
+    --student-border: rgba(255, 255, 255, 0.1);
+}
+
+.student-dashboard {
+    color: #f8fafc;
+    min-height: 100vh;
+    padding-bottom: 2rem;
+}
+
+/* Glass Card */
+.glass-card {
+    background: var(--student-card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--student-border);
+    border-radius: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Stats Cards */
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+}
+
+.stat-icon-wrapper {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.stat-label {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* Quick Action Buttons */
+.quick-action-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--student-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+    width: 100%;
+    color: #cbd5e1;
+}
+
+.quick-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--student-primary);
+    color: white;
+}
+
+.action-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Course Card Enhanced */
+.course-card-premium {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.course-badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.progress-bar-premium {
+    height: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 1rem;
+}
+
+/* Schedule Timeline */
+.timeline-item {
+    position: relative;
+    padding-left: 2rem;
+    padding-bottom: 1.5rem;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 0.45rem;
+    top: 0.5rem;
+    bottom: 0;
+    width: 1px;
+    background: var(--student-border);
+}
+
+.timeline-item:last-child::before {
+    display: none;
+}
+
+.timeline-dot {
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: #1e293b;
+    border: 2px solid var(--student-primary);
+    z-index: 1;
+}
+
+/* Gamification */
+.xp-widget {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.4) 0%, rgba(49, 46, 129, 0.4) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.badge-item {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0.75rem;
+    padding: 0.5rem;
+    text-align: center;
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+    .stat-card {
+        padding: 1rem;
+    }
+}

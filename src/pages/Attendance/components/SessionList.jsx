@@ -1,7 +1,7 @@
 import React from 'react';
 import SessionCard from './SessionCard';
 
-const SessionList = ({ sessions, type, onStart, onDelete, emptyMessage }) => {
+const SessionList = ({ sessions, type, onStart, onDelete, emptyMessage, userRole }) => {
     if (!sessions || sessions.length === 0) {
         return (
             <div className="text-muted text-center py-5 border rounded-3 bg-light">
@@ -19,6 +19,7 @@ const SessionList = ({ sessions, type, onStart, onDelete, emptyMessage }) => {
                     type={type}
                     onStart={onStart}
                     onDelete={onDelete}
+                    userRole={userRole}
                 />
             ))}
         </div>

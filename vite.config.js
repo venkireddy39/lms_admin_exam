@@ -7,37 +7,37 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/student-batches': {
-        target: 'http://192.168.1.22:5151',
+        target: 'http://192.168.1.18:5151',
         changeOrigin: true,
         secure: false,
       },
       '/api/attendance': {
-        target: 'http://192.168.1.22:5151',
+        target: 'http://192.168.1.18:5151',
         changeOrigin: true,
         secure: false,
       },
       '/api': {
-        target: 'http://192.168.1.22:5151',
+        target: 'http://192.168.1.18:5151',
         changeOrigin: true,
         secure: false,
       },
       '/admin': {
-        target: 'http://192.168.1.17:8081',
+        target: 'http://192.168.1.34:8081',
         changeOrigin: true,
         secure: false,
       },
       '/student': {
-        target: 'http://192.168.1.17:8081',
+        target: 'http://192.168.1.34:8081',
         changeOrigin: true,
         secure: false,
       },
       '/auth': {
-        target: 'http://192.168.1.17:8081',
+        target: 'http://192.168.1.34:8081',
         changeOrigin: true,
         secure: false,
       },
       '/library': {
-        target: 'http://localhost:9191',
+        target: 'http://192.168.1.25:9191',
         changeOrigin: true,
         secure: false,
         bypass: (req, res, options) => {
@@ -47,7 +47,7 @@ export default defineConfig({
         }
       },
       '/uploads': {
-        target: 'http://192.168.1.22:5151',
+        target: 'http://192.168.1.18:5151',
         changeOrigin: true,
         secure: false,
       }

@@ -15,98 +15,94 @@ const ReportPage = ({ batchId: propBatchId }) => {
     const [loading, setLoading] = useState(false);
 
     const [allBatches, setAllBatches] = useState([]); // Store master list
+    const [selectedClass, setSelectedClass] = useState('');
+    const [classes, setClasses] = useState([]);
+    const [students, setStudents] = useState([]);
 
-    // Initial Load
+    // 1. Initial Load: Fetch Courses and All Batches (if not in Batch view)
     useEffect(() => {
         const init = async () => {
-            if (propBatchId) {
-                loadHistory(propBatchId);
-            } else {
+            if (!propBatchId) {
                 try {
-                    // Load Courses AND All Batches in parallel
                     const [coursesData, batchesData] = await Promise.all([
                         courseService.getCourses(),
                         batchService.getAllBatches()
                     ]);
-
                     setCourses(coursesData);
                     setAllBatches(batchesData);
-                    setBatches(batchesData); // Default to showing all
-                } catch (e) { console.error(e); }
+                    setBatches(batchesData);
+                } catch (e) {
+                    console.error("Failed to initialize report data", e);
+                }
             }
         };
         init();
     }, [propBatchId]);
 
-    // Filter Batches when Course Changes
+    // 2. Filter Batches when Course Changes (Dropdown Flow)
     useEffect(() => {
-        if (!propBatchId) {
-            if (selectedCourse) {
-                const filtered = allBatches.filter(b => String(b.courseId) === String(selectedCourse));
-                setBatches(filtered);
-                // Auto-select if only 1 batch exists
-                if (filtered.length === 1) setSelectedBatch(filtered[0].batchId || filtered[0].id);
-                else setSelectedBatch('');
-            } else {
-                setBatches(allBatches); // Reset to show all
-            }
+        if (!propBatchId && selectedCourse) {
+            const filtered = allBatches.filter(b => String(b.courseId) === String(selectedCourse));
+            setBatches(filtered);
+            if (filtered.length === 1) setSelectedBatch(filtered[0].batchId || filtered[0].id);
+            else setSelectedBatch('');
+        } else if (!propBatchId) {
+            setBatches(allBatches);
         }
     }, [selectedCourse, allBatches, propBatchId]);
 
-    const [selectedClass, setSelectedClass] = useState('');
-    const [classes, setClasses] = useState([]);
-    const [students, setStudents] = useState([]);
-
-    // When Batch Changes, load Classes
+    // 3. CORE LOGIC: When Batch changes (Dropdown or Prop), load Context
     useEffect(() => {
-        if (!propBatchId && selectedBatch) {
-            // Load classes (academic sessions) for this batch
-            attendanceService.getAcademicSessions(selectedBatch)
-                .then(setClasses)
-                .catch(() => setClasses([]));
-
-            // Load Students
-            enrollmentService.getStudentsByBatch(selectedBatch)
-                .then(setStudents)
-                .catch(e => { console.warn(e); setStudents([]); });
-
-            // Load batch-wide history initially
-            loadHistory(selectedBatch);
-        } else if (propBatchId) {
-            // If prop is used, we assume batch view
-            enrollmentService.getStudentsByBatch(propBatchId)
-                .then(setStudents)
-                .catch(() => setStudents([]));
+        const batchId = propBatchId || selectedBatch;
+        if (batchId) {
+            loadBatchContext(batchId);
         }
     }, [selectedBatch, propBatchId]);
 
-    // When Class Changes, reload history
+    const loadBatchContext = async (batchId) => {
+        setLoading(true);
+        try {
+            // Load sessions and students first
+            const [sessionsData, studentsData] = await Promise.all([
+                attendanceService.getAcademicSessions(batchId).catch(() => []),
+                enrollmentService.getStudentsByBatch(batchId).catch(() => [])
+            ]);
+
+            setClasses(sessionsData);
+            setStudents(studentsData);
+
+            // Pass sessions directly to history loader because state update is async
+            await loadHistoryData(batchId, false, sessionsData, studentsData);
+        } catch (e) {
+            console.error("Error loading batch context:", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 4. When specific Class/Session is selected, reload history for it
     useEffect(() => {
         if (selectedClass) {
-            loadHistory(selectedClass, true); // true = bySession
-        } else if (selectedBatch) {
-            loadHistory(selectedBatch, false); // false = byBatch
+            loadHistoryData(selectedClass, true, classes, students);
+        } else if (selectedBatch || propBatchId) {
+            loadHistoryData(propBatchId || selectedBatch, false, classes, students);
         }
     }, [selectedClass]);
 
-    const loadHistory = async (id, isSessionLevel = false) => {
-        setLoading(true);
+    const loadHistoryData = async (id, isSessionLevel, currentClasses, currentStudents) => {
         try {
             let historyData = [];
 
             if (isSessionLevel) {
-                // Fetch for specific class/session
+                // Specific class session
                 historyData = await attendanceService.getAttendance(id);
             } else {
-                // "All Classes" (Batch View)
-                // Backend lacks a batch-level endpoint, so we aggregate data from all classes in this batch.
-                if (classes.length > 0) {
-                    // Fetch attendance for ALL classes in parallel
-                    const promises = classes.map(c =>
+                // Batch-wide aggregation
+                if (currentClasses && currentClasses.length > 0) {
+                    const promises = currentClasses.map(c =>
                         attendanceService.getAttendance(c.classId || c.sessionId)
                             .then(records => records.map(r => ({
                                 ...r,
-                                // Tag each record with the class/session name so we know where it came from
                                 courseName: c.sessionName || c.topicName || `Class ${c.classId}`
                             })))
                             .catch(() => [])
@@ -114,50 +110,35 @@ const ReportPage = ({ batchId: propBatchId }) => {
                     const results = await Promise.all(promises);
                     historyData = results.flat();
                 } else {
-                    // Fallback if no classes loaded yet (rare)
+                    // Fallback to batch endpoint
                     historyData = await attendanceService.getAttendanceHistory(id);
                 }
             }
 
-            // Fetch Students (Batch level) to map names
-            const batchIdForStudents = isSessionLevel && selectedBatch ? selectedBatch : (isSessionLevel ? null : id);
-            // logic fix: if isSessionLevel, id is sessionID, we need batchId. 
-            // Luckily selectedBatch is available in state.
-            const targetBatchId = selectedBatch || id;
-
-            const studentsData = await enrollmentService.getStudentsByBatch(targetBatchId).catch(() => []);
-
-            // Create a lookup map for students: ID -> Name
+            // Map and enrich records
             const studentMap = {};
-            if (Array.isArray(studentsData)) {
-                studentsData.forEach(s => {
-                    studentMap[s.studentId] = s.studentName || s.name || `Student ${s.studentId}`;
-                });
-            }
+            (currentStudents || []).forEach(s => {
+                studentMap[s.studentId] = s.studentName || s.name || `Student ${s.studentId}`;
+            });
 
-            // Enrich history with names
-            const enrichedHistory = (historyData || []).map(record => ({
-                ...record,
-                status: (record.status || 'ABSENT').toUpperCase(), // Normalize status
-                date: record.attendanceDate || record.date, // Map attendanceDate to date
-                method: record.source || record.method || 'MANUAL', // Map source to method
-                studentName: studentMap[record.studentId] || record.studentName || `Student #${record.studentId}`,
-                // If courseName wasn't set during aggregation, set default
-                courseName: record.courseName || (isSessionLevel ? 'Class Session' : 'Batch History')
+            const enriched = (historyData || []).map(r => ({
+                ...r,
+                status: (r.status || 'ABSENT').toUpperCase(),
+                date: r.attendanceDate || r.date,
+                method: r.source || r.method || 'MANUAL',
+                studentName: studentMap[r.studentId] || r.studentName || `Student #${r.studentId}`,
+                courseName: r.courseName || (isSessionLevel ? 'Class Session' : 'Batch History')
             }));
 
-            setHistory(enrichedHistory);
+            setHistory(enriched);
         } catch (error) {
-            console.error("Failed to load attendance history", error);
+            console.error("Failed to load history data", error);
             setHistory([]);
-        } finally {
-            setLoading(false);
         }
     };
 
     return (
         <div className="fade-in">
-            {/* Batch Selection Controls - Only show if no batchId prop is provided */}
             {!propBatchId && (
                 <div className="card border-0 shadow-sm mb-4">
                     <div className="card-body">
@@ -187,7 +168,7 @@ const ReportPage = ({ batchId: propBatchId }) => {
                                     value={selectedBatch}
                                     onChange={(e) => {
                                         setSelectedBatch(e.target.value);
-                                        setSelectedClass(''); // Reset class when batch changes
+                                        setSelectedClass('');
                                     }}
                                     disabled={!batches.length}
                                 >
@@ -221,7 +202,7 @@ const ReportPage = ({ batchId: propBatchId }) => {
             )}
 
             {(selectedBatch || propBatchId) ? (
-                loading ? (
+                loading && history.length === 0 ? (
                     <div className="text-center py-5">
                         <div className="spinner-border text-primary" role="status"></div>
                         <p className="mt-2 text-muted">Loading attendance data...</p>

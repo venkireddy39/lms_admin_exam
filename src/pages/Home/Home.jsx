@@ -26,7 +26,19 @@ import {
 
 import './Home.css';
 
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../Library/context/AuthContext';
+
 const Home = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user?.role === 'STUDENT') {
+      navigate('/student/dashboard');
+    }
+  }, [user, navigate]);
+
   return (
     <div className="dashboard-container">
       <ToastContainer position="top-right" autoClose={3000} />

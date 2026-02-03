@@ -52,42 +52,64 @@ const CoursesPage = () => {
 
   React.useEffect(() => {
     const enrichCourses = async () => {
-      // If we are filtering, we enrich the filtered list. If not, we enrich the main list?
-      // Actually usually better to enrich the base list, but we only display filteredCourses.
-      // Let's enrich filteredCourses for display.
+      // If we are filtering, we enrich the filtered list.
       if (!filteredCourses) return;
 
       try {
-        // Dynamic import to avoid circular dependencies if any, though likely safe to import normally
+        // Dynamic import to avoid circular dependencies
         const { batchService } = await import('../Batches/services/batchService');
         const { enrollmentService } = await import('../Batches/services/enrollmentService');
 
-        const [batches, enrollments] = await Promise.all([
-          batchService.getAllBatches().catch(() => []),
-          enrollmentService.getAllEnrollments()
-        ]);
+        const updated = await Promise.all(filteredCourses.map(async (course) => {
+          try {
+            // Support both ID formats just in case
+            const courseId = course.courseId || course.id;
 
-        const updated = filteredCourses.map(course => {
-          // 1. Find all batches for this course
-          const courseBatches = batches.filter(b => String(b.courseId) === String(course.id));
-          const batchIds = courseBatches.map(b => String(b.batchId));
+            // 1. Get batches for this specific course
+            const batches = await batchService.getBatchesByCourseId(courseId);
 
-          // 2. Find all enrollments in these batches
-          const courseEnrollments = enrollments.filter(e => batchIds.includes(String(e.batchId)));
+            if (!batches || !Array.isArray(batches) || batches.length === 0) {
+              return { ...course, learnersCount: 0 };
+            }
 
-          // 3. Count unique students
-          const uniqueStudents = new Set(courseEnrollments.map(e => String(e.studentId)));
+            // 2. Get students for each batch
+            // We use Promise.all to fetch them in parallel
+            const studentPromises = batches.map(b =>
+              enrollmentService.getStudentsByBatch(b.batchId).catch(() => [])
+            );
 
-          return {
-            ...course,
-            learnersCount: uniqueStudents.size
-          };
-        });
+            const studentsResults = await Promise.all(studentPromises);
+
+            // 3. Flatten and Count Unique
+            const allStudents = studentsResults.flat();
+            // Filter out invalid entries ANY non-active records, and count unique IDs
+            const uniqueStudents = new Set(
+              allStudents
+                .filter(s => {
+                  if (!s || !s.studentId) return false;
+                  // Strict active check
+                  if (!s.status) return true; // Default to active if status missing
+                  const st = String(s.status).toUpperCase();
+                  return st === 'ACTIVE' || st === 'ENROLLED';
+                })
+                .map(s => String(s.studentId))
+            );
+
+            return {
+              ...course,
+              learnersCount: uniqueStudents.size
+            };
+
+          } catch (err) {
+            console.warn(`Failed to enrich course ${course.courseId || course.id}`, err);
+            return { ...course, learnersCount: 0 };
+          }
+        }));
 
         setEnrichedCourses(updated);
 
       } catch (err) {
-        console.error("Failed to calculate learners count", err);
+        console.error("Failed to load services for learner count", err);
         setEnrichedCourses(filteredCourses);
       }
     };

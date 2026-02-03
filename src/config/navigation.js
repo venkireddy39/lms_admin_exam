@@ -123,25 +123,25 @@ export const studentNavigationConfig = [
         id: 'dashboard',
         label: 'Dashboard',
         path: '/student/dashboard',
-        icon: 'bi-speedometer2'
+        icon: 'bi-grid-1x2'
     },
     {
         id: 'courses',
         label: 'My Courses',
         path: '/student/courses',
-        icon: 'bi-journal-check'
+        icon: 'bi-journal-bookmark'
     },
     {
-        id: 'batches',
-        label: 'My Batches',
-        path: '/student/batches',
-        icon: 'bi-people'
+        id: 'content',
+        label: 'Learning Content',
+        path: '/student/content',
+        icon: 'bi-play-btn'
     },
     {
-        id: 'attendance',
-        label: 'Attendance',
-        path: '/student/attendance',
-        icon: 'bi-calendar-check'
+        id: 'assignments',
+        label: 'Assignments',
+        path: '/student/assignments',
+        icon: 'bi-clipboard-check'
     },
     {
         id: 'exams',
@@ -150,33 +150,39 @@ export const studentNavigationConfig = [
         icon: 'bi-pencil-square'
     },
     {
-        id: 'webinars',
-        label: 'Webinars',
-        path: '/student/webinars',
-        icon: 'bi-camera-video'
+        id: 'grades',
+        label: 'Grades',
+        path: '/student/grades',
+        icon: 'bi-graph-up'
     },
     {
-        id: 'library',
-        label: 'Library',
-        path: '/student/library',
-        icon: 'bi-book'
+        id: 'calendar',
+        label: 'Calendar',
+        path: '/student/calendar',
+        icon: 'bi-calendar3'
     },
     {
-        id: 'transport',
-        label: 'Transport',
-        path: '/student/transport',
-        icon: 'bi-bus-front'
+        id: 'communication',
+        label: 'Communication',
+        path: '/student/communication',
+        icon: 'bi-chat-dots'
     },
     {
-        id: 'fees',
-        label: 'Fee History',
-        path: '/student/fees',
-        icon: 'bi-receipt'
+        id: 'profile',
+        label: 'Profile',
+        path: '/student/profile',
+        icon: 'bi-person-circle'
     },
     {
-        id: 'notifications',
-        label: 'Notifications',
-        path: '/student/notifications',
-        icon: 'bi-bell'
+        id: 'certificates',
+        label: 'Certificates',
+        path: '/student/certificates',
+        icon: 'bi-award'
+    },
+    {
+        id: 'support',
+        label: 'Support',
+        path: '/student/support',
+        icon: 'bi-question-circle'
     }
 ];

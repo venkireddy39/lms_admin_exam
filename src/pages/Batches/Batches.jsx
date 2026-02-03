@@ -139,9 +139,16 @@ const Batches = () => {
                 const enriched = await Promise.all(batches.map(async (b) => {
                     try {
                         const studentsList = await enrollmentService.getStudentsByBatch(b.batchId);
+                        // Filter active students only (exclude TRANSFERRED/INACTIVE)
+                        const activeCount = studentsList.filter(s => {
+                            if (!s.status) return true; // Default to active if status missing
+                            const st = String(s.status).toUpperCase();
+                            return st === 'ACTIVE' || st === 'ENROLLED';
+                        }).length;
+
                         return {
                             ...b,
-                            students: studentsList.length
+                            students: activeCount
                         };
                     } catch (err) {
                         return { ...b, students: b.students || 0 };

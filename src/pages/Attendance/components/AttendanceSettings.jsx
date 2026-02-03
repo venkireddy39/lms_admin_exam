@@ -11,6 +11,9 @@ import {
     Eye,
     Check
 } from 'lucide-react';
+import { useCallback } from 'react';
+import { useToast } from '../../Library/context/ToastContext';
+import { EXIT_ACTIONS, QR_MODES } from '../utils/attendanceRules';
 
 /* ---------------- HELPERS ---------------- */
 
@@ -42,13 +45,12 @@ const SectionCard = ({ title, icon: Icon, children, description }) => (
 
 const ToggleInput = ({ label, value, onToggle, helpText }) => (
     <div className="form-check form-switch d-flex justify-content-between ps-0 align-items-center mb-1">
-        <div>
-            <label className="form-check-label fw-medium text-dark small mb-0" onClick={onToggle}>
-                {label}
-            </label>
-            {helpText && <div className="text-muted" style={{ fontSize: '0.75rem' }}>{helpText}</div>}
-        </div>
+        <label className="form-check-label fw-medium text-dark small mb-0 flex-grow-1 cursor-pointer" htmlFor={`toggle-${label.replace(/\s+/g, '-')}`}>
+            {label}
+            {helpText && <div className="text-muted fw-normal" style={{ fontSize: '0.75rem' }}>{helpText}</div>}
+        </label>
         <input
+            id={`toggle-${label.replace(/\s+/g, '-')}`}
             className="form-check-input ms-3 cursor-pointer"
             type="checkbox"
             checked={value}
@@ -115,102 +117,111 @@ const SelectInput = ({ label, value, options, onChange }) => (
 
 const AttendanceSettings = () => {
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const toast = useToast();
+    const [isSaving, setIsSaving] = useState(false);
 
+    // Flat state matching backend JSON
     const [settings, setSettings] = useState({
-        /* -------- Academic Rules -------- */
-        academic: {
-            examEligibilityPercent: 75,
-            warningThresholdPercent: 60
-        },
+        courseId: 1, // Default or prop
+        batchId: 2,  // Default or prop
 
-        /* -------- Attendance Rules -------- */
-        attendance: {
-            minPresenceMinutes: 30,
-            exitEarlyAction: 'MARK_PARTIAL',
-            // Advanced
-            reverificationInterval: 10,
-            statuses: ['PRESENT', 'LATE', 'PARTIAL', 'EXCUSED', 'MEDICAL', 'PROXY_SUSPECTED']
-        },
+        // Academic
+        examEligibilityPercent: 75,
+        atRiskPercent: 65,
 
-        /* -------- Session Controls -------- */
-        session: {
-            qrMode: 'ALWAYS',
-            gracePeriodMinutes: 15,
-            strictStart: true, // ON
-            conflictAction: 'FLAG_FOR_REVIEW',
-            protocolsEnabled: true
-        },
+        // Time / Presence
+        lateGraceMinutes: 10,
+        minPresenceMinutes: 40,
+        autoAbsentMinutes: 20,
 
-        /* -------- Device & Security -------- */
-        security: {
-            // Basic
-            oneDevicePerSession: true,
-            logIpAddress: true,
+        // Logic
+        earlyExitAction: EXIT_ACTIONS.MARK_PARTIAL,
 
-            // Advanced / Hidden by default
-            deviceBinding: false, // Default OFF
-            logDeviceFingerprint: false, // Default OFF
-            geoFencingEnabled: false, // Default OFF
-            geoFenceRadiusMeters: 50,
-            faceRecognitionEnabled: false, // Privacy fear -> OFF
-            wifiRestrictionEnabled: false, // Complaints -> OFF
-        },
+        // Switches
+        allowOffline: false,
+        allowManualOverride: true,
+        requireOverrideReason: true,
+        notifyParents: false,
+        oneDevicePerSession: true,
+        logIpAddress: true,
+        strictStart: false,
+        qrCodeMode: QR_MODES.ALWAYS,
 
-        /* -------- Exceptions -------- */
-        exceptions: {
-            cameraFailureAllowed: true,
-            networkFailureGraceMinutes: 10,
-            emergencyUnlockAllowed: true,
-            powerFailureGraceMinutes: 15
-        },
+        gracePeriodMinutes: 10,
+        consecutiveAbsenceLimit: 2,
 
-        /* -------- Alerts -------- */
-        notifications: {
-            eligibilityRiskAlert: true,
-            consecutiveAbsenceLimit: 3, // Implicit alert
-            // Advanced
-            notifyParents: false, // Optional -> OFF
-            suspiciousActivityAlert: true
-        },
-
-        /* -------- Manual Control & Audit -------- */
-        audit: {
-            manualOverrideAllowed: true,
-            overrideReasonMandatory: true,
-
-            // Advanced
-            auditLogEnabled: false, // "Enable later" -> OFF
-            faceDataRetentionDays: 60,
-            consentRequired: true,
-            dataAccessScope: 'ADMIN_ONLY'
-        }
+        // Advanced / Hidden defaults
+        deviceBinding: false,
+        geoFencingEnabled: false,
+        faceRecognitionEnabled: false,
+        wifiRestrictionEnabled: false,
+        logDeviceFingerprint: false,
+        auditLogEnabled: false,
+        consentRequired: true,
+        faceDataRetentionDays: 60,
+        reverificationInterval: 10,
     });
 
     /* ---------------- GENERIC UPDATERS ---------------- */
 
-    const updateField = (section, key, value) => {
+    /* ---------------- GENERIC UPDATERS ---------------- */
+
+    const updateField = useCallback((key, value) => {
         setSettings(prev => ({
             ...prev,
-            [section]: {
-                ...prev[section],
-                [key]: value
-            }
+            [key]: value
         }));
+    }, []);
+
+    const updateNumber = useCallback((key, value, min, max) => {
+        const numVal = Number(value);
+        if (!isNaN(numVal) && numVal >= min && numVal <= max) {
+            updateField(key, numVal);
+        }
+    }, [updateField]);
+
+    const toggle = useCallback((key) => {
+        setSettings(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    }, []);
+
+    const validateSettings = () => {
+        if (settings.faceRecognitionEnabled && !settings.consentRequired) {
+            throw new Error('Consent required for face recognition features.');
+        }
+        if (settings.autoAbsentMinutes >= settings.minPresenceMinutes) {
+            throw new Error('Auto-Absent minutes must be less than full presence minutes.');
+        }
+        return true;
     };
 
-    const updateNumber = (section, key, value, min, max) =>
-        updateField(section, key, clamp(value, min, max));
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            validateSettings();
+            await new Promise(resolve => setTimeout(resolve, 800));
+            console.log('FINAL ATTENDANCE CONFIG', {
+                ...settings,
+                updatedAt: new Date().toISOString()
+            });
+            toast.success('Attendance configuration saved successfully');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || 'Failed to save configuration.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
-    const toggle = (section, key) =>
-        updateField(section, key, !settings[section][key]);
-
-    const handleSave = () => {
-        console.log('FINAL ATTENDANCE CONFIG', {
-            ...settings,
-            updatedAt: new Date().toISOString()
-        });
-        // In a real app, use a toast notification here
-        alert('Attendance configuration saved successfully');
+    const getAdvancedSummaryCount = () => {
+        let count = 0;
+        if (settings.deviceBinding) count++;
+        if (settings.geoFencingEnabled) count++;
+        if (settings.faceRecognitionEnabled) count++;
+        if (settings.auditLogEnabled) count++;
+        return count;
     };
 
     /* ---------------- RENDER ---------------- */
@@ -228,9 +239,10 @@ const AttendanceSettings = () => {
                 <button
                     className="btn btn-primary d-flex align-items-center gap-2 shadow-sm"
                     onClick={handleSave}
+                    disabled={isSaving}
                 >
-                    <Save size={18} />
-                    <span>Save Changes</span>
+                    {isSaving ? <span className="spinner-border spinner-border-sm" /> : <Save size={18} />}
+                    <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
                 </button>
             </div>
 
@@ -244,13 +256,13 @@ const AttendanceSettings = () => {
                 >
                     <RangeInput
                         label="Exam Eligibility Threshold"
-                        value={settings.academic.examEligibilityPercent}
-                        onChange={v => updateNumber('academic', 'examEligibilityPercent', v, 0, 100)}
+                        value={settings.examEligibilityPercent}
+                        onChange={v => updateNumber('examEligibilityPercent', v, 0, 100)}
                     />
                     <RangeInput
-                        label="At-Risk Warning Threshold"
-                        value={settings.academic.warningThresholdPercent}
-                        onChange={v => updateNumber('academic', 'warningThresholdPercent', v, 0, 100)}
+                        label="At Risk Warning Threshold"
+                        value={settings.atRiskPercent}
+                        onChange={v => updateNumber('atRiskPercent', v, 0, 100)}
                     />
                 </SectionCard>
 
@@ -258,19 +270,25 @@ const AttendanceSettings = () => {
                 <SectionCard
                     title="Attendance Rules"
                     icon={Calendar}
-                    description="Simple presence logic."
+                    description="Logic for automated status."
                 >
                     <NumberInput
-                        label="Minimum Presence for Credit"
-                        value={settings.attendance.minPresenceMinutes}
+                        label="Minutes for Present Status"
+                        value={settings.minPresenceMinutes}
                         suffix="mins"
-                        onChange={v => updateNumber('attendance', 'minPresenceMinutes', v, 0, 300)}
+                        onChange={v => updateNumber('minPresenceMinutes', v, 0, 300)}
+                    />
+                    <NumberInput
+                        label="Auto-Absent Below (Minutes)"
+                        value={settings.autoAbsentMinutes}
+                        suffix="mins"
+                        onChange={v => updateNumber('autoAbsentMinutes', v, 0, 300)}
                     />
                     <SelectInput
-                        label="Action on Early Exit"
-                        value={settings.attendance.exitEarlyAction}
-                        options={['MARK_PARTIAL', 'MARK_ABSENT']}
-                        onChange={v => updateField('attendance', 'exitEarlyAction', v)}
+                        label="In-Between Action (Partial Range)"
+                        value={settings.earlyExitAction}
+                        options={Object.values(EXIT_ACTIONS)}
+                        onChange={v => updateField('earlyExitAction', v)}
                     />
                 </SectionCard>
 
@@ -282,21 +300,27 @@ const AttendanceSettings = () => {
                 >
                     <SelectInput
                         label="QR Code Mode"
-                        value={settings.session.qrMode}
-                        options={['ALWAYS', 'START_ONLY', 'START_AND_END']}
-                        onChange={v => updateField('session', 'qrMode', v)}
+                        value={settings.qrCodeMode}
+                        options={Object.values(QR_MODES)}
+                        onChange={v => updateField('qrCodeMode', v)}
                     />
                     <NumberInput
-                        label="Grace Period Duration"
-                        value={settings.session.gracePeriodMinutes}
+                        label="Entry Grace Period"
+                        value={settings.gracePeriodMinutes}
                         suffix="mins"
-                        onChange={v => updateNumber('session', 'gracePeriodMinutes', v, 0, 60)}
+                        onChange={v => updateNumber('gracePeriodMinutes', v, 0, 60)}
+                    />
+                    <NumberInput
+                        label="Late Mark Grace Period"
+                        value={settings.lateGraceMinutes}
+                        suffix="mins"
+                        onChange={v => updateNumber('lateGraceMinutes', v, 0, 60)}
                     />
                     <ToggleInput
                         label="Strict Start Enforcement"
                         helpText="Students cannot join before start time."
-                        value={settings.session.strictStart}
-                        onToggle={() => toggle('session', 'strictStart')}
+                        value={settings.strictStart}
+                        onToggle={() => toggle('strictStart')}
                     />
                 </SectionCard>
 
@@ -308,47 +332,40 @@ const AttendanceSettings = () => {
                 >
                     <ToggleInput
                         label="One Device Per Session"
-                        value={settings.security.oneDevicePerSession}
-                        onToggle={() => toggle('security', 'oneDevicePerSession')}
+                        value={settings.oneDevicePerSession}
+                        onToggle={() => toggle('oneDevicePerSession')}
                     />
                     <ToggleInput
                         label="Log IP Address"
-                        value={settings.security.logIpAddress}
-                        onToggle={() => toggle('security', 'logIpAddress')}
+                        value={settings.logIpAddress}
+                        onToggle={() => toggle('logIpAddress')}
+                    />
+                    <ToggleInput
+                        label="Allow Offline Mode"
+                        value={settings.allowOffline}
+                        onToggle={() => toggle('allowOffline')}
                     />
                 </SectionCard>
 
-                {/* 5. Exceptions */}
+                {/* 5. Notifications */}
                 <SectionCard
-                    title="Exceptions"
-                    icon={AlertTriangle}
-                    description="Reduce daily conflicts."
-                >
-                    <ToggleInput label="Allow Camera Failure" value={settings.exceptions.cameraFailureAllowed} onToggle={() => toggle('exceptions', 'cameraFailureAllowed')} />
-                    <NumberInput label="Network Failure Grace" value={settings.exceptions.networkFailureGraceMinutes} suffix="mins"
-                        onChange={v => updateNumber('exceptions', 'networkFailureGraceMinutes', v, 0, 60)} />
-                    <ToggleInput label="Emergency Unlock" value={settings.exceptions.emergencyUnlockAllowed} onToggle={() => toggle('exceptions', 'emergencyUnlockAllowed')} />
-                </SectionCard>
-
-                {/* 6. Alerts */}
-                <SectionCard
-                    title="Alerts"
+                    title="Notifications"
                     icon={Bell}
                     description="Early intervention triggers."
                 >
-                    <ToggleInput label="Eligibility Risk Alert" value={settings.notifications.eligibilityRiskAlert} onToggle={() => toggle('notifications', 'eligibilityRiskAlert')} />
-                    <NumberInput label="Consecutive Absence Alert Limit" value={settings.notifications.consecutiveAbsenceLimit} suffix="days"
-                        onChange={v => updateNumber('notifications', 'consecutiveAbsenceLimit', v, 1, 10)} />
+                    <NumberInput label="Consecutive Absence Limit" value={settings.consecutiveAbsenceLimit} suffix="days"
+                        onChange={v => updateNumber('consecutiveAbsenceLimit', v, 1, 10)} />
+                    <ToggleInput label="Notify Parents" value={settings.notifyParents} onToggle={() => toggle('notifyParents')} />
                 </SectionCard>
 
-                {/* 7. Manual Control */}
+                {/* 6. Manual Control */}
                 <SectionCard
                     title="Manual Control"
                     icon={Lock}
                     description="Admin override powers."
                 >
-                    <ToggleInput label="Allow Manual Override" value={settings.audit.manualOverrideAllowed} onToggle={() => toggle('audit', 'manualOverrideAllowed')} />
-                    <ToggleInput label="Require Reason" value={settings.audit.overrideReasonMandatory} onToggle={() => toggle('audit', 'overrideReasonMandatory')} />
+                    <ToggleInput label="Allow Manual Override" value={settings.allowManualOverride} onToggle={() => toggle('allowManualOverride')} />
+                    <ToggleInput label="Require Reason" value={settings.requireOverrideReason} onToggle={() => toggle('requireOverrideReason')} />
                 </SectionCard>
 
             </div>
@@ -360,6 +377,11 @@ const AttendanceSettings = () => {
                     onClick={() => setShowAdvanced(!showAdvanced)}
                 >
                     {showAdvanced ? 'Hide Advanced Settings' : 'Show Advanced Settings'}
+                    {!showAdvanced && getAdvancedSummaryCount() > 0 && (
+                        <span className="badge bg-warning text-dark ms-2 rounded-pill">
+                            {getAdvancedSummaryCount()} Active
+                        </span>
+                    )}
                 </button>
             </div>
 
@@ -378,11 +400,11 @@ const AttendanceSettings = () => {
                         icon={ShieldAlert}
                         description="Geo-fencing, Biometrics, Network."
                     >
-                        <ToggleInput label="Device Binding" value={settings.security.deviceBinding} onToggle={() => toggle('security', 'deviceBinding')} />
-                        <ToggleInput label="Geo-Fencing" value={settings.security.geoFencingEnabled} onToggle={() => toggle('security', 'geoFencingEnabled')} />
-                        <ToggleInput label="Face Recognition" value={settings.security.faceRecognitionEnabled} onToggle={() => toggle('security', 'faceRecognitionEnabled')} />
-                        <ToggleInput label="Wi-Fi Restriction" value={settings.security.wifiRestrictionEnabled} onToggle={() => toggle('security', 'wifiRestrictionEnabled')} />
-                        <ToggleInput label="Log Device Fingerprint" value={settings.security.logDeviceFingerprint} onToggle={() => toggle('security', 'logDeviceFingerprint')} />
+                        <ToggleInput label="Device Binding" value={settings.deviceBinding} onToggle={() => toggle('deviceBinding')} />
+                        <ToggleInput label="Geo-Fencing" value={settings.geoFencingEnabled} onToggle={() => toggle('geoFencingEnabled')} />
+                        <ToggleInput label="Face Recognition" value={settings.faceRecognitionEnabled} onToggle={() => toggle('faceRecognitionEnabled')} />
+                        <ToggleInput label="Wi-Fi Restriction" value={settings.wifiRestrictionEnabled} onToggle={() => toggle('wifiRestrictionEnabled')} />
+                        <ToggleInput label="Log Device Fingerprint" value={settings.logDeviceFingerprint} onToggle={() => toggle('logDeviceFingerprint')} />
                     </SectionCard>
 
                     {/* Advanced Audit & Logs */}
@@ -391,11 +413,10 @@ const AttendanceSettings = () => {
                         icon={Lock}
                         description="Data retention and logging."
                     >
-                        <ToggleInput label="Audit Logs" value={settings.audit.auditLogEnabled} onToggle={() => toggle('audit', 'auditLogEnabled')} />
-                        <ToggleInput label="Parent Notifications" value={settings.notifications.notifyParents} onToggle={() => toggle('notifications', 'notifyParents')} />
-                        <ToggleInput label="User Consent Required" value={settings.audit.consentRequired} onToggle={() => toggle('audit', 'consentRequired')} />
-                        <NumberInput label="Face Data Retention" value={settings.audit.faceDataRetentionDays} suffix="days"
-                            onChange={v => updateNumber('audit', 'faceDataRetentionDays', v, 1, 365)} />
+                        <ToggleInput label="Audit Logs" value={settings.auditLogEnabled} onToggle={() => toggle('auditLogEnabled')} />
+                        <ToggleInput label="User Consent Required" value={settings.consentRequired} onToggle={() => toggle('consentRequired')} />
+                        <NumberInput label="Face Data Retention" value={settings.faceDataRetentionDays} suffix="days"
+                            onChange={v => updateNumber('faceDataRetentionDays', v, 1, 365)} />
                     </SectionCard>
 
                     {/* Advanced Attendance Logic */}
@@ -405,11 +426,10 @@ const AttendanceSettings = () => {
                     >
                         <NumberInput
                             label="Re-verification Interval"
-                            value={settings.attendance.reverificationInterval}
+                            value={settings.reverificationInterval}
                             suffix="mins"
-                            onChange={v => updateNumber('attendance', 'reverificationInterval', v, 1, 60)}
+                            onChange={v => updateNumber('reverificationInterval', v, 1, 60)}
                         />
-                        <ToggleInput label="Suspicious Activity Alert" value={settings.notifications.suspiciousActivityAlert} onToggle={() => toggle('notifications', 'suspiciousActivityAlert')} />
                     </SectionCard>
 
                 </div>
