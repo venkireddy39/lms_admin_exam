@@ -71,28 +71,39 @@ const CreateExam = () => {
     setLoading(true);
     try {
       const examToEdit = await ExamService.getExamById(id);
+
       if (examToEdit) {
-        // Fetch related settings too
-        const [settings, design, proctoring, grading] = await Promise.all([
-          ExamService.getExamSettings(id),
-          ExamService.getExamDesign(id),
-          ExamService.getExamProctoring(id),
-          ExamService.getExamGrading(id)
+        // Fetch related entities (Fail-safe: If one fails, others should still load)
+        const fetchSafe = async (fn, fallback) => {
+          try { return await fn(id) || fallback; }
+          catch (e) { console.warn("Sub-data load failed:", e); return fallback; }
+        };
+
+        const [settings, design, proctoring, grading, questions] = await Promise.all([
+          fetchSafe(ExamService.getExamSettings, {}),
+          fetchSafe(ExamService.getExamDesign, {}),
+          fetchSafe(ExamService.getExamProctoring, {}),
+          fetchSafe(ExamService.getExamGrading, {}),
+          fetchSafe(ExamService.getExamQuestions, [])
         ]);
+
+        console.log("Loaded Exam Content:", { examToEdit, questions });
 
         setExamData({
           ...examToEdit,
           settings: { ...examToEdit.settings, ...settings, ...grading },
           proctoring: { ...examToEdit.proctoring, ...proctoring },
-          customAssets: { ...examToEdit.customAssets, ...design }
+          customAssets: { ...examToEdit.customAssets, ...design },
+          questions: Array.isArray(questions) ? questions : []
         });
         setStep("editor");
       } else {
-        toast.error("Exam record not found!");
-        navigate("/exams/dashboard");
+        toast.error("Exam not found or unavailable.");
+        navigate("/admin/exams/dashboard");
       }
     } catch (error) {
-      toast.error("Failed to load exam data");
+      console.error("Deep Load Error:", error);
+      toast.error("Failed to load exam data. Please check connection.");
     } finally {
       setLoading(false);
     }
@@ -125,15 +136,21 @@ const CreateExam = () => {
 
       let savedExam;
       if (isEditMode) {
-        // Assuming updateExam is implemented or we use a specific update flow
         savedExam = await ExamService.updateExam(id, corePayload);
       } else {
         savedExam = await ExamService.saveExam(corePayload);
       }
 
-      const examId = savedExam.exam_id || savedExam.examId || savedExam.id || id;
+      // Robust check for ID from backend (supports id, examId, exam_id)
+      const examId = savedExam?.examId || savedExam?.exam_id || savedExam?.id || id;
 
-      // 2. Parallel save of all configuration entities aligned with Tables 2, 3, 4, 5, 6
+      if (!examId) {
+        throw new Error("Backend did not return a valid Exam ID. Check your ExamController save method.");
+      }
+
+      console.log("Exam saved successfully with ID:", examId);
+
+      // 2. Parallel save of all configuration entities
       await Promise.all([
         // Table 3: exam_settings
         ExamSettingsService.saveSettings(examId, {
@@ -196,8 +213,19 @@ const CreateExam = () => {
               ...q,
               courseId: examData.courseId
             });
+            const newId = savedQ.id || savedQ.questionId || savedQ.question_id;
+
+            // Save options separately if they exist (aligned with QuestionOption.java)
+            if (q.options && q.options.length > 0) {
+              const optionsWithCorrectness = q.options.map((opt, idx) => ({
+                text: opt,
+                isCorrect: idx === q.correctOption
+              }));
+              await QuestionService.saveOptions(newId, optionsWithCorrectness);
+            }
+
             // Return original q merged with new ID
-            return { ...q, id: savedQ.id || savedQ.questionId || savedQ.question_id };
+            return { ...q, id: newId };
           } catch (err) {
             console.error("Failed to auto-save new question:", q);
             throw new Error("Failed to save one or more new questions. Please try again.");
@@ -215,8 +243,7 @@ const CreateExam = () => {
       // 4. Publish if it's a final action
       await ExamService.publishExam(examId);
 
-      toast.success(isEditMode ? "Exam updated!" : "New exam published!");
-      setTimeout(() => navigate("/exams/dashboard"), 1500);
+      setTimeout(() => navigate("/admin/exams/dashboard"), 1500);
     } catch (error) {
       console.error("Save failed:", error);
       toast.error("Failed to save exam. Check console for details.");

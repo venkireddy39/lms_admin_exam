@@ -284,12 +284,6 @@ const LiveView = () => {
         );
     }
 
-    // Redirect if session is locked/ended
-    // Only check if we have an active session in context
-    if (isSessionLocked()) {
-        return <Navigate to={`/admin/attendance/sessions/${sessionId}/report`} replace />;
-    }
-
     return (
         <div className="fade-in pb-5">
             {/* Top Tracker / Header */}

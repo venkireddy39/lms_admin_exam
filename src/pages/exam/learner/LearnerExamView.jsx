@@ -226,7 +226,7 @@ const LearnerExamView = () => {
 
                     <button
                         className="btn btn-outline-light btn-lg px-5 rounded-pill"
-                        onClick={() => navigate("/exams/student/dashboard")}
+                        onClick={() => navigate("/admin/exams/student/dashboard")}
                     >
                         Go to Dashboard
                     </button>

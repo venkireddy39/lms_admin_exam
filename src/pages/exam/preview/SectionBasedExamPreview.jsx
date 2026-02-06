@@ -236,7 +236,7 @@ const SectionBasedExamPreview = () => {
 
                     <button
                         className="btn btn-outline-white border-white-10 rounded-pill px-5 py-2 hover-bg-white-5"
-                        onClick={() => navigate("/exams/dashboard")}
+                        onClick={() => navigate("/admin/exams/dashboard")}
                     >
                         Return to Control Center
                     </button>

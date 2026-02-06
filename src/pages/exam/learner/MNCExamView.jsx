@@ -318,7 +318,7 @@ const MNCExamView = () => {
 
     const handleSubmit = () => {
         alert("Exam Submitted Successfully!");
-        navigate('/exams/dashboard');
+        navigate('/admin/exams/dashboard');
     };
 
     // Calculate Counts (Global)

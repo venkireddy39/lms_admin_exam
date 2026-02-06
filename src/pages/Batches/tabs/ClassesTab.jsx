@@ -273,7 +273,7 @@ const ClassesTab = ({ batchId, courseId, instructorName }) => {
     };
 
     const handleEditClass = (session) => {
-        navigate(`/batches/${batchId}/create-class?edit=${session.sessionId}`, { state: { session } });
+        navigate(`/admin/batches/${batchId}/create-class?edit=${session.sessionId}`, { state: { session } });
     };
 
     const handleViewContent = (session) => {
@@ -329,7 +329,7 @@ const ClassesTab = ({ batchId, courseId, instructorName }) => {
                     </button>
                     <button
                         className="btn-primary-add"
-                        onClick={() => navigate(`/batches/${batchId}/create-class`)}
+                        onClick={() => navigate(`/admin/batches/${batchId}/create-class`)}
                     >
                         <FiPlus /> Schedule Class
                     </button>

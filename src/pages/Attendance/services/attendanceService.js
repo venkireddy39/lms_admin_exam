@@ -178,32 +178,36 @@ export const attendanceService = {
     // End an attendance session
     endSession: async (attendanceSessionId) => {
         console.log(`[attendanceService] Ending session: ${attendanceSessionId}`);
-        const endedAt = new Date().toISOString();
+        // Strip 'Z' to be safe for Java LocalDateTime (YYYY-MM-DDTHH:mm:ss)
+        const endedAt = new Date().toISOString().split('.')[0];
 
         try {
             // 1. Try the specific END endpoint
             await apiFetch(`${API_BASE_URL}/attendance/session/${Number(attendanceSessionId)}/end`, {
                 method: 'PUT',
-                body: JSON.stringify({ endedAt })
+                body: JSON.stringify({ endedAt, status: 'ENDED' })
             });
+            return { success: true };
         } catch (e) {
             console.warn("Specific /end endpoint failed or returned error, trying fallback update", e);
         }
 
-        // 2. Force update 'endedAt' via generic PUT (if available) to ensure DB persistence
-        // This addresses the issue where ended_at is not saving.
+        // 2. Force update 'endedAt' via generic PUT with FULL object logic
+        // We must fetch first to ensure we don't nullify other required columns
         try {
+            const currentSession = await attendanceService.getSession(attendanceSessionId);
+
             return await apiFetch(`${API_BASE_URL}/attendance/session/${Number(attendanceSessionId)}`, {
                 method: 'PUT',
                 body: JSON.stringify({
-                    id: attendanceSessionId,
+                    ...currentSession,
                     status: 'ENDED',
                     endedAt: endedAt
                 })
             });
         } catch (e) {
             console.error("Failed to force update endedAt timestamp", e);
-            return { success: true }; // Return true anyway if the /end call presumably worked conceptually
+            return { success: true }; // Return true implicitly/optimistically
         }
     },
 
@@ -538,6 +542,11 @@ export const attendanceService = {
     // Get upload job status (assuming GET /id exists)
     getUploadJobStatus: (uploadJobId) => {
         return apiFetch(`${API_BASE_URL}/attendance/upload-job/${uploadJobId}`);
+    },
+
+    // ALIAS for backward compatibility/consistency with SessionDetails.jsx
+    saveSessionAttendance: function (sessionId, records) {
+        return this.saveAttendance(sessionId, records);
     }
 };
 

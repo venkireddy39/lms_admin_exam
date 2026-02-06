@@ -1,6 +1,5 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import DashboardLayout from '../components/layout/DashboardLayout';
 import AdminLayout from '../components/layout/AdminLayout';
 import Loading from '../components/common/Loading';
 import { useAuth } from '../pages/Library/context/AuthContext';
@@ -50,6 +49,7 @@ const StudentHostel = lazy(() => import('../pages/Student/StudentHostel'));
 const StudentCommunication = lazy(() => import('../pages/Student/StudentCommunication'));
 const StudentReports = lazy(() => import('../pages/Student/StudentReports'));
 const StudentHelpDesk = lazy(() => import('../pages/Student/StudentHelpDesk'));
+const AutomationDashboard = lazy(() => import('../pages/Automation/AutomationDashboard'));
 
 const RootRedirect = () => {
   const { user, loading } = useAuth();
@@ -132,6 +132,7 @@ const AppRoutes = () => {
           <Route path="settings" element={<Settings />} />
           <Route path="webinar" element={<Webinar />} />
           <Route path="profile" element={<AdminProfile />} />
+          <Route path="automation" element={<AutomationDashboard />} />
 
           <Route path="academics">
             <Route index element={<Navigate to="/admin/courses" replace />} />

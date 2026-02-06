@@ -21,8 +21,7 @@ const EditorMode = ({ examData, setExamData, onSave, onPreview, onBack }) => {
         }
         // Open in new tab? No, router is SPA.
         // It's better to navigate in same tab usually, or open new window.
-        // Since SPA, simple navigate.
-        navigate('/exams/simulation/mnc-preview', { state: { examData } });
+        navigate(`/admin/exams/simulation/mnc-preview/${examData.id || 'preview'}`, { state: { examData } });
     };
 
 

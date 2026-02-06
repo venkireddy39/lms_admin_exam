@@ -37,9 +37,16 @@ export const AttendanceProvider = ({ children }) => {
 
     // Helper to check if session is locked
     const isSessionLocked = useCallback(() => {
-        // Only consider the session locked if it matches the current active attendance session PK
-        if (!session.id || !session.endTime || session.status === 'ENDED') return true;
-        return Date.now() > session.endTime;
+        // Only consider the session locked if it's explicitly ended or missing
+        const st = (session.status || '').toUpperCase();
+        if (!session.id || st === 'ENDED' || st === 'COMPLETED') return true;
+
+        // If it's LIVE, never consider it locked regardless of client time
+        if (st === 'LIVE' || st === 'ACTIVE') return false;
+
+        // Fallback for scheduled but un-started sessions
+        if (session.endTime && Date.now() > session.endTime) return true;
+        return false;
     }, [session.id, session.endTime, session.status]);
 
     const startSession = useCallback((attendanceSessionId, classId, mode = 'QR', expiryMinutes = 5, durationMinutes = 60) => {

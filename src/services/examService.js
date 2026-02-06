@@ -121,5 +121,12 @@ export const examService = {
             method: 'POST',
             body: JSON.stringify(scheduleData)
         });
+    },
+
+    /**
+     * Get exam paper view (questions)
+     */
+    viewExamPaper: async (examId) => {
+        return await apiFetch(`/api/exams/${examId}/questions/view`);
     }
 };

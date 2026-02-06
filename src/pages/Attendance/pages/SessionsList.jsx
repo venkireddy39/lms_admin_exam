@@ -19,6 +19,7 @@ const SessionsList = () => {
     const [selectedCourse, setSelectedCourse] = useState('');
     const [selectedBatch, setSelectedBatch] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('ALL'); // ALL, ACTIVE, ENDED
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [searchQuery, setSearchQuery] = useState('');
 
     // Load Courses
@@ -40,45 +41,79 @@ const SessionsList = () => {
         }
     }, [selectedCourse]);
 
-    // Load Sessions when batch changes
+    // Load Sessions when batch or date changes
     useEffect(() => {
         if (selectedBatch) {
             fetchSessions();
         } else {
             setSessions([]);
         }
-    }, [selectedBatch]);
+    }, [selectedBatch, selectedDate]);
 
     const fetchSessions = async () => {
         setLoading(true);
         try {
+            console.log(`[SessionsList] Fetching sessions for batch: ${selectedBatch}, date: ${selectedDate}`);
             const [attData, acadData] = await Promise.all([
-                attendanceService.getSessions(selectedBatch),
+                attendanceService.getSessions(selectedBatch, selectedDate),
                 attendanceService.getAcademicSessions(selectedBatch)
             ]);
 
-            // Enrich attendance sessions with academic schedule info
-            const enriched = await Promise.all((attData || []).map(async s => {
-                const acad = acadData.find(a => String(a.classId || a.sessionId) === String(s.classId));
-                console.log(`[SessionsList] Matching AttSession #${s.id} (classId: ${s.classId}) with AcadSession:`, acad);
+            // Filter academic sessions for the selected date
+            // Handle various formats (Array [Y, M, D] or String "YYYY-MM-DD")
+            const acadForDate = (acadData || []).filter(s => {
+                let d = s.date || s.startDate || s.start_date || s.attendanceDate;
+                if (!d) return false;
+                if (Array.isArray(d)) {
+                    d = `${d[0]}-${String(d[1]).padStart(2, '0')}-${String(d[2]).padStart(2, '0')}`;
+                } else if (typeof d === 'string' && d.includes('T')) {
+                    d = d.split('T')[0];
+                }
+                return d === selectedDate;
+            });
 
-                let studentCount = 0;
-                try {
-                    const students = await attendanceService.getStudents(s.batchId);
-                    studentCount = students.length;
-                } catch (e) { /* ignore */ }
+            // Map Attendance Data
+            const attMapped = await Promise.all((attData || []).map(async s => {
+                const acad = acadData.find(a => String(a.classId || a.sessionId) === String(s.classId));
+
+                let studentCount = s.presentCount || 0;
+                if (!studentCount) {
+                    try {
+                        const records = await attendanceService.getAttendance(s.id);
+                        studentCount = (records || []).filter(r =>
+                            ['PRESENT', 'LATE', 'PARTIAL'].includes((r.status || '').toUpperCase())
+                        ).length;
+                    } catch (e) { /* ignore */ }
+                }
 
                 return {
                     ...s,
-                    scheduledDate: acad?.startDate,
-                    scheduledStartTime: acad?.startTime,
-                    scheduledEndTime: acad?.endTime,
+                    isAttendance: true,
+                    scheduledDate: acad?.startDate || s.attendanceDate,
+                    scheduledStartTime: acad?.startTime || (s.startedAt ? new Date(s.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null),
+                    scheduledEndTime: acad?.endTime || (s.endedAt ? new Date(s.endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null),
                     sessionName: acad?.sessionName || s.title || `Session #${s.classId}`,
                     studentCount
                 };
             }));
 
-            setSessions(enriched);
+            // Map Academic Data (those NOT yet in attData)
+            const coveredClassIds = new Set(attMapped.map(a => String(a.classId)));
+            const acadMapped = acadForDate
+                .filter(a => !coveredClassIds.has(String(a.classId || a.sessionId)))
+                .map(a => ({
+                    id: a.sessionId || a.classId, // Temporary ID
+                    classId: a.sessionId || a.classId,
+                    isAttendance: false,
+                    status: 'SCHEDULED',
+                    scheduledDate: selectedDate,
+                    scheduledStartTime: a.startTime,
+                    scheduledEndTime: a.endTime,
+                    sessionName: a.sessionName || `Scheduled #${a.sessionId}`,
+                    studentCount: 0
+                }));
+
+            setSessions([...attMapped, ...acadMapped]);
         } catch (error) {
             console.error("Failed to fetch sessions", error);
         } finally {
@@ -165,10 +200,20 @@ const SessionsList = () => {
                                 <option value="ALL">All Sessions</option>
                                 <option value="ACTIVE">Live / Active</option>
                                 <option value="ENDED">Ended / Completed</option>
+                                <option value="SCHEDULED">Scheduled / Not Started</option>
                             </select>
                         </div>
-                        <div className="col-md-4">
-                            <label className="form-label small fw-bold text-secondary">Search Session</label>
+                        <div className="col-md-2">
+                            <label className="form-label small fw-bold text-secondary">Date</label>
+                            <input
+                                type="date"
+                                className="form-control"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-md-2">
+                            <label className="form-label small fw-bold text-secondary">Search</label>
                             <div className="input-group">
                                 <span className="input-group-text bg-white border-end-0">
                                     <FiSearch className="text-muted" />
@@ -228,10 +273,16 @@ const SessionsList = () => {
                                         <td>
                                             <div className="d-flex align-items-center gap-2">
                                                 <FiCalendar className="text-muted" />
-                                                <span>{session.scheduledDate || (session.startedAt ? new Date(session.startedAt).toLocaleDateString() : 'N/A')}</span>
+                                                <span>{session.scheduledDate || session.attendanceDate || 'N/A'}</span>
                                             </div>
                                         </td>
-                                        <td>{getStatusBadge(session.status)}</td>
+                                        <td>
+                                            {session.isAttendance ? (
+                                                getStatusBadge(session.status)
+                                            ) : (
+                                                <span className="badge bg-warning bg-opacity-10 text-dark rounded-pill px-3 border border-warning border-opacity-25">Scheduled</span>
+                                            )}
+                                        </td>
                                         <td>
                                             <div className="small text-muted">
                                                 <div className="d-flex align-items-center gap-1">
@@ -250,7 +301,29 @@ const SessionsList = () => {
                                         </td>
                                         <td className="text-end pe-4">
                                             <div className="d-flex justify-content-end gap-2">
-                                                {session.status === 'ACTIVE' ? (
+                                                {!session.isAttendance ? (
+                                                    <button
+                                                        className="btn btn-primary btn-sm rounded-pill px-3"
+                                                        onClick={async () => {
+                                                            try {
+                                                                const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
+                                                                const userId = user.userId || user.id || 1;
+                                                                const res = await attendanceService.startSession(
+                                                                    session.classId,
+                                                                    selectedCourse,
+                                                                    selectedBatch,
+                                                                    userId
+                                                                );
+                                                                alert("Session started successfully!");
+                                                                fetchSessions();
+                                                            } catch (e) {
+                                                                alert("Failed to start session: " + e.message);
+                                                            }
+                                                        }}
+                                                    >
+                                                        Start <FiArrowRight className="ms-1" />
+                                                    </button>
+                                                ) : session.status === 'ACTIVE' ? (
                                                     <Link
                                                         to={`/admin/attendance/sessions/${session.id}/live`}
                                                         className="btn btn-primary btn-sm rounded-pill px-3"
@@ -265,13 +338,15 @@ const SessionsList = () => {
                                                         Details <FiExternalLink className="ms-1" />
                                                     </Link>
                                                 )}
-                                                <button
-                                                    className="btn btn-outline-danger btn-sm rounded-circle p-2 d-flex align-items-center justify-content-center"
-                                                    onClick={() => handleDeleteSession(session.id)}
-                                                    title="Delete Fake/Old Session"
-                                                >
-                                                    <FiTrash2 size={14} />
-                                                </button>
+                                                {session.isAttendance && (
+                                                    <button
+                                                        className="btn btn-outline-danger btn-sm rounded-circle p-2 d-flex align-items-center justify-content-center"
+                                                        onClick={() => handleDeleteSession(session.id)}
+                                                        title="Delete Fake/Old Session"
+                                                    >
+                                                        <FiTrash2 size={14} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

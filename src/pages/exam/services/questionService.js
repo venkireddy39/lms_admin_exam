@@ -1,7 +1,7 @@
 import { apiFetch } from "../../../services/api";
 
 const BASE_URL = "/api/questions";
-const DEBUG = true;
+const DEBUG = false; // Disable debug now that backend controller is provided
 
 const logApi = (method, endpoint, payload = null, response = null, error = null) => {
     if (!DEBUG && !error) return;
@@ -17,33 +17,12 @@ export const QuestionService = {
     // Create a new question in the global bank
     createQuestion: async (questionData) => {
         const url = `${BASE_URL}`;
-        // Map frontend model to backend entity expectation
-        // Assuming backend accepts a direct payload or needs specific mapping
-        // We'll send a generally robust payload
+        // Map frontend model to the Java backend entity: Question.java
         const payload = {
-            questionType: (questionData.type || "MCQ").toUpperCase(),
-            content: questionData.question, // The question text
-            marks: Number(questionData.marks || 1),
-            options: questionData.options || [],
-            correctOptionIndex: questionData.correctOption !== undefined ? questionData.correctOption : null,
-            // Coding specific
-            language: questionData.language,
-            starterCode: questionData.starterCode,
-            testCases: questionData.testCases,
-            // Metadata
-            difficulty: "MEDIUM", // Default
-            subjectId: questionData.courseId || null,
-            topicId: null
+            ...questionData,
+            questionText: questionData.question || questionData.questionText,
+            questionType: (questionData.type || questionData.questionType || "MCQ").toUpperCase()
         };
-
-        if (DEBUG) {
-            // Mock response with a generated ID
-            return {
-                id: Math.floor(Math.random() * 10000) + 1,
-                mock: true,
-                ...questionData
-            };
-        }
 
         try {
             const data = await apiFetch(url, {
@@ -51,7 +30,7 @@ export const QuestionService = {
                 body: JSON.stringify(payload)
             });
             logApi("POST", url, payload, data);
-            return data; // Should return { questionId: 123, ... }
+            return data;
         } catch (error) {
             logApi("POST", url, payload, null, error);
             throw error;
@@ -62,10 +41,97 @@ export const QuestionService = {
     getQuestions: async () => {
         try {
             const data = await apiFetch(BASE_URL);
-            return data;
+            return (data || []).map(q => ({
+                id: q.questionId || q.id,
+                question: q.questionText || q.question || "No text",
+                type: (q.questionType || q.type || "MCQ").toLowerCase(),
+                options: q.options || [],
+                marks: q.marks || 1
+            }));
         } catch (error) {
             logApi("GET", BASE_URL, null, null, error);
             return [];
+        }
+    },
+
+    // Get a specific question by ID
+    getQuestionById: async (questionId) => {
+        const url = `${BASE_URL}/${questionId}`;
+        try {
+            const data = await apiFetch(url);
+            return data;
+        } catch (error) {
+            logApi("GET", url, null, null, error);
+            throw error;
+        }
+    },
+
+    // Update an existing question
+    updateQuestion: async (questionId, questionData) => {
+        const url = `${BASE_URL}/${questionId}`;
+        const payload = {
+            ...questionData,
+            questionText: questionData.question || questionData.questionText,
+            questionType: (questionData.type || questionData.questionType || "MCQ").toUpperCase()
+        };
+
+        try {
+            const data = await apiFetch(url, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+            logApi("PUT", url, payload, data);
+            return data;
+        } catch (error) {
+            logApi("PUT", url, payload, null, error);
+            throw error;
+        }
+    },
+
+    // Delete a question
+    deleteQuestion: async (questionId) => {
+        const url = `${BASE_URL}/${questionId}`;
+        try {
+            await apiFetch(url, { method: "DELETE" });
+            logApi("DELETE", url);
+            return true;
+        } catch (error) {
+            logApi("DELETE", url, null, null, error);
+            throw error;
+        }
+    },
+
+    // Save options for a question (aligned with QuestionOption.java)
+    saveOptions: async (questionId, options) => {
+        // We try the nested endpoint first, then the flat one if needed
+        const url = `${BASE_URL}/${questionId}/options`;
+
+        // Payload alignment with QuestionOption.java
+        const payload = options.map(opt => ({
+            questionId: Number(questionId),
+            optionText: String(opt.text || opt.optionText || opt),
+            isCorrect: Boolean(opt.isCorrect || opt.is_correct || false)
+        }));
+
+        try {
+            const data = await apiFetch(url, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            logApi("POST OPTIONS", url, payload, data);
+            return data;
+        } catch (error) {
+            // Fallback to flat endpoint if nested fails
+            const flatUrl = "/api/questions/options/bulk";
+            try {
+                return await apiFetch(flatUrl, {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+            } catch (innerError) {
+                logApi("POST OPTIONS FAILED", url, payload, null, error);
+                throw error;
+            }
         }
     }
 };

@@ -79,11 +79,23 @@ const CourseOverview = () => {
                 }}
             >
                 <strong>LMS Platform</strong>
-                <button
-                    onClick={() => navigate("/login", { state: { from: location.pathname } })}
-                >
-                    Login
-                </button>
+                <div>
+                    {localStorage.getItem("token") ? (
+                        <button
+                            onClick={() => navigate("/admin/dashboard")}
+                            style={{ padding: "8px 16px", background: "#f1f5f9", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600" }}
+                        >
+                            Go to Dashboard
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => navigate("/login", { state: { from: location.pathname } })}
+                            style={{ padding: "8px 16px", background: "#2563eb", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600" }}
+                        >
+                            Login
+                        </button>
+                    )}
+                </div>
             </header>
 
             {/* Hero */}
@@ -131,7 +143,14 @@ const CourseOverview = () => {
 
                         <button
                             disabled={isDisabled}
-                            onClick={() => navigate("/login", { state: { from: location.pathname } })}
+                            onClick={() => {
+                                if (localStorage.getItem("token")) {
+                                    // If already logged in, go to course viewer or dashboard
+                                    navigate(`/admin/courses`);
+                                } else {
+                                    navigate("/login", { state: { from: location.pathname } });
+                                }
+                            }}
                             style={{
                                 width: "100%",
                                 marginTop: 16,
@@ -143,7 +162,7 @@ const CourseOverview = () => {
                                 cursor: isDisabled ? "not-allowed" : "pointer",
                             }}
                         >
-                            {isDisabled ? "Course Disabled" : "Enroll Now"}
+                            {isDisabled ? "Course Disabled" : (localStorage.getItem("token") ? "Access Course" : "Login to Enroll")}
                         </button>
                     </div>
                 </div>

@@ -80,7 +80,7 @@ const CoursesPage = () => {
         onEdit={openModal}
         onDelete={handleDelete}
         onToggleStatus={toggleCourseStatus}
-        onManageContent={(id) => navigate(`/courses/builder/${id}`)}
+        onManageContent={(id) => navigate(`/admin/courses/builder/${id}`)}
         onShowDetails={(course) => setViewCourse(course)}
         onShare={(course) => setShareCourse(course)}
         onBookmark={toggleBookmark}

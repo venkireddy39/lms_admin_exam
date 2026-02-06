@@ -108,11 +108,9 @@ export const AuthProvider = ({ children }) => {
                     localStorage.removeItem('auth_user');
                 }
             } else {
-                // No session? Default to STUDENT (Remove Login Requirement)
-                console.log("AuthContext: Defaulting to Student Mode");
-                setUser(DEFAULT_STUDENT);
-                localStorage.setItem(AUTH_TOKEN_KEY, "mock-student-token");
-                localStorage.setItem('auth_user', JSON.stringify(DEFAULT_STUDENT));
+                // No session? Stay logged out.
+                console.log("AuthContext: No active session found.");
+                setUser(null);
             }
             setLoading(false);
         };

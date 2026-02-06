@@ -1,55 +1,70 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, Trash2, Database, Search } from "lucide-react";
+import { QuestionService } from "../services/questionService";
+import { ExamService } from "../services/examService";
+import { Eye, Trash2, Database, Search, FileText, Loader2, Play, BookOpen } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { ExamService } from "../services/examService";
 
 const QuestionBank = () => {
+  const [viewMode, setViewMode] = useState("exams"); // "exams" or "questions"
   const [type, setType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [questions, setQuestions] = useState([]);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchExams();
-  }, []);
+    fetchData();
+  }, [viewMode]);
 
-  const fetchExams = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await ExamService.getExams();
-      setQuestions(data || []);
+      if (viewMode === "exams") {
+        const exams = await ExamService.getExams();
+        setData(exams || []);
+      } else {
+        const questions = await QuestionService.getQuestions();
+        setData(questions || []);
+      }
     } catch (error) {
-      toast.error("Failed to load question bank data");
+      toast.error(`Failed to load ${viewMode}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Remove this exam from bank? This does not delete actual questions if they are reused elsewhere.")) return;
+    const itemType = viewMode === "exams" ? "exam paper" : "question";
+    if (!window.confirm(`Are you sure you want to delete this ${itemType}? This action cannot be undone.`)) return;
 
     try {
-      await ExamService.deleteExam(id);
-      setQuestions(prev => prev.filter(q => q.id !== id));
-      toast.success("Exam link removed from bank");
+      if (viewMode === "exams") {
+        await ExamService.deleteExam(id);
+      } else {
+        await QuestionService.deleteQuestion(id);
+      }
+      setData(prev => prev.filter(item => (item.id || item.questionId) !== id));
+      toast.success(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} deleted successfully`);
     } catch {
-      toast.error("Process failed");
+      toast.error(`Failed to delete ${itemType}`);
     }
   };
 
   const filtered = useMemo(() => {
-    return questions.filter(q => {
-      const matchesType = type === "all" || q.type === type;
-      const title = q.title || "";
-      const course = q.course || "";
-      const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesType && matchesSearch;
+    return data.filter(item => {
+      if (viewMode === "exams") {
+        const title = item.title || "";
+        return title.toLowerCase().includes(searchTerm.toLowerCase());
+      } else {
+        const qType = (item.questionType || item.type || "all").toLowerCase();
+        const matchesType = type === "all" || qType === type;
+        const text = item.questionText || item.question || "";
+        return matchesType && text.toLowerCase().includes(searchTerm.toLowerCase());
+      }
     });
-  }, [questions, type, searchTerm]);
+  }, [data, type, searchTerm, viewMode]);
 
   return (
     <div className="min-vh-100 bg-gray-5 text-dark p-4 scrollbar-hide">
@@ -80,30 +95,50 @@ const QuestionBank = () => {
                   type="text"
                   className="form-control bg-white border-light shadow-sm text-dark rounded-pill ps-5 py-2"
                   style={{ width: '280px' }}
-                  placeholder="Find exams or courses..."
+                  placeholder={`Search ${viewMode}...`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Link to="/exams/create" className="btn btn-primary rounded-pill px-4 py-2 fw-semibold premium-btn shadow-lg">
+              <Link to="/admin/exams/create-exam" className="btn btn-primary rounded-pill px-4 py-2 fw-semibold premium-btn shadow-lg">
                 New Assessment
               </Link>
             </div>
           </motion.div>
         </header>
 
-        {/* Filters */}
-        <div className="mb-4 d-flex overflow-auto pb-2 gap-2 scrollbar-hide">
-          {["all", "mixed", "coding", "quiz"].map(t => (
+        {/* View Switcher & Filters */}
+        <div className="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-4">
+          <div className="bg-light p-1 rounded-pill d-flex gap-1 border">
             <button
-              key={t}
-              className={`btn rounded-pill px-4 py-2 transition-all fw-medium border shadow-sm ${type === t ? "btn-primary text-white" : "bg-white text-muted hover-bg-light"
-                }`}
-              onClick={() => setType(t)}
+              className={`btn btn-sm rounded-pill px-4 py-2 fw-bold transition-all ${viewMode === 'exams' ? 'btn-white shadow-sm text-primary' : 'text-muted border-0'}`}
+              onClick={() => setViewMode('exams')}
             >
-              {t.toUpperCase()}
+              <BookOpen size={16} className="me-2" />
+              Exam Papers
             </button>
-          ))}
+            <button
+              className={`btn btn-sm rounded-pill px-4 py-2 fw-bold transition-all ${viewMode === 'questions' ? 'btn-white shadow-sm text-primary' : 'text-muted border-0'}`}
+              onClick={() => setViewMode('questions')}
+            >
+              <Database size={16} className="me-2" />
+              Question Pool
+            </button>
+          </div>
+
+          {viewMode === 'questions' && (
+            <div className="d-flex gap-2 scrollbar-hide">
+              {["all", "MCQ", "CODING", "SHORT", "LONG"].map(t => (
+                <button
+                  key={t}
+                  className={`btn rounded-pill px-3 py-1 transition-all small fw-medium border shadow-sm ${type === t.toLowerCase() || (type === 'all' && t === 'all') ? "btn-primary text-white" : "bg-white text-muted hover-bg-light"}`}
+                  onClick={() => setType(t.toLowerCase())}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* List View */}
@@ -112,68 +147,90 @@ const QuestionBank = () => {
             <table className="table table-hover mb-0 align-middle">
               <thead className="bg-light text-muted small text-uppercase fw-bold ls-1">
                 <tr>
-                  <th className="ps-4 py-4">Exam Identity</th>
-                  <th className="py-4">Associated Course</th>
-                  <th className="py-4 text-center">Difficulty / Type</th>
-                  <th className="py-4">Question Count</th>
-                  <th className="pe-4 py-4 text-end">Management</th>
+                  <th className="ps-4 py-4">{viewMode === 'exams' ? 'Exam Paper Name' : 'Question Content'}</th>
+                  <th className="py-4 text-center">{viewMode === 'exams' ? 'Status' : 'Type'}</th>
+                  <th className="py-4">{viewMode === 'exams' ? 'Details' : 'Metadata'}</th>
+                  <th className="pe-4 py-4 text-end">Action</th>
                 </tr>
               </thead>
               <tbody className="border-top-0">
                 <AnimatePresence mode="popLayout">
                   {loading ? (
-                    <tr><td colSpan="5" className="text-center py-5 opacity-50">Generating bank list...</td></tr>
+                    <tr>
+                      <td colSpan="4" className="text-center py-5">
+                        <Loader2 size={32} className="animate-spin text-primary opacity-50 mb-2 mx-auto" />
+                        <div className="text-muted small">Loading from repository...</div>
+                      </td>
+                    </tr>
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="text-center py-5">
-                        <Database size={48} className="text-muted mb-3 opacity-20" />
-                        <div className="text-muted">No records match your criteria</div>
+                      <td colSpan="4" className="text-center py-5">
+                        <Database size={48} className="text-muted mb-3 opacity-20 mx-auto" />
+                        <div className="text-muted">No {viewMode} found in this collection</div>
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((exam, idx) => (
-                      <motion.tr
-                        key={exam.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="group"
-                      >
-                        <td className="ps-4 py-3">
-                          <div className="py-1">
-                            <div className="fw-bold h6 mb-1 group-hover:text-primary transition-colors text-dark">{exam.title}</div>
-                            <div className="small text-muted flex align-items-center gap-1">
-                              <span className="opacity-50">ID:</span> {exam.id}
+                    filtered.map((item, idx) => {
+                      const id = item.id || item.questionId;
+                      const title = viewMode === "exams" ? item.title : (item.questionText || item.question || "No content");
+                      const typeLabel = viewMode === "exams" ? (item.status || 'DRAFT') : (item.questionType || item.type || "MCQ").toUpperCase();
+
+                      return (
+                        <motion.tr
+                          key={id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="group"
+                        >
+                          <td className="ps-4 py-3" style={{ maxWidth: '400px' }}>
+                            <div className="py-1">
+                              <div className="fw-bold mb-1 group-hover:text-primary transition-colors text-dark text-truncate">
+                                {title}
+                              </div>
+                              <div className="small text-muted d-flex align-items-center gap-1">
+                                <span className="opacity-50">ID:</span> {id}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="text-muted fw-medium">{exam.course}</td>
-                        <td className="text-center text-capitalize">
-                          <span className="badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10 px-3 py-2">
-                            {exam.type}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="d-flex align-items-center gap-3">
-                            <div className="progress flex-grow-1 bg-light rounded-pill shadow-inner" style={{ height: 8, maxWidth: 80 }}>
-                              <div className="progress-bar bg-primary rounded-pill" style={{ width: '70%' }}></div>
+                          </td>
+                          <td className="text-center">
+                            <span className={`badge rounded-pill px-3 py-2 border border-opacity-10 ${viewMode === 'exams'
+                                ? (typeLabel === 'PUBLISHED' ? 'bg-success bg-opacity-10 text-success border-success' : 'bg-warning bg-opacity-10 text-warning border-warning')
+                                : (typeLabel === "CODING" ? "bg-dark text-white border-white" : "bg-primary bg-opacity-10 text-primary border-primary")
+                              }`}>
+                              {typeLabel}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="small text-muted">
+                              {viewMode === 'exams' ? (
+                                <div className="d-flex flex-column">
+                                  <span><Eye size={12} className="me-1" /> View Paper Structure</span>
+                                  <span className="opacity-50 text-xs mt-1">Duration: {item.duration || 0} mins</span>
+                                </div>
+                              ) : (
+                                <div className="d-flex align-items-center gap-1">
+                                  <FileText size={12} /> Bank Item
+                                </div>
+                              )}
                             </div>
-                            <span className="small text-dark fw-bold">{exam.questions?.length || 0}</span>
-                          </div>
-                        </td>
-                        <td className="pe-4 text-end">
-                          <div className="d-flex justify-content-end gap-2">
-                            <Link to={`/exams/view-paper/${exam.id}`} className="btn btn-icon btn-light-hover">
-                              <Eye size={18} />
-                            </Link>
-                            <button onClick={() => handleDelete(exam.id)} className="btn btn-icon btn-danger-hover">
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))
+                          </td>
+                          <td className="pe-4 text-end">
+                            <div className="d-flex justify-content-end gap-2">
+                              {viewMode === 'exams' && (
+                                <Link to={`/admin/exams/view-paper/${id}`} className="btn btn-icon btn-light-hover">
+                                  <Play size={18} />
+                                </Link>
+                              )}
+                              <button onClick={() => handleDelete(id)} className="btn btn-icon btn-danger-hover">
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      );
+                    })
                   )}
                 </AnimatePresence>
               </tbody>
@@ -193,8 +250,9 @@ const QuestionBank = () => {
         .premium-btn { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border: none; transition: all 0.3s; }
         .premium-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); }
         .ls-1 { letter-spacing: 0.05em; }
-        .progress.shadow-inner { box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        .btn-white { background: white !important; }
         .hover-bg-light:hover { background: #f1f5f9 !important; }
+        .text-xs { font-size: 0.7rem; }
       `}</style>
     </div>
   );

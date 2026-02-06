@@ -165,7 +165,7 @@ const ExamDashboard = () => {
             <h1 className="fw-bold mb-1 text-dark">Exam Analytics</h1>
             <p className="text-muted mb-0">Monitor performance and manage upcoming assessments</p>
           </div>
-          <Link to="/exams/create-exam" className="btn btn-premium">
+          <Link to="/admin/exams/create-exam" className="btn btn-premium">
             <FaPlus className="me-2" /> Create New Exam
           </Link>
         </motion.div>
@@ -343,12 +343,12 @@ const ExamDashboard = () => {
                         </td>
                         <td className="pe-4 text-end">
                           <div className="d-flex justify-content-end gap-1">
-                            <Link to={`/exams/view-paper/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm" title="View Details">
+                            <Link to={`/admin/exams/view-paper/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm" title="View Details">
                               <FaEye />
                             </Link>
                             {exam.status !== "completed" && (
                               <>
-                                <Link to={`/exams/edit-exam/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm text-warning" title="Edit">
+                                <Link to={`/admin/exams/edit-exam/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm text-warning" title="Edit">
                                   <FaEdit />
                                 </Link>
                                 <button onClick={() => handleDelete(exam.id)} className="btn btn-sm btn-icon-light shadow-sm text-danger" title="Delete">

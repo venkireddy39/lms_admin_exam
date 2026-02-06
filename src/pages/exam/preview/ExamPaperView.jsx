@@ -81,12 +81,9 @@ const ExamPaperView = () => {
 
     const handleSubmit = async () => {
         setSubmitted(true);
-        try {
-            await ExamService.updateExam(id, { answers, type: 'STUDENT_SUBMISSION' });
-            toast.success("Assessment submitted successfully!");
-        } catch (error) {
-            console.error("Submission failed");
-        }
+        // Simulation only for Admin Preview
+        toast.success("Admin Preview: Submission simulated successfully.");
+        toast.info("Answers are not saved in database for preview mode.");
     };
 
     const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -102,17 +99,17 @@ const ExamPaperView = () => {
     const currentSection = sections[currentSectionIdx];
 
     // Safety check for empty exam
-    if (!exam.questions || exam.questions.length === 0) {
+    if (!exam || !exam.questions || exam.questions.length === 0) {
         return (
             <div className="min-vh-100 bg-white d-flex align-items-center justify-content-center flex-column gap-3 text-muted">
                 <AlertCircle size={48} />
-                <h5>No questions available in this assessment.</h5>
+                <h5>{(!exam) ? "Assessment Not Found" : "No questions available in this assessment."}</h5>
                 <button onClick={() => navigate(-1)} className="btn btn-outline-secondary rounded-pill px-4">Go Back</button>
             </div>
         );
     }
 
-    const sectionQuestions = currentSection.questionIds.map(i => ({ ...exam.questions[i], originalIndex: i }));
+    const sectionQuestions = (currentSection?.questionIds || []).map(i => ({ ...exam.questions[i], originalIndex: i }));
     const pos = sectionQuestions.findIndex(q => q.originalIndex === currentQIndex);
     const isLastQuestion = pos === sectionQuestions.length - 1;
     const isLastSection = currentSectionIdx === sections.length - 1;

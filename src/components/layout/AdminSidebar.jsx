@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { FiMoreVertical, FiSettings, FiLogOut, FiUser, FiHelpCircle, FiBell, FiShare2, FiChevronDown, FiChevronRight, FiShield, FiDollarSign, FiFileText, FiLayout, FiGlobe, FiSun, FiMoon, FiLayers } from 'react-icons/fi'
+import { FiMoreVertical, FiSettings, FiLogOut, FiUser, FiHelpCircle, FiBell, FiShare2, FiChevronDown, FiChevronRight, FiShield, FiDollarSign, FiFileText, FiLayout, FiGlobe, FiSun, FiMoon, FiLayers, FiCpu } from 'react-icons/fi'
 import { useAuth } from '../../pages/Library/context/AuthContext';
 import './AdminSidebar.css';
 
@@ -112,6 +112,7 @@ const AdminSidebar = ({ isOpen, toggleSidebar, isMobile }) => {
 
                         {/* ADMINISTRATION GROUP */}
                         <MenuGroup title="Administration" icon="FiShield" isOpen={isOpen} expanded={groups.system} onToggle={() => toggleGroup('system')}>
+                            <SidebarItem to="/admin/automation" icon="FiCpu" label="Automation & AI" isOpen={isOpen} isSub />
                             <SidebarItem to="/admin/audit-logs" icon="FiClipboard" label="Audit Logs" isOpen={isOpen} isSub />
                             <SidebarItem to="/admin/settings" icon="FiSettings" label="Settings" isOpen={isOpen} isSub />
                         </MenuGroup>

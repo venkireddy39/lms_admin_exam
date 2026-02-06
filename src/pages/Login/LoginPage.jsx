@@ -7,9 +7,19 @@ const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const { login } = useAuth();
+    const { login, user } = useAuth();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
+
+    // Auto-redirect if already logged in
+    React.useEffect(() => {
+        const token = localStorage.getItem('auth_token');
+        if (token || user) {
+            const userRole = (user?.role || JSON.parse(localStorage.getItem('auth_user') || '{}').role || '').toUpperCase();
+            if (userRole === 'STUDENT') navigate('/student/dashboard');
+            else navigate('/admin/dashboard');
+        }
+    }, [user, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -94,7 +104,7 @@ const LoginPage = () => {
                             Log in as Admin
                         </button>
                         <button
-                            className="btn btn-outline-primary btn-sm"
+                            className="btn btn-outline-secondary btn-sm"
                             onClick={() => { setEmail('student@gmail.com'); setPassword('123456'); }}
                         >
                             Log in as Student

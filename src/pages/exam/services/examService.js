@@ -1,7 +1,7 @@
 import { apiFetch } from "../../../services/api";
 
 const BASE_URL = "/api";
-const DEBUG = true;
+const DEBUG = false;
 const MOCK_API_DELAY = 600;
 
 // ================= DEBUG HELPERS =================
@@ -51,16 +51,19 @@ export const ExamService = {
             const data = await apiFetch(url);
             // Map Table 1 snake_case to camelCase for UI consistency
             return (data || []).map(exam => ({
-                id: exam.exam_id || exam.id,
+                id: exam.exam_id || exam.id || exam.examId,
                 title: exam.title,
-                courseId: exam.course_id,
-                batchId: exam.batch_id,
-                type: exam.exam_type?.toLowerCase(),
-                totalMarks: exam.total_marks,
-                passPercentage: exam.pass_percentage,
-                duration: exam.duration_minutes,
-                status: exam.status,
-                createdAt: exam.created_at
+                courseId: exam.course_id || exam.courseId,
+                batchId: exam.batch_id || exam.batchId,
+                type: (exam.exam_type || exam.examType || "MIXED").toLowerCase(),
+                totalMarks: exam.total_marks || exam.totalMarks || 0,
+                passPercentage: exam.pass_percentage || exam.passPercentage || 40,
+                duration: Number(exam.duration_minutes || exam.durationMinutes || exam.duration || 0),
+                status: exam.status || "DRAFT",
+                totalQuestions: Number(exam.total_questions || exam.questionsCount || (exam.questions?.length) || 0),
+                course: exam.course_name || exam.courseName || exam.course || "General",
+                batch: exam.batch_name || exam.batchName || exam.batch || "All Batches",
+                createdAt: exam.created_at || exam.createdAt
             }));
         } catch (error) {
             logApi("GET", url, null, null, error);
@@ -196,9 +199,23 @@ export const ExamService = {
             return mockExams.find(e => e.id === Number(id)) || null;
         }
         try {
-            const data = await apiFetch(url);
-            logApi("GET", url, null, data);
-            return data;
+            const exam = await apiFetch(url);
+            if (!exam) return null;
+            // Map to frontend model
+            return {
+                id: exam.exam_id || exam.id || exam.examId,
+                title: exam.title,
+                courseId: exam.course_id || exam.courseId,
+                batchId: exam.batch_id || exam.batchId,
+                type: (exam.exam_type || exam.examType || "MIXED").toLowerCase(),
+                totalMarks: exam.total_marks || exam.totalMarks || 0,
+                passPercentage: exam.pass_percentage || exam.passPercentage || 40,
+                durationMinutes: exam.duration_minutes || exam.durationMinutes || exam.duration || 0,
+                duration: exam.duration_minutes || exam.durationMinutes || exam.duration || 0,
+                status: exam.status || "DRAFT",
+                course: exam.course_name || exam.courseName || exam.course || "General",
+                batch: exam.batch_name || exam.batchName || exam.batch || "All Batches"
+            };
         } catch (error) {
             logApi("GET", url, null, null, error);
             return null;
@@ -305,7 +322,7 @@ export const ExamService = {
     },
 
     getExamQuestions: async (examId) => {
-        const url = `${BASE_URL}/exams/${examId}/questions`;
+        const url = `${BASE_URL}/exams/${examId}/questions/view`;
         if (DEBUG) {
             await delay(MOCK_API_DELAY);
             const exam = mockExams.find(e => e.id === Number(examId));
@@ -313,8 +330,41 @@ export const ExamService = {
         }
         try {
             const data = await apiFetch(url);
-            logApi("GET", url, null, data);
-            return data;
+            console.log("⬇️ Raw Exam Questions Response:", data); // Debug log
+
+            // Map Table 7 (exam_question) + Question entity to frontend
+            return (data || []).map(item => {
+                // If the backend returns a nested question object or a flattened one
+                const q = item.question || item;
+                const rawType = (q.questionType || q.type || "MCQ").toUpperCase();
+
+                let options = q.options || [];
+                // Handle stringified JSON options (common in some DB setups)
+                if (typeof options === 'string') {
+                    try { options = JSON.parse(options); } catch (e) { options = []; }
+                }
+
+                // Handle options normalization
+                let finalOptions = [];
+                if (Array.isArray(options)) {
+                    finalOptions = options.map(o => {
+                        if (typeof o === 'string') return o;
+                        // If option is object, try common fields
+                        return o.optionText || o.text || o.value || o.content || JSON.stringify(o);
+                    });
+                }
+
+                return {
+                    id: q.questionId || q.id || item.questionId,
+                    question: q.questionText || q.question_text || q.question || q.content || q.text || q.description || "No text content",
+                    type: rawType === "MCQ" ? "quiz" : rawType.toLowerCase(),
+                    marks: item.marks || q.marks || 1,
+                    options: finalOptions,
+                    testCases: q.testCases || [],
+                    starterCode: q.starterCode || q.starter_code || "",
+                    language: q.language || "javascript"
+                };
+            });
         } catch (error) {
             logApi("GET", url, null, null, error);
             return [];
@@ -408,11 +458,12 @@ export const ExamService = {
     getExamPaper: async (id) => {
         try {
             const exam = await ExamService.getExamById(id);
+            if (!exam) throw new Error("Exam not found");
             const questions = await ExamService.getExamQuestions(id);
             return { ...exam, questions };
         } catch (error) {
             logApi("COMPOSITE", "getExamPaper", { id }, null, error);
-            return null;
+            throw error;
         }
     }
 };

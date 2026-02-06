@@ -59,8 +59,8 @@ const SessionDashboard = () => {
             } else {
                 toast.success("Attendance Session Active!");
                 refreshLive();
-                // Optional: Auto-navigate to live view
-                // navigate(`/attendance/sessions/${res.id}/live`);
+                // Auto-navigate to live view
+                navigate(`/admin/attendance/sessions/${res.id}/live`);
             }
 
         } catch (error) {

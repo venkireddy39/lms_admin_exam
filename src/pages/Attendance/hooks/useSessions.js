@@ -248,15 +248,14 @@ const mapSessionToUI = (s, batchMap, isDataFromAttendanceApi) => {
 
 
     // Backend Status Normalization
-    let status = (s.status || 'SCHEDULED').toUpperCase();
-    if (isDataFromAttendanceApi && (status === 'ACTIVE' || status === 'LIVE')) status = 'LIVE';
-    if (status === 'ENDED') isOver = true;
+    if (isDataFromAttendanceApi && (status === 'ACTIVE' || status === 'LIVE')) {
+        status = 'LIVE';
+        // isOver = false; // User requested strict time adherence: if time is up, it ends.
+    }
 
-    // Force OVER status if dates strictly imply it (Past Date)
-    // Re-check date logic here to ensure status update matches filter logic
-    if (isDataFromAttendanceApi && !isOver) {
-        const today = new Date().toISOString().split('T')[0];
-        if (dateStr < today) isOver = true;
+    if (status === 'ENDED' || status === 'COMPLETED') {
+        isOver = true;
+        status = 'COMPLETED';
     }
 
     if (isOver) {

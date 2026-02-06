@@ -1,7 +1,7 @@
 import { apiFetch } from "../../../services/api";
 
 const BASE_URL = "/api/exams";
-const DEBUG = true;
+const DEBUG = false;
 
 const logApi = (method, endpoint, payload = null, response = null, error = null) => {
     if (!DEBUG) return;
@@ -16,15 +16,16 @@ export const ExamSettingsService = {
     // 1. Core Settings (exam_settings Table)
     saveSettings: async (examId, settings) => {
         const url = `${BASE_URL}/${examId}/settings`;
-        // Payload alignment with exam_settings table
+        // Payload exactly aligned with ExamSettings.java
         const payload = {
-            attemptsAllowed: settings.attemptsAllowed,
-            negativeMarking: settings.negativeMarking,
-            negativeMarkValue: settings.negativeMarkValue || 0,
-            shuffleQuestions: settings.shuffleQuestions,
-            shuffleOptions: settings.shuffleOptions,
-            allowLateEntry: settings.allowLateEntry,
-            networkMode: settings.networkMode || "LENIENT"
+            examId: Number(examId),
+            attemptsAllowed: Number(settings.attemptsAllowed || 1),
+            negativeMarking: Boolean(settings.negativeMarking),
+            negativeMarkValue: Number(settings.negativeMarkValue || 0),
+            shuffleQuestions: Boolean(settings.shuffleQuestions),
+            shuffleOptions: Boolean(settings.shuffleOptions),
+            allowLateEntry: Boolean(settings.allowLateEntry),
+            networkMode: String(settings.networkMode || "LENIENT")
         };
         if (DEBUG) return { ...payload, id: 1 };
         try {
@@ -37,13 +38,22 @@ export const ExamSettingsService = {
         }
     },
 
-    getSettings: async (examId) => {
+    getExamSettings: async (examId) => {
         const url = `${BASE_URL}/${examId}/settings`;
         if (DEBUG) return { attemptsAllowed: 1 };
         try {
             const data = await apiFetch(url);
-            logApi("GET", url, null, data);
-            return data;
+            if (!data) return null;
+            // Map Table 3 snake_case to camelCase
+            return {
+                attemptsAllowed: data.attempts_allowed || data.attemptsAllowed || 1,
+                negativeMarking: data.negative_marking ?? data.negativeMarking ?? false,
+                negativeMarkValue: data.negative_mark_value || data.negativeMarkValue || 0,
+                shuffleQuestions: data.shuffle_questions ?? data.shuffleQuestions ?? false,
+                shuffleOptions: data.shuffle_options ?? data.shuffleOptions ?? false,
+                allowLateEntry: data.allow_late_entry ?? data.allowLateEntry ?? false,
+                networkMode: data.network_mode || data.networkMode || "LENIENT"
+            };
         } catch (error) {
             logApi("GET", url, null, null, error);
             return null;
@@ -81,7 +91,7 @@ export const ExamSettingsService = {
         }
     },
 
-    getDesign: async (examId) => {
+    getExamDesign: async (examId) => {
         const url = `${BASE_URL}/${examId}/design`;
         if (DEBUG) return { orientation: 'PORTRAIT', watermarkType: 'TEXT' };
         try {
@@ -114,7 +124,7 @@ export const ExamSettingsService = {
         }
     },
 
-    getProctoring: async (examId) => {
+    getExamProctoring: async (examId) => {
         const url = `${BASE_URL}/${examId}/proctoring`;
         if (DEBUG) return { enabled: false };
         try {
@@ -148,7 +158,7 @@ export const ExamSettingsService = {
         }
     },
 
-    getGrading: async (examId) => {
+    getExamGrading: async (examId) => {
         const url = `${BASE_URL}/${examId}/grading`;
         if (DEBUG) return { autoEvaluation: true };
         try {
