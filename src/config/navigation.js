@@ -22,7 +22,6 @@ export const navigationConfig = [
         icon: 'bi-mortarboard',
         subItems: [
             { label: 'Courses', path: '/admin/courses', icon: 'bi-journal-text' },
-            { label: 'Batches', path: '/admin/batches', icon: 'bi-people' },
             { label: 'Webinars', path: '/admin/webinar', icon: 'bi-camera-video' },
             { label: 'Certificates', path: '/admin/certificates', icon: 'bi-award' }
         ]

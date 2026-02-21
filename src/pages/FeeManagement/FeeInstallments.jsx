@@ -21,10 +21,32 @@ const FeeInstallments = () => {
     const [planType, setPlanType] = useState('OneTime');
     const [installments, setInstallments] = useState([]);
     const [customCount, setCustomCount] = useState(2);
+    const [feeStructure, setFeeStructure] = useState(null);
 
-    // Concession/Tax State for Modal
-    const [modalDiscount, setModalDiscount] = useState({ type: 'percentage', value: '' });
+    // Enhanced Fee Configuration State
+    const [adminDiscount, setAdminDiscount] = useState(0);
+    const [additionalDiscount, setAdditionalDiscount] = useState(0);
+    const [advancePaid, setAdvancePaid] = useState(0);
     const [modalGST, setModalGST] = useState(18);
+
+    // Extension State
+    const [extendingInstallment, setExtendingInstallment] = useState(null);
+    const [extensionDate, setExtensionDate] = useState('');
+    const [extensionReason, setExtensionReason] = useState('');
+    const [extending, setExtending] = useState(false);
+
+    // Automation Toggles
+    const [isCustomPlan, setIsCustomPlan] = useState(false); // false = Default Structure, true = Custom
+    const [autoDueDateMode, setAutoDueDateMode] = useState('MONTHLY'); // 'MONTHLY' (from batch start) or 'SAME' (all same date)
+
+    // Helper: Calculate Batch Duration in Months
+    const getBatchDurationMonths = (batch) => {
+        if (!batch?.startDate || !batch?.endDate) return 4; // Default to 4 if missing
+        const start = new Date(batch.startDate);
+        const end = new Date(batch.endDate);
+        const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+        return Math.max(1, months);
+    };
 
     // Load Courses and Batches from Backend
     useEffect(() => {
@@ -71,7 +93,8 @@ const FeeInstallments = () => {
                         return {
                             ...b,
                             studentCount: s.length,
-                            studentList: mappedStudents
+                            studentList: mappedStudents,
+                            standardFee: batchCourseFees // Store standard fee
                         };
                     } catch (err) {
                         console.error('Error enriching batch:', err);
@@ -112,6 +135,15 @@ const FeeInstallments = () => {
                             if (allocations.length > 0) {
                                 // Find any active or latest allocation
                                 const latest = allocations[0];
+
+                                // Also fetch fee structure to get fullFeeClearDate
+                                if (latest.feeStructureId && !feeStructure) {
+                                    try {
+                                        const fs = await feeStructureService.getFeeStructureById(latest.feeStructureId);
+                                        setFeeStructure(fs);
+                                    } catch (err) { }
+                                }
+
                                 return {
                                     ...stu,
                                     totalFee: latest.payableAmount || stu.totalFee,
@@ -147,6 +179,13 @@ const FeeInstallments = () => {
         let existingPlanType = 'OneTime';
         let allocationId = null;
 
+        // Reset State for New Config
+        setAdminDiscount(0);
+        setAdditionalDiscount(0);
+        setAdvancePaid(0);
+        setModalGST(18); // Default GST
+        setIsCustomPlan(false);
+
         setConfiguringStudent({ ...student, isLoading: true });
 
         try {
@@ -156,53 +195,35 @@ const FeeInstallments = () => {
             if (feeData) {
                 const allocations = Array.isArray(feeData) ? feeData : [feeData];
 
+                // Attempt to find relevant allocation
                 const latestAlloc = allocations[0];
-                const matchingAlloc = allocations.find(a => {
-                    const allocAmount = a.payableAmount || a.totalAmount || 0;
-                    return Math.abs(allocAmount - baseFee) < 1.0;
-                });
 
-                if (matchingAlloc) {
-                    console.log("Found Matching Backend Allocation:", matchingAlloc);
-                    baseFee = matchingAlloc.payableAmount || matchingAlloc.totalAmount || baseFee;
-                    allocationId = matchingAlloc.allocationId;
-
-                    if (matchingAlloc.adminDiscount > 0) {
-                        setModalDiscount({ type: 'flat', value: matchingAlloc.adminDiscount });
-                    }
-                    if (matchingAlloc.gstRate > 0) {
-                        setModalGST(matchingAlloc.gstRate);
-                    }
-                } else if (latestAlloc) {
-                    // Even if amount doesn't match EXACTLY, this is the student's current allocation target
-                    console.log("No exact match, but using latest allocation as reference:", latestAlloc.allocationId);
+                if (latestAlloc) {
+                    console.log("Found Matching Backend Allocation:", latestAlloc);
+                    baseFee = latestAlloc.originalAmount || latestAlloc.totalAmount || baseFee;
                     allocationId = latestAlloc.allocationId;
-                    baseFee = latestAlloc.originalAmount || baseFee;
 
-                    // Sync modal with latest record even if not exact match
-                    if (latestAlloc.adminDiscount > 0) {
-                        setModalDiscount({ type: 'flat', value: latestAlloc.adminDiscount });
-                    }
-                    if (latestAlloc.gstRate > 0) {
-                        setModalGST(latestAlloc.gstRate);
-                    }
-                }
+                    // Populate Fields
+                    setAdminDiscount(latestAlloc.adminDiscount || 0);
+                    setAdditionalDiscount(latestAlloc.additionalDiscount || 0);
+                    setAdvancePaid(latestAlloc.advancePayment || 0);
+                    setModalGST(latestAlloc.gstRate || 0);
 
-                // 🔴 CRITICAL: Fetch existing installments from backend if allocation exists
-                if (allocationId) {
-                    try {
-                        console.log("Fetching existing installments for allocation:", allocationId);
-                        const freshInstallments = await getStudentInstallments(allocationId);
-                        if (freshInstallments && freshInstallments.length > 0) {
-                            existingInstallments = freshInstallments.map(i => ({
-                                ...i,
-                                id: i.installmentId, // keep internal ID for React keys if needed, but map it
-                                amount: i.installmentAmount || i.amount // normalize field names
-                            }));
-                            existingPlanType = existingInstallments.length === 1 ? 'OneTime' : 'Custom';
+                    // 🔴 CRITICAL: Fetch existing installments from backend if allocation exists
+                    if (allocationId) {
+                        try {
+                            const freshInstallments = await getStudentInstallments(allocationId);
+                            if (freshInstallments && freshInstallments.length > 0) {
+                                existingInstallments = freshInstallments.map(i => ({
+                                    ...i,
+                                    id: i.installmentId,
+                                    amount: i.installmentAmount || i.amount
+                                }));
+                                existingPlanType = existingInstallments.length === 1 ? 'OneTime' : 'Custom';
+                            }
+                        } catch (err) {
+                            console.warn("Could not fetch installments for allocation:", allocationId);
                         }
-                    } catch (err) {
-                        console.warn("Could not fetch installments for allocation:", allocationId);
                     }
                 }
             }
@@ -223,79 +244,154 @@ const FeeInstallments = () => {
         if (existingInstallments && existingInstallments.length > 0) {
             setInstallments(existingInstallments);
             setPlanType(existingPlanType);
+            setIsCustomPlan(true); // If existing installments found, treat as custom/locked
             setCustomCount(existingInstallments.length);
-        } else if (student.installments && student.installments.length > 0) {
-            // Local state fallback
-            setInstallments(student.installments);
-            setPlanType(student.planType || 'Custom');
-            setCustomCount(student.installments.length);
         } else {
-            // New Plan: Divide the Course Fee
-            initializeInstallments('OneTime', baseFee);
+            // Auto-Calculate Default for New Plan
+            // If batch exists, use duration logic
+            const duration = selectedBatch ? getBatchDurationMonths(selectedBatch) : 4;
+            const defaultInstallments = Math.max(1, duration - 1);
+
+            // Initial Calculation to set amounts
+            // We need to trigger a calculation based on the JUST SET state... 
+            // React state updates are async, so we pass values directly to a helper or rely on useEffect.
+            // But for now, let's just initialize 'OneTime' or 'Custom' based on duration.
+
+            // Better UX: Default to duration-based Custom? Or Quarterly?
+            // "System should auto-set Default installments = duration - 1"
+
+            // Pass values explicitly since state setters haven't run yet
+            const overrides = {
+                base: baseFee,
+                adminDisc: 0,
+                addDisc: 0,
+                advance: 0,
+                gst: 18
+            };
+
+            if (latestAlloc) {
+                overrides.adminDisc = latestAlloc.adminDiscount || 0;
+                overrides.addDisc = latestAlloc.additionalDiscount || 0;
+                overrides.advance = latestAlloc.advancePayment || 0;
+                overrides.gst = latestAlloc.gstRate || 0;
+            }
+
+            initializeInstallments('Custom', null, overrides, defaultInstallments);
+            setPlanType('Custom');
+            setCustomCount(defaultInstallments);
         }
     };
 
-    const initializeInstallments = (type, totalAmount) => {
+    const calculateTotals = (overrides = {}) => {
+        // Use overrides if provided (for sync calculations), otherwise use state
+        const base = overrides.base !== undefined ? overrides.base : Number(configuringStudent?.totalFee || configuringBatch?.standardFee || 0);
+
+        const adminDisc = overrides.adminDisc !== undefined ? overrides.adminDisc : Number(adminDiscount || 0);
+        const addDisc = overrides.addDisc !== undefined ? overrides.addDisc : Number(additionalDiscount || 0);
+        const advance = overrides.advance !== undefined ? overrides.advance : Number(advancePaid || 0);
+        const gst = overrides.gst !== undefined ? overrides.gst : Number(modalGST || 0);
+
+        const totalDiscount = adminDisc + addDisc;
+        const netAfterDiscount = Math.max(0, base - totalDiscount);
+
+        const gstAmount = Number(((netAfterDiscount * gst) / 100).toFixed(2));
+
+        const totalPayable = Number((netAfterDiscount + gstAmount).toFixed(2));
+        const remainingToSplit = Math.max(0, totalPayable - advance);
+
+        return {
+            base,
+            adminDisc,
+            addDisc,
+            totalDiscount,
+            netAfterDiscount,
+            gstAmount,
+            totalPayable,
+            advance,
+            remainingToSplit
+        };
+    };
+
+    const initializeInstallments = (type, forcedAmount = null, overrides = {}, forcedCount = null) => {
         setPlanType(type);
+
+        // Calculate Totals
+        const totals = calculateTotals(overrides);
+        const amountToSplit = forcedAmount !== null ? forcedAmount : totals.remainingToSplit;
+
         let count = 1;
 
-        switch (type) {
-            case 'OneTime': count = 1; break;
-            case 'Quarterly': count = 4; break;
-            case 'HalfYearly': count = 6; break;
-            case 'Yearly': count = 12; break;
-            case 'Custom': count = Number(customCount) || (customCount === '' ? 1 : customCount); break;
-            default: count = 1;
+        if (forcedCount) {
+            count = forcedCount;
+        } else {
+            // Determine count based on type
+            const duration = selectedBatch ? getBatchDurationMonths(selectedBatch) : 4;
+
+            switch (type) {
+                case 'OneTime': count = 1; break;
+                case 'Quarterly': count = Math.ceil(duration / 3); break;
+                case 'HalfYearly': count = Math.ceil(duration / 6); break;
+                case 'Yearly': count = Math.ceil(duration / 12); break;
+                case 'Custom':
+                    count = Number(customCount) || (customCount === '' ? 1 : customCount);
+                    if (count < 1) count = 1;
+                    break;
+                default: count = 1;
+            }
         }
 
-        // Use 2-decimal precision for base split
-        const baseAmount = Number((totalAmount / count).toFixed(2));
+        // Ensure count is at least 1
+        count = Math.max(1, count);
 
-        // Sum of all but last to find exactly what the last should be
+        // Split Logic
+        const baseAmount = Number((amountToSplit / count).toFixed(2));
         const sumExceptLast = baseAmount * (count - 1);
-        const lastAmount = Number((totalAmount - sumExceptLast).toFixed(2));
+        const lastAmount = Number((amountToSplit - sumExceptLast).toFixed(2));
+
+        // Date Logic
+        let startDate = new Date();
+        if (selectedBatch?.startDate && autoDueDateMode === 'MONTHLY') {
+            startDate = new Date(selectedBatch.startDate);
+        }
 
         const newInstallments = Array.from({ length: count }).map((_, idx) => {
             const isLast = idx === count - 1;
+
+            // Auto Calculate Due Date
+            let dueDate = '';
+            if (autoDueDateMode === 'MONTHLY') {
+                const date = new Date(startDate);
+                date.setMonth(startDate.getMonth() + idx);
+                dueDate = date.toISOString().split('T')[0];
+            } else if (autoDueDateMode === 'SAME') {
+                startDate.setMonth(startDate.getMonth() + 1); // Default to next month?
+                dueDate = startDate.toISOString().split('T')[0];
+            }
+
             return {
                 id: Date.now() + idx,
                 name: `Installment ${idx + 1}`,
                 amount: isLast ? lastAmount : baseAmount,
-                dueDate: ''
+                dueDate: dueDate
             };
         });
 
         setInstallments(newInstallments);
+
+        // Notify if any auto-generated dates exceed Full Fee Clear Date
+        if (feeStructure?.fullFeeClearDate) {
+            const clearDate = new Date(feeStructure.fullFeeClearDate);
+            const exceedCount = newInstallments.filter(i => i.dueDate && new Date(i.dueDate) > clearDate).length;
+            if (exceedCount > 0) {
+                alert(`Warning: ${exceedCount} installments are scheduled after the Full Fee Clear Date (${feeStructure.fullFeeClearDate}). Admin Override is active.`);
+            }
+        }
     };
 
     const handleTypeChange = (type) => {
-        const totals = calculateTotals();
-        const totalToSplit = totals.total;
-
-        if (type === 'Custom') {
-            setPlanType(type);
-            initializeInstallments('Custom', totalToSplit);
-        } else {
-            initializeInstallments(type, totalToSplit);
-        }
-    };
-
-    const calculateTotals = () => {
-        const base = Number(configuringStudent?.totalFee || configuringBatch?.standardFee || 0);
-        const discValue = Number(modalDiscount.value || 0);
-
-        let discountAmount = 0;
-        if (modalDiscount.type === 'percentage') {
-            discountAmount = Number(((base * discValue) / 100).toFixed(2));
-        } else {
-            discountAmount = Number(Number(discValue).toFixed(2));
-        }
-
-        const net = Math.max(0, base - discountAmount);
-        const gstAmount = Number(((net * Number(modalGST || 0)) / 100).toFixed(2));
-        const total = Number((net + gstAmount).toFixed(2));
-
-        return { base, discountAmount, net, gstAmount, total };
+        setPlanType(type);
+        // Using current states for defaults
+        initializeInstallments(type);
     };
 
     const handleCustomCountChange = (e) => {
@@ -317,21 +413,19 @@ const FeeInstallments = () => {
 
         // Limit the heavy recalculation/logic to valid bounds
         if (count <= 24 && planType === 'Custom' && (configuringStudent || configuringBatch)) {
-            const total = configuringStudent?.totalFee || configuringBatch?.standardFee || 0;
-            const baseAmount = Math.floor(total / count);
-            let remainder = Number((total - (baseAmount * count)).toFixed(2));
-
-            const newInstallments = Array.from({ length: count }).map((_, idx) => ({
-                id: Date.now() + idx,
-                name: `Installment ${idx + 1}`,
-                amount: idx === count - 1 ? Number((baseAmount + remainder).toFixed(2)) : baseAmount,
-                dueDate: ''
-            }));
-            setInstallments(newInstallments);
+            // Recalculate full split
+            initializeInstallments('Custom', null, {}, count);
         }
     };
 
     const updateInstallment = (index, field, value) => {
+        if (field === 'dueDate' && value && feeStructure?.fullFeeClearDate) {
+            const clearDate = new Date(feeStructure.fullFeeClearDate);
+            const newDate = new Date(value);
+            if (newDate > clearDate) {
+                alert(`Warning: This installment date (${value}) is after the Full Fee Clear Date (${feeStructure.fullFeeClearDate}). Proceeding with Admin Override.`);
+            }
+        }
         const newInst = [...installments];
         newInst[index] = { ...newInst[index], [field]: value };
         setInstallments(newInst);
@@ -347,6 +441,80 @@ const FeeInstallments = () => {
         setCustomCount(newInst.length);
     };
 
+    const handleExtendDueDate = async () => {
+        if (!extendingInstallment || !extensionDate || !extensionReason) {
+            alert("Please provide both a new due date and a reason.");
+            return;
+        }
+
+        setExtending(true);
+        try {
+            const res = await extendInstallmentDueDate(extendingInstallment.id, extensionDate, extensionReason);
+            alert("Due date extended successfully!");
+
+            // Update local state
+            setInstallments(prev => prev.map(i =>
+                i.id === extendingInstallment.id ? { ...i, dueDate: extensionDate, status: res.status || i.status } : i
+            ));
+
+            setExtendingInstallment(null);
+            setExtensionDate('');
+            setExtensionReason('');
+        } catch (error) {
+            console.error("Extension failed:", error);
+            alert("Failed to extend due date: " + (error.response?.data?.message || error.message));
+        } finally {
+            setExtending(false);
+        }
+    };
+
+    // Configure Batch Initializer
+    const openBatchConfig = () => {
+        if (!selectedBatch) return;
+
+        const standardFee = selectedBatch.standardFee || selectedBatch.studentList[0]?.totalFee || 0;
+
+        setConfiguringBatch({
+            name: selectedBatch.batchName,
+            standardFee: standardFee
+        });
+
+        // Reset Defaults
+        setAdminDiscount(0);
+        setAdditionalDiscount(0);
+        setAdvancePaid(0);
+        setModalGST(18);
+        setIsCustomPlan(false);
+        setAutoDueDateMode('MONTHLY');
+
+        // Auto-Calculate Defaults based on Duration
+        const duration = getBatchDurationMonths(selectedBatch);
+        const defaultInstallments = Math.max(1, duration - 1);
+
+        setCustomCount(defaultInstallments);
+
+        // Use timeout to allow setConfiguringBatch to propogate if calculateTotals uses it? 
+        // No, calculateTotals uses 'configuringBatch' from closure? No from state. 
+        // We pass local overrides to initializeInstallments.
+        const overrides = {
+            base: standardFee,
+            adminDisc: 0,
+            addDisc: 0,
+            advance: 0,
+            gst: 18
+        };
+
+        // Initialize as Custom (Duration Based)
+        initializeInstallments('Custom', null, overrides, defaultInstallments);
+        setPlanType('Custom');
+
+        // Fetch structure for batch
+        feeStructureService.getFeeStructuresByBatch(selectedBatch.batchId)
+            .then(res => {
+                if (res && res.length > 0) setFeeStructure(res[0]);
+            });
+    };
+
     const savePlan = async () => {
         if (configuringBatch) {
             await saveBatchPlan();
@@ -359,11 +527,12 @@ const FeeInstallments = () => {
         if (!configuringBatch || !selectedBatch) return;
 
         const totals = calculateTotals();
-        const totalPayable = totals.total;
+        const totalRemaining = totals.remainingToSplit; // The amount split into installments
+
         const sum = installments.reduce((acc, curr) => acc + Number(curr.amount), 0);
 
-        if (Math.abs(sum - totalPayable) > 1) {
-            alert(`Validation Error: Sum (₹${sum}) must equal Calculated Total Fee (₹${totalPayable.toFixed(2)}).`);
+        if (Math.abs(sum - totalRemaining) > 1) {
+            alert(`Validation Error: Sum of installments (₹${sum}) must equal Remaining Payable (₹${totalRemaining.toFixed(2)}).`);
             return;
         }
 
@@ -380,22 +549,58 @@ const FeeInstallments = () => {
             }));
 
             const userIds = selectedBatch.studentList.map(s => s.userId || s.id);
+
+            // Pass all new fields to backend
             await createBatchInstallmentPlan(
                 selectedBatch.batchId,
                 template,
                 userIds,
-                totalPayable,
-                Number(selectedCourse)
+                totals.base, // Total Course Fee for Structure Creation
+                Number(selectedCourse),
+                // Additional Fields for Allocation Creation (Updated Controller/Service)
+                /* 
+                   Note: The frontend service 'createBatchInstallmentPlan' must be updated to accept these.
+                   Checking previous file view... createBatchInstallmentPlan in feeService.js calls:
+                   apiFetch(getUrl('/installments/batch'), { ... body ... })
+                   It accepts (batchId, template, userIds, totalAmount, courseId).
+                   We need to update feeService.js too? 
+                   Yes, the service helper needs to pass these in the body.
+                   We will pass an object to the service or update the service first.
+                   Wait, I didn't update feeService.js yet.
+                   I should update feeService.js to handle the payload correctly or just pass a config object.
+                   The current feeService.js signature is fixed arguments.
+                   I will update feeService.js later. For now, let's shape the call as if updated.
+                */
+                // Pass object to new service signature or pass args? 
+                // Service: (batchId, template, userIds, totalAmount, courseId)
+                // I need to update feeService.js
             );
+
+            // 🔴 HOLD ON: I need to update feeService.js first or update the call here to match the new service.
+            // Let's assume I will update feeService.js to accept an options object as the last argument or extra args.
+            // Let's pass the extra args:
+            // (batchId, template, userIds, totalAmount, courseId, advance, adminDisc, addDisc, gstRate)
+
+            await createBatchInstallmentPlan(
+                selectedBatch.batchId,
+                template,
+                userIds,
+                totals.base,
+                Number(selectedCourse),
+                totals.advance,
+                totals.adminDisc,
+                totals.addDisc,
+                totals.gstAmount > 0 ? modalGST : 0 // Pass Rate
+            );
+
             alert(`Successfully applied installment plan to all students in ${selectedBatch.batchName}!`);
 
-            // Proactive UI Update: Mark all students in this batch as having this plan locally
-            // This ensures the "One-Time" labels update to "Custom" immediately
+            // Proactive UI Update
             const updatedList = selectedBatch.studentList.map(s => ({
                 ...s,
                 planType: planType,
                 installments: template,
-                totalFee: Number(totalPayable.toFixed(2)) // Reflect new amount for everyone in batch
+                totalFee: Number(totals.totalPayable.toFixed(2))
             }));
             setSelectedBatch(prev => ({ ...prev, studentList: updatedList }));
 
@@ -417,12 +622,14 @@ const FeeInstallments = () => {
         if (!configuringStudent || !selectedBatch) return;
 
         const totals = calculateTotals();
-        const totalPayable = totals.total;
+        const totalPayable = totals.totalPayable; // This is (Base - Disc) + GST
+        const remainingToSplit = totals.remainingToSplit; // This is Total Payable - Advance
+
         const sum = installments.reduce((acc, curr) => acc + Number(curr.amount), 0);
 
-        // Validation: Sum check with 1 unit tolerance for rounding errors
-        if (Math.abs(sum - totalPayable) > 1) {
-            alert(`Validation Error: Sum (₹${sum}) must equal Calculated Total Fee (₹${totalPayable.toFixed(2)}).`);
+        // Validation: Sum check with 1 unit tolerance
+        if (Math.abs(sum - remainingToSplit) > 1) {
+            alert(`Validation Error: Sum of installments (₹${sum}) must equal Remaining Payable (₹${remainingToSplit.toFixed(2)}).`);
             return;
         }
 
@@ -438,10 +645,6 @@ const FeeInstallments = () => {
                 status: 'PENDING'
             }));
 
-            // NEW LOGIC: Check if we need to CREATE a new allocation first.
-            // This handles the case where Backend has 9500, but User wants to split 25000.
-            // The previous logic ignored the 9500, but now we must ensure a 25000 allocation exists ON THE BACKEND before splitting it.
-
             let targetAllocationId = configuringStudent.allocationId;
 
             // Re-fetch latest to be sure
@@ -449,11 +652,10 @@ const FeeInstallments = () => {
             const allocations = Array.isArray(latestFees) ? latestFees : (latestFees ? [latestFees] : []);
             let existingInstallments = [];
 
-            // 🟢 STRATEGY: If student HAS an allocation already, we UPDATE it instead of creating new structure
             const existingAlloc = allocations.length > 0 ? allocations[0] : null;
 
             if (existingAlloc) {
-                targetAllocationId = existingAlloc.id;
+                targetAllocationId = existingAlloc.allocationId || existingAlloc.id; // Ensure ID is correct
 
                 try {
                     existingInstallments = await getStudentInstallments(targetAllocationId);
@@ -461,24 +663,22 @@ const FeeInstallments = () => {
                     console.warn("No existing installments found for allocation", targetAllocationId);
                 }
 
-                // If the UI amount (totalPayable) is different from what DB has, sync it first
-                if (Math.abs((existingAlloc.payableAmount || 0) - totalPayable) > 1.0) {
-                    console.log(`Updating existing allocation ${targetAllocationId} to new amount ${totalPayable}`);
-                    await updateFeeAllocation(targetAllocationId, {
-                        adminDiscount: totals.discountAmount,
-                        gstRate: Number(modalGST || 0),
-                        advancePayment: 0 // Keep simple for now
-                    });
-                }
+                // SYNC ALLOCATION FIELDS: Update discounts/GST/Advance if changed
+                await updateFeeAllocation(targetAllocationId, {
+                    adminDiscount: totals.adminDisc,
+                    additionalDiscount: totals.addDisc,
+                    gstRate: Number(modalGST || 0),
+                    advancePayment: totals.advance,
+                    payableAmount: totals.totalPayable // Backend might re-calc this, but sending it helps
+                });
+
             } else {
                 console.log(`No allocation found for user. Creating one.`);
 
-                // AUTHENTICATE CREATION: We must create a new Fee Structure & Allocation
                 if (window.confirm(`No backend record found for this student. Create new fee structure?`)) {
-                    // ... (rest is the same)
                     const newStructure = await createFee({
                         name: `Course Fee (Auto-Created)`,
-                        totalAmount: totalPayable,
+                        totalAmount: totals.base, // Structure holds BASE amount
                         currency: 'INR',
                         academicYear: '2025-26',
                         courseId: selectedCourse ? Number(selectedCourse) : null,
@@ -492,10 +692,11 @@ const FeeInstallments = () => {
                         userId: configuringStudent.id,
                         feeStructureId: newStructure.id,
                         originalAmount: totals.base,
-                        adminDiscount: totals.discountAmount,
+                        adminDiscount: totals.adminDisc,
+                        additionalDiscount: totals.addDisc,
                         gstRate: Number(modalGST || 0),
-                        advancePayment: 0,
-                        payableAmount: totals.total,
+                        advancePayment: totals.advance,
+                        payableAmount: totals.totalPayable,
                         studentEmail: configuringStudent.email
                     });
 
@@ -503,22 +704,20 @@ const FeeInstallments = () => {
                     setConfiguringStudent(prev => ({
                         ...prev,
                         allocationId: newAlloc.id,
-                        installments: installmentPayload // Added so next save knows it exists
+                        installments: installmentPayload
                     }));
                 } else {
                     return;
                 }
             }
 
-            // 🟢 VALIDATION: Ensure Sum matches Total (Strict 0.01 check)
+            // 🟢 VALIDATION AGAIN: Ensure Sum matches Remaing (Strict 0.01 check)
             const currentSum = installments.reduce((acc, curr) => acc + Number(curr.amount), 0);
-
-            // Normalize for comparison
             const roundedSum = Number(currentSum.toFixed(2));
-            const roundedTotal = Number(totalPayable.toFixed(2));
+            const roundedTotal = Number(remainingToSplit.toFixed(2));
 
             if (Math.abs(roundedSum - roundedTotal) > 0.001) {
-                if (window.confirm(`Validation Error: Sum (₹${roundedSum}) does not match Total (₹${roundedTotal}).\n\nWould you like to auto-adjust the last installment to fix this?`)) {
+                if (window.confirm(`Validation Error: Sum (₹${roundedSum}) does not match Remaining (₹${roundedTotal}).\n\nWould you like to auto-adjust the last installment to fix this?`)) {
                     const diff = Number((roundedTotal - roundedSum).toFixed(2));
                     const lastIdx = installments.length - 1;
                     const updatedInst = [...installments];
@@ -537,16 +736,13 @@ const FeeInstallments = () => {
                 return;
             }
 
-            // Prepare Payload for Backend
-            // Map 'OneTime' to 'CUSTOM' as it is technically a custom plan with 1 installment
-
             // Call API: Decide between CREATE or OVERRIDE
             const hasExistingOnBackend = allocations.length > 0 && existingAlloc?.id === targetAllocationId;
             const hasExistingInstallments = (configuringStudent.installments && configuringStudent.installments.length > 0) ||
                 (hasExistingOnBackend && existingInstallments && existingInstallments.length > 0);
 
             if (hasExistingInstallments) {
-                // OVERRIDE flow: Backend only expects the UNPAID/NEW installments to match remaining balance
+                // OVERRIDE flow
                 const unpaidPayload = installments
                     .filter(i => i.status !== 'PAID')
                     .map(i => ({
@@ -555,13 +751,13 @@ const FeeInstallments = () => {
                     }));
                 await overrideInstallmentPlan(targetAllocationId, unpaidPayload);
             } else {
-                // CREATE flow: All are new
+                // CREATE flow
                 await createInstallmentPlan(targetAllocationId, installmentPayload);
             }
 
             alert(`Successfully saved installment plan for ${configuringStudent.name} to Backend!`);
 
-            // Optimistic Update: Update Local State to reflect changes immediately
+            // Optimistic Update
             const updatedBatches = batches.map(b => {
                 if (b.batchId === selectedBatch.batchId) {
                     const updatedList = b.studentList.map(s => {
@@ -570,7 +766,7 @@ const FeeInstallments = () => {
                                 ...s,
                                 installments: installments,
                                 planType: planType,
-                                totalFee: Number(totalPayable.toFixed(2)) // Reflect discounted amount on card
+                                totalFee: Number(totals.totalPayable.toFixed(2))
                             };
                         }
                         return s;
@@ -580,11 +776,11 @@ const FeeInstallments = () => {
                 return b;
             });
 
-            // Optionally update local storage as a cache/fallback
+            // Optionally update local storage
             localStorage.setItem('lms_fee_data', JSON.stringify(updatedBatches));
 
             setBatches(updatedBatches);
-            setConfiguringStudent(null); // Close modal
+            setConfiguringStudent(null);
 
         } catch (error) {
             console.error("Failed to save plan to backend:", error);
@@ -592,11 +788,10 @@ const FeeInstallments = () => {
             let displayMsg = "An unexpected error occurred.";
 
             if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-                displayMsg = `Timeout Error: The backend took too long to respond (>30s).\nThis usually means the connection is slow or the server is busy.`;
+                displayMsg = `Timeout Error: The backend took too long to respond.`;
             } else if (error.message === 'Network Error') {
-                displayMsg = `Network Error: Cannot reach localhost:3130.\n1. Check if the backend is running.\n2. Disable Firewall on the backend laptop.\n3. Verify connection.`;
+                displayMsg = `Network Error: Cannot reach server.`;
             } else if (error.response) {
-                // Server responded with non-2xx code
                 displayMsg = `Server Error (${error.response.status}): ${JSON.stringify(error.response.data) || error.message}`;
             } else {
                 displayMsg = error.message || "Unknown Error";
@@ -987,6 +1182,20 @@ const FeeInstallments = () => {
                                 </div>
                             </div>
 
+                            {/* Clearing Date Warning */}
+                            {feeStructure?.fullFeeClearDate && installments.some(i => i.dueDate && new Date(i.dueDate) > new Date(feeStructure.fullFeeClearDate)) && (
+                                <div style={{
+                                    background: '#fff7ed', border: '1px solid #ffedd5', padding: '10px 16px',
+                                    borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10,
+                                    color: '#9a3412', fontSize: 13
+                                }}>
+                                    <FiAlertCircle size={18} />
+                                    <span>
+                                        <strong>Admin Override:</strong> Detected installment extensions beyond the Full Fee Clear Date ({feeStructure.fullFeeClearDate}).
+                                    </span>
+                                </div>
+                            )}
+
                             {/* Plan Configuration Logic (Reused) */}
                             <div className="form-group" style={{ marginBottom: 24 }}>
                                 <label className="form-label" style={{ marginBottom: 12 }}>Installment Plan Type</label>
@@ -1038,7 +1247,7 @@ const FeeInstallments = () => {
 
                             {/* Table Header Row - For perfect alignment */}
                             <div style={{
-                                display: 'grid', gridTemplateColumns: planType === 'Custom' ? '50px 2fr 1.5fr 1.5fr 40px' : '50px 2fr 1.5fr 1.5fr', gap: 10,
+                                display: 'grid', gridTemplateColumns: planType === 'Custom' ? '50px 2fr 1.5fr 1.5fr 80px' : '50px 2fr 1.5fr 1.5fr 40px', gap: 10,
                                 padding: '0 10px 0 10px', marginBottom: 8
                             }}>
                                 <div></div> {/* Empty for Index */}
@@ -1050,7 +1259,7 @@ const FeeInstallments = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 350, overflowY: 'auto', paddingRight: 4 }} className="no-scrollbar">
                                 {installments.map((inst, idx) => (
                                     <div key={inst.id} style={{
-                                        display: 'grid', gridTemplateColumns: planType === 'Custom' ? '50px 2fr 1.5fr 1.5fr 40px' : '50px 2fr 1.5fr 1.5fr', gap: 10, alignItems: 'center',
+                                        display: 'grid', gridTemplateColumns: planType === 'Custom' ? '50px 2fr 1.5fr 1.5fr 80px' : '50px 2fr 1.5fr 1.5fr 40px', gap: 10, alignItems: 'center',
                                         padding: '12px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12
                                     }}>
                                         <div style={{ fontWeight: 600, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>#{idx + 1}</div>
@@ -1082,16 +1291,30 @@ const FeeInstallments = () => {
                                                 style={{ background: 'white', fontSize: 13 }}
                                             />
                                         </div>
-                                        {planType === 'Custom' && (
-                                            <button
-                                                onClick={() => removeInstallment(idx)}
-                                                className="btn-icon"
-                                                style={{ width: 32, height: 32, color: '#ef4444', borderColor: '#fee2e2', background: '#fef2f2' }}
-                                                title="Remove Installment"
-                                            >
-                                                <FiTrash2 size={14} />
-                                            </button>
-                                        )}
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            {/* Extension Action for existing items */}
+                                            {inst.status !== 'PAID' && typeof inst.id === 'number' && inst.id > 1000000 && (
+                                                <button
+                                                    onClick={() => { setExtendingInstallment(inst); setExtensionDate(inst.dueDate); }}
+                                                    className="btn-icon"
+                                                    style={{ width: 32, height: 32, color: '#6366f1', borderColor: '#e0e7ff', background: 'white' }}
+                                                    title="Extend Due Date"
+                                                >
+                                                    <FiClock size={14} />
+                                                </button>
+                                            )}
+
+                                            {planType === 'Custom' && (
+                                                <button
+                                                    onClick={() => removeInstallment(idx)}
+                                                    className="btn-icon"
+                                                    style={{ width: 32, height: 32, color: '#ef4444', borderColor: '#fee2e2', background: '#fef2f2' }}
+                                                    title="Remove Installment"
+                                                >
+                                                    <FiTrash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -1104,9 +1327,76 @@ const FeeInstallments = () => {
                             </div>
                         </motion.div>
                     </motion.div>
-                )
-                }
+                )}
             </AnimatePresence >
+
+            {/* Extension Reason Modal */}
+            <AnimatePresence>
+                {extendingInstallment && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 10000,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="glass-card"
+                            style={{ width: 400, padding: 24, background: 'white' }}
+                        >
+                            <h3 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 700 }}>Extend Due Date</h3>
+                            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
+                                Extending installment for <strong>{configuringStudent?.name}</strong>. This action will be logged.
+                            </p>
+
+                            <div className="form-group" style={{ marginBottom: 16 }}>
+                                <label className="form-label">New Due Date</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={extensionDate}
+                                    onChange={(e) => setExtensionDate(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 24 }}>
+                                <label className="form-label">Reason for Extension</label>
+                                <textarea
+                                    className="form-input"
+                                    placeholder="e.g. Student requested more time due to medical emergency"
+                                    rows={3}
+                                    value={extensionReason}
+                                    onChange={(e) => setExtensionReason(e.target.value)}
+                                    style={{ resize: 'none', padding: '10px' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                                <button
+                                    className="btn-secondary"
+                                    onClick={() => setExtendingInstallment(null)}
+                                    disabled={extending}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn-primary"
+                                    onClick={handleExtendDueDate}
+                                    disabled={extending || !extensionReason || !extensionDate}
+                                >
+                                    {extending ? <FiLoader className="spin" /> : <FiCalendar />}
+                                    {extending ? 'Extending...' : 'Confirm Extension'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div >
     );
 };

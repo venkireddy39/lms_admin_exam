@@ -84,6 +84,7 @@ const CoursesPage = () => {
         onShowDetails={(course) => setViewCourse(course)}
         onShare={(course) => setShareCourse(course)}
         onBookmark={toggleBookmark}
+        onCreateBatch={(courseId, courseName) => navigate('/admin/batches', { state: { createBatchForCourse: courseId } })}
       />
 
       {/* Create / Edit Modal */}

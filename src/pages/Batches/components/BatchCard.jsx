@@ -58,6 +58,34 @@ const BatchCard = ({ batch, courses = [], onEdit, onDelete, onManageContent }) =
                     )}
                 </div>
 
+                {/* Fee and Access */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <div style={{
+                        background: '#f1f5f9',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        color: '#475569',
+                        border: '1px solid #e2e8f0'
+                    }}>
+                        Fee: ₹{batch.fee || 0}
+                    </div>
+                    {batch.contentAccess && (
+                        <div style={{
+                            background: '#ecfdf5',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            color: '#059669',
+                            border: '1px solid #a7f3d0'
+                        }}>
+                            Access Enabled
+                        </div>
+                    )}
+                </div>
+
                 {/* Capacity */}
                 {maxStudents > 0 && (
                     <div className="capacity-section">

@@ -60,7 +60,7 @@ const BasicDetails = ({ data, onChange, feeTypes = [] }) => (
                 </select>
             </div>
             <div className="form-group">
-                <label className="form-label">Amount (₹) *</label>
+                <label className="form-label">Total Amount (₹) *</label>
                 <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: 14, top: 13, color: '#64748b', fontSize: 16, fontWeight: 600 }}>₹</span>
                     <input
@@ -79,6 +79,47 @@ const BasicDetails = ({ data, onChange, feeTypes = [] }) => (
                         title={data.type?.toLowerCase() === 'course fee' ? "Auto-fetched. If 0, you can edit manually." : ""}
                     />
                 </div>
+            </div>
+        </div>
+
+        {/* ADMISSION FEE SECTION - ADDED */}
+        <div className="form-grid" style={{ marginTop: 16 }}>
+            <div className="form-group">
+                <label className="form-label">Admission/Registration Fee</label>
+                <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 14, top: 13, color: '#64748b', fontSize: 16, fontWeight: 600 }}>₹</span>
+                    <input
+                        type="number"
+                        name="admissionFee"
+                        className="form-input"
+                        style={{ paddingLeft: 38 }}
+                        placeholder="0.00"
+                        value={data.admissionFee}
+                        onChange={onChange}
+                    />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Included in Total Amount? Usually separate or part of first installment.</div>
+            </div>
+            <div className="form-group" style={{ display: 'flex', alignItems: 'end', paddingBottom: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', width: '100%' }}>
+                    <div className={`checkbox-custom ${data.admissionNonRefundable ? 'checked' : ''}`} style={{
+                        width: 24, height: 24, borderRadius: 6, border: data.admissionNonRefundable ? 'none' : '2px solid #cbd5e1',
+                        background: data.admissionNonRefundable ? 'var(--primary-gradient)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                        {data.admissionNonRefundable && <FiCheckCircle color="white" size={16} />}
+                    </div>
+                    <input
+                        type="checkbox"
+                        name="admissionNonRefundable"
+                        checked={data.admissionNonRefundable}
+                        onChange={(e) => onChange({ target: { name: 'admissionNonRefundable', value: e.target.checked } })}
+                        style={{ display: 'none' }}
+                    />
+                    <div>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Non-Refundable</span>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Admission fee cannot be refunded</div>
+                    </div>
+                </label>
             </div>
         </div>
 
@@ -422,15 +463,15 @@ const NotificationSettings = ({ data, setData, toggleNested }) => (
     </motion.div>
 );
 
-const DiscountSettings = ({ data, setData, courseAmount }) => {
+const DiscountSettings = ({ data, setData, courseAmount, admissionFee }) => {
     // Calculation Logic (Matching backend FeeDiscountServiceImpl.java)
     const courseFee = Number(courseAmount) || 0;
-    const admissionFee = Number(data.admissionFee) || 0;
+    const admFee = Number(admissionFee) || 0;
     const discountValue = Number(data.value) || 0;
     const gstPercent = Number(data.gstPercent) || 0;
 
     // 1. Base Amount (Discountable Amount = course fee − admission fee)
-    const baseAmount = Math.max(0, courseFee - admissionFee);
+    const baseAmount = Math.max(0, courseFee - admFee);
 
     // 2. Discount Amount
     let discountAmount = 0;
@@ -446,7 +487,7 @@ const DiscountSettings = ({ data, setData, courseAmount }) => {
     const netCourseFee = baseAmount - discountAmount;
 
     // 4. Taxable Amount (admission fee + discounted course fee)
-    const taxableAmount = admissionFee + netCourseFee;
+    const taxableAmount = admFee + netCourseFee;
 
     // 5. GST Amount (taxableAmount * gstPercent / 100)
     const gstAmount = (taxableAmount * gstPercent) / 100;
@@ -478,15 +519,15 @@ const DiscountSettings = ({ data, setData, courseAmount }) => {
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
                         <div className="form-grid" style={{ paddingTop: 12, borderTop: '1px solid var(--glass-border)' }}>
                             <div className="form-group">
-                                <label className="form-label">Admission Fee (Non-Refundable)</label>
+                                <label className="form-label">Admission Fee (Fixed)</label>
                                 <input
                                     type="number"
                                     className="form-input"
-                                    placeholder="e.g. 2000"
-                                    value={data.admissionFee}
-                                    onChange={(e) => setData({ ...data, admissionFee: e.target.value })}
+                                    value={admFee}
+                                    disabled
+                                    style={{ background: '#f1f5f9', cursor: 'not-allowed' }}
                                 />
-                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>This amount is taxed but NOT discounted</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Values configured in Basic Details</div>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">GST Percentage (%)</label>
@@ -589,7 +630,9 @@ const CreateFee = () => {
         amount: '',
         description: '',
         taxEnabled: false,
-        taxPercentage: 18
+        taxPercentage: 18,
+        admissionFee: '',
+        admissionNonRefundable: true
     });
 
     const [saving, setSaving] = useState(false);
@@ -599,7 +642,7 @@ const CreateFee = () => {
         category: 'Scholarship',
         type: 'flat',
         value: '',
-        admissionFee: '',
+        admissionFee: '', // Kept for legacy compatibility if needed, but driven by basicDetails
         gstPercent: 18,
         installmentCount: 1,
         reason: ''
@@ -941,6 +984,8 @@ const CreateFee = () => {
                 feeTypeId: selectedFeeTypeId,
                 triggerOnCreation: true,
                 description: feeDescription,
+                admissionFeeAmount: basicDetails.admissionFee ? Number(basicDetails.admissionFee) : 0,
+                admissionNonRefundable: basicDetails.admissionNonRefundable,
                 // New Backend Requirement: Components list
                 components: [
                     {
@@ -998,7 +1043,7 @@ const CreateFee = () => {
                         discountName: (discount.reason || 'Fee Discount'),
                         discountType: discount.type === 'flat' ? 'FLAT' : 'PERCENTAGE',
                         discountValue: Number(discount.value),
-                        admissionFee: Number(discount.admissionFee) || 0,
+                        admissionFee: basicDetails.admissionFee ? Number(basicDetails.admissionFee) : 0, // Using basicDetails
                         gstPercent: Number(discount.gstPercent) || 0,
                         installmentCount: Number(discount.installmentCount) || 1,
                         isActive: true
@@ -1098,6 +1143,7 @@ const CreateFee = () => {
                         data={{ ...discount, targetType: assignment.targetType }}
                         setData={setDiscount}
                         courseAmount={basicDetails.amount}
+                        admissionFee={basicDetails.admissionFee} // Passed prop
                     />
                 )}
 

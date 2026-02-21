@@ -158,7 +158,6 @@ const CreateExam = () => {
         examType: examData.type.toUpperCase(),
         totalMarks: examData.totalMarks,
         durationMinutes: examData.duration,
-        passPercentage: 40,
         passPercentage: 40
       };
 

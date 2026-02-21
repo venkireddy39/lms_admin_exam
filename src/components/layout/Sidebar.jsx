@@ -74,7 +74,6 @@ const Sidebar = ({ isOpen, toggleSidebar, isMobile }) => {
             {/* ACADEMICS GROUP */}
             <MenuGroup title="Academics" icon="FiBookOpen" isOpen={isOpen} expanded={groups.academics} onToggle={() => toggleGroup('academics')}>
               <SidebarItem to="/admin/courses" icon="FiBook" label="Courses" isOpen={isOpen} isSub />
-              <SidebarItem to="/admin/batches" icon="FiUsers" label="Batches" isOpen={isOpen} isSub />
               <SidebarItem to="/admin/webinar" icon="FiVideo" label="Webinars" isOpen={isOpen} isSub />
               <SidebarItem to="/admin/exams" icon="FiEdit" label="Exams" isOpen={isOpen} isSub />
               <SidebarItem to="/admin/certificates" icon="FiAward" label="Certificates" isOpen={isOpen} isSub />

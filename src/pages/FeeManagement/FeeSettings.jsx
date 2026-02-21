@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiBell, FiInfo, FiCheckCircle, FiAlertCircle, FiSettings,
     FiMail, FiMessageSquare, FiSmartphone, FiClock, FiActivity,
-    FiUserCheck, FiSave, FiList, FiLoader, FiGlobe, FiFileText, FiPercent, FiZap
+    FiUserCheck, FiSave, FiList, FiLoader, FiGlobe, FiFileText, FiPercent, FiZap, FiPlus, FiTrash2
 } from 'react-icons/fi';
 import './FeeManagement.css';
 import { getFeeSettings, saveFeeSettings } from '../../services/feeService';
 import FeeTypesSettings from './FeeTypesSettings';
+import FeeStructureSettings from './FeeStructureSettings';
 
 // --- Extracted Component to prevent re-renders ---
 const NotificationCard = ({ notifType, data, onToggle, onConfigChange, onTest }) => (
@@ -175,7 +176,8 @@ const FeeSettings = () => {
         type: 'fixed', // or 'percentage'
         maxCap: 2000,
         sendEmail: true,
-        frequency: 'MONTHLY'
+        frequency: 'MONTHLY',
+        slabs: []
     };
 
     const defaultNotifications = {
@@ -376,6 +378,26 @@ const FeeSettings = () => {
         }));
     };
 
+    const addSlab = () => {
+        setLateFeeSettings(prev => ({
+            ...prev,
+            slabs: [...(prev.slabs || []), { fromDay: 1, toDay: 5, finePerDay: 10 }]
+        }));
+    };
+
+    const removeSlab = (index) => {
+        setLateFeeSettings(prev => ({
+            ...prev,
+            slabs: prev.slabs.filter((_, i) => i !== index)
+        }));
+    };
+
+    const updateSlab = (index, field, value) => {
+        const newSlabs = [...lateFeeSettings.slabs];
+        newSlabs[index] = { ...newSlabs[index], [field]: value };
+        setLateFeeSettings(prev => ({ ...prev, slabs: newSlabs }));
+    };
+
     // --- Simulation Logic ---
     const handleTestTrigger = (data) => {
         let msg = data.template;
@@ -545,6 +567,77 @@ const FeeSettings = () => {
                                                 Email
                                             </label>
                                         </div>
+
+                                        {/* Slab Management */}
+                                        <div style={{ marginTop: 20 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Daily Fine Slabs (Optional)</h4>
+                                                <button
+                                                    onClick={addSlab}
+                                                    className="btn-secondary"
+                                                    style={{ padding: '4px 12px', fontSize: 12, height: 32 }}
+                                                >
+                                                    <FiPlus /> Add Slab
+                                                </button>
+                                            </div>
+
+                                            {lateFeeSettings.slabs && lateFeeSettings.slabs.length > 0 ? (
+                                                <div className="table-responsive" style={{ borderRadius: 12, border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
+                                                    <table className="fee-table" style={{ fontSize: 13 }}>
+                                                        <thead style={{ background: 'rgba(0,0,0,0.02)' }}>
+                                                            <tr>
+                                                                <th>From Day</th>
+                                                                <th>To Day</th>
+                                                                <th>Fine ({generalSettings.currencySymbol}/Day)</th>
+                                                                <th style={{ width: 50 }}></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {lateFeeSettings.slabs.map((slab, index) => (
+                                                                <tr key={index}>
+                                                                    <td>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={slab.fromDay}
+                                                                            onChange={(e) => updateSlab(index, 'fromDay', parseInt(e.target.value))}
+                                                                            style={{ width: '100%', border: 'none', background: 'transparent' }}
+                                                                        />
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={slab.toDay || ''}
+                                                                            placeholder="Forever"
+                                                                            onChange={(e) => updateSlab(index, 'toDay', e.target.value ? parseInt(e.target.value) : null)}
+                                                                            style={{ width: '100%', border: 'none', background: 'transparent' }}
+                                                                        />
+                                                                    </td>
+                                                                    <td>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={slab.finePerDay}
+                                                                            onChange={(e) => updateSlab(index, 'finePerDay', parseFloat(e.target.value))}
+                                                                            style={{ width: '100%', border: 'none', background: 'transparent' }}
+                                                                        />
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'center' }}>
+                                                                        <FiTrash2
+                                                                            style={{ color: '#ef4444', cursor: 'pointer' }}
+                                                                            onClick={() => removeSlab(index)}
+                                                                        />
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : (
+                                                <div style={{ textAlign: 'center', padding: 20, background: 'rgba(0,0,0,0.02)', borderRadius: 12, fontSize: 13, color: '#64748b' }}>
+                                                    No slabs defined. Using default settings above.
+                                                </div>
+                                            )}
+                                        </div>
+
                                         <div style={{ marginTop: 16, padding: '12px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: 8, border: '1px solid rgba(99, 102, 241, 0.1)' }}>
                                             <div style={{ fontSize: 14, fontWeight: 500, color: '#4338ca' }}>
                                                 📧 Late Fee Notification ({lateFeeSettings.frequency})
@@ -562,6 +655,11 @@ const FeeSettings = () => {
                     {/* Fee Types Section */}
                     <section className="form-section">
                         <FeeTypesSettings />
+                    </section>
+
+                    {/* Fee Structure Section */}
+                    <section className="form-section">
+                        <FeeStructureSettings />
                     </section>
 
                     {/* Notification Section */}
@@ -614,9 +712,8 @@ const FeeSettings = () => {
                         </div>
                     </section>
                 </>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 };
 

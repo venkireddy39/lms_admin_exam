@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FiPlus, FiTrash2, FiEdit2, FiCheck, FiX, FiList, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
-import { getAllFeeTypes, createFeeType, updateFeeType, deleteFeeType } from '../../services/feeService';
+import { FiPlus, FiTrash2, FiEdit2, FiList, FiSettings } from 'react-icons/fi';
+import { feeTypeService } from './services/feeTypeService';
+import FeeTypeModal from './components/FeeTypeModal';
 
 const FeeTypesSettings = () => {
     const [feeTypes, setFeeTypes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [editingId, setEditingId] = useState(null);
-    const [newFeeType, setNewFeeType] = useState({ name: '', description: '' });
-    const [editData, setEditData] = useState({ name: '', description: '' });
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingType, setEditingType] = useState(null);
 
     useEffect(() => {
         fetchFeeTypes();
@@ -17,44 +16,47 @@ const FeeTypesSettings = () => {
     const fetchFeeTypes = async () => {
         setLoading(true);
         try {
-            const data = await getAllFeeTypes();
-            setFeeTypes(data || []);
+            const data = await feeTypeService.getAllFeeTypes();
+            // Backend returns list of fee types
+            setFeeTypes(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Error fetching fee types:", error);
-            // alert("Failed to fetch fee types");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCreate = async () => {
-        if (!newFeeType.name.trim()) return;
-        try {
-            await createFeeType(newFeeType);
-            setNewFeeType({ name: '', description: '' });
-            fetchFeeTypes();
-        } catch (error) {
-            console.error("Error creating fee type:", error);
-            alert("Failed to create fee type. Name must be unique.");
-        }
-    };
+    const handleSave = async (data) => {
+        // Frontend duplicate check
+        const isDuplicate = feeTypes.some(t =>
+            t.name.trim().toLowerCase() === data.name.trim().toLowerCase() &&
+            (editingType ? (t.id !== editingType.id) : true)
+        );
 
-    const handleUpdate = async (id) => {
-        if (!editData.name.trim()) return;
+        if (isDuplicate) {
+            alert("A fee type with this name already exists.");
+            return;
+        }
+
         try {
-            await updateFeeType(id, editData);
-            setEditingId(null);
+            if (editingType) {
+                await feeTypeService.updateFeeType(editingType.id, data);
+            } else {
+                await feeTypeService.createFeeType(data);
+            }
+            setIsModalOpen(false);
+            setEditingType(null);
             fetchFeeTypes();
         } catch (error) {
-            console.error("Error updating fee type:", error);
-            alert("Failed to update fee type.");
+            console.error("Error saving fee type:", error);
+            alert(error.message || "Failed to save fee type.");
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this fee type? It will be deactivated.")) return;
+        if (!window.confirm("Are you sure you want to deactivate this fee type?")) return;
         try {
-            await deleteFeeType(id);
+            await feeTypeService.deleteFeeType(id);
             fetchFeeTypes();
         } catch (error) {
             console.error("Error deleting fee type:", error);
@@ -62,125 +64,157 @@ const FeeTypesSettings = () => {
         }
     };
 
-    const startEdit = (type) => {
-        setEditingId(type.id);
-        setEditData({ name: type.name, description: type.description });
+    const openCreateModal = () => {
+        setEditingType(null);
+        setIsModalOpen(true);
+    };
+
+    const openEditModal = (type) => {
+        // Normalize data for modal
+        setEditingType({
+            ...type,
+            active: type.active ?? type.isActive
+        });
+        setIsModalOpen(true);
+    };
+
+    const seedDefaults = async () => {
+        if (!window.confirm("This will attempt to create default fee types (Admission, Tuition, Lab, etc.). Continue?")) return;
+
+        const defaults = [
+            { name: "Admission Fee", description: "One time non refundable fee", active: true, refundable: false, mandatory: true, oneTime: true, applyLateFee: false, applyAutoDebit: false, admissionFee: true, displayOrder: 1 },
+            { name: "Tuition Fee", description: "Monthly recurring fee", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 2 },
+            { name: "Lab Fee", description: "Laboratory usage fee", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: false, applyAutoDebit: true, admissionFee: false, displayOrder: 3 },
+            { name: "Exam Fee", description: "Examination processing fee", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: true, applyAutoDebit: false, admissionFee: false, displayOrder: 4 },
+            { name: "Hostel Fee", description: "Accommodation fee", active: true, refundable: true, mandatory: false, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 5 },
+            { name: "Transport Fee", description: "Transportation service fee", active: true, refundable: true, mandatory: false, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 6 },
+            { name: "Material Fee", description: "Course material and books", active: true, refundable: false, mandatory: true, oneTime: true, applyLateFee: false, applyAutoDebit: false, admissionFee: false, displayOrder: 7 },
+            { name: "Certificate Fee", description: "Completion certificate cost", active: true, refundable: false, mandatory: true, oneTime: true, applyLateFee: false, applyAutoDebit: false, admissionFee: false, displayOrder: 8 },
+            { name: "Batch Fee", description: "Standard fee for the batch", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 9 },
+        ];
+
+        let successCount = 0;
+        for (const type of defaults) {
+            try {
+                // Check local duplicate first to avoid unnecessary API calls
+                const exists = feeTypes.some(t => t.name.toLowerCase() === type.name.toLowerCase());
+                if (!exists) {
+                    await feeTypeService.createFeeType(type);
+                    successCount++;
+                }
+            } catch (e) {
+                console.warn(`Skipping ${type.name}`);
+            }
+        }
+        alert(`Process complete. Created ${successCount} new fee types.`);
+        fetchFeeTypes();
     };
 
     return (
         <div className="fee-types-container">
-            <div className="section-title"><FiList /> Fee Types Management</div>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
-                Define global fee categories (e.g., Tuition Fee, Exam Fee) to be used when creating standard fee structures.
-            </p>
-
-            <div className="glass-card" style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                        <label className="form-label">Fee Type Name</label>
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="e.g. Lab Fee"
-                            value={newFeeType.name}
-                            onChange={(e) => setNewFeeType({ ...newFeeType, name: e.target.value })}
-                        />
-                    </div>
-                    <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
-                        <label className="form-label">Description</label>
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="Optional description..."
-                            value={newFeeType.description}
-                            onChange={(e) => setNewFeeType({ ...newFeeType, description: e.target.value })}
-                        />
-                    </div>
-                    <button className="btn-primary" onClick={handleCreate} disabled={!newFeeType.name.trim()}>
-                        <FiPlus /> Add Type
+            <div className="section-title">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FiList /> Fee Types Management
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                    {feeTypes.length === 0 && !loading && (
+                        <button className="btn-secondary" onClick={seedDefaults} style={{ fontSize: '13px' }}>
+                            <FiSettings size={14} style={{ marginRight: '6px' }} />
+                            Seed Defaults
+                        </button>
+                    )}
+                    <button className="btn-primary" onClick={openCreateModal}>
+                        <FiPlus /> Create New Fee Type
                     </button>
                 </div>
             </div>
+
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
+                Define global fee categories (e.g., Tuition Fee, Exam Fee) to be used when creating standard fee structures.
+            </p>
 
             <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Order</th>
                             <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Name</th>
-                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Description</th>
+                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Type</th>
+                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Config</th>
                             <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Status</th>
                             <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b', textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="4" style={{ padding: 24, textAlign: 'center' }}>Loading...</td></tr>
+                            <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center' }}>Loading...</td></tr>
                         ) : feeTypes.length === 0 ? (
-                            <tr><td colSpan="4" style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>No fee types found. Add one above.</td></tr>
+                            <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>No fee types found. Create one to get started.</td></tr>
                         ) : (
-                            feeTypes.map(type => (
-                                <tr key={type.feeTypeId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '12px 16px' }}>
-                                        {editingId === type.feeTypeId ? (
-                                            <input
-                                                className="form-input"
-                                                autoFocus
-                                                value={editData.name}
-                                                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                                            />
-                                        ) : (
-                                            <span style={{ fontWeight: 500 }}>{type.name}</span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '12px 16px' }}>
-                                        {editingId === type.feeTypeId ? (
-                                            <input
-                                                className="form-input"
-                                                value={editData.description}
-                                                onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                                            />
-                                        ) : (
-                                            <span style={{ color: '#64748b', fontSize: 13 }}>{type.description || '-'}</span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '12px 16px' }}>
-                                        {type.isActive ? (
-                                            <span className="status-badge paid" style={{ fontSize: 11 }}>Active</span>
-                                        ) : (
-                                            <span className="status-badge overdue" style={{ fontSize: 11 }}>Inactive</span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                            {editingId === type.feeTypeId ? (
-                                                <>
-                                                    <button onClick={() => handleUpdate(type.feeTypeId)} className="btn-icon" style={{ color: '#16a34a', background: '#dcfce7' }}>
-                                                        <FiCheck />
-                                                    </button>
-                                                    <button onClick={() => setEditingId(null)} className="btn-icon" style={{ color: '#64748b', background: '#f1f5f9' }}>
-                                                        <FiX />
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <button onClick={() => startEdit(type)} className="btn-icon" style={{ color: '#3b82f6', background: '#eff6ff' }} disabled={!type.isActive}>
+                            feeTypes
+                                .sort((a, b) => (Number(a.displayOrder ?? 99)) - (Number(b.displayOrder ?? 99)))
+                                .map(type => {
+                                    // Normalize active status for display
+                                    const isActive = type.active ?? type.isActive;
+
+                                    return (
+                                        <tr key={type.id || Math.random()} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                                                {type.displayOrder || '-'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <div style={{ fontWeight: 500 }}>{type.name}</div>
+                                                <div style={{ fontSize: 12, color: '#94a3b8' }}>{type.description}</div>
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                {type.oneTime ?
+                                                    <span className="badge-gray" style={{ background: '#f1f5f9', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>One-Time</span> :
+                                                    <span className="badge-blue" style={{ background: '#eff6ff', color: '#2563eb', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>Recurring</span>
+                                                }
+                                                {type.admissionFee && <div style={{ fontSize: 11, color: '#ea580c', fontWeight: 500, marginTop: 4 }}>Admission</div>}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', fontSize: 12 }}>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                    {type.mandatory && <span title="Mandatory" style={{ color: '#ef4444', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Mandatory</span>}
+                                                    {type.refundable && <span title="Refundable" style={{ color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Refundable</span>}
+                                                    {type.applyLateFee && <span title="Late Fee Applicable" style={{ color: '#d97706', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Late Fee</span>}
+                                                    {type.applyAutoDebit && <span title="Auto Debit Enabled" style={{ color: '#4f46e5', background: '#e0e7ff', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Auto-Debit</span>}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                {isActive ? (
+                                                    <span className="status-badge paid" style={{ fontSize: 11, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>Active</span>
+                                                ) : (
+                                                    <span className="status-badge overdue" style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px' }}>Inactive</span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                                    <button onClick={() => openEditModal(type)} className="btn-icon" style={{ color: '#3b82f6', background: '#eff6ff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>
                                                         <FiEdit2 size={14} />
                                                     </button>
-                                                    {type.isActive && (
-                                                        <button onClick={() => handleDelete(type.feeTypeId)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2' }}>
+
+                                                    {isActive && (
+                                                        <button onClick={() => handleDelete(type.id)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>
                                                             <FiTrash2 size={14} />
                                                         </button>
                                                     )}
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                         )}
                     </tbody>
                 </table>
             </div>
+
+            <FeeTypeModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                initialData={editingType}
+                onSave={handleSave}
+            />
         </div>
     );
 };

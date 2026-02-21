@@ -52,7 +52,6 @@ const TopNavbar = () => {
             icon: BookOpen,
             children: [
                 { label: 'Courses', path: '/admin/courses', icon: Book },
-                { label: 'Batches', path: '/admin/batches', icon: Users },
                 { label: 'Webinars', path: '/admin/webinar', icon: Video },
                 { label: 'Exams', path: '/admin/exams', icon: Edit },
                 { label: 'Certificates', path: '/admin/certificates', icon: Award },
@@ -134,7 +133,7 @@ const TopNavbar = () => {
             if (showUserDropdown && !event.target.closest('.user-account-menu')) {
                 setShowUserDropdown(false);
             }
-            if (activeDropdown && !event.target.closest('.nav-item-with-children')) {
+            if (activeDropdown !== null && !event.target.closest('.nav-item-with-children')) {
                 setActiveDropdown(null);
             }
         };
@@ -162,32 +161,35 @@ const TopNavbar = () => {
                             <li
                                 key={index}
                                 className={`nav-item ${item.children ? 'nav-item-with-children' : ''}`}
-                                onMouseEnter={() => item.children && setActiveDropdown(index)}
-                                onMouseLeave={() => setActiveDropdown(null)}
                             >
                                 {item.path ? (
                                     <NavLink
                                         to={item.path}
                                         className={({ isActive }) => `nav-link-item ${isActive ? 'active' : ''}`}
+                                        onClick={() => setActiveDropdown(null)}
                                     >
                                         <item.icon size={18} />
                                         <span>{item.label}</span>
                                     </NavLink>
                                 ) : (
-                                    <div className={`nav-link-item ${activeDropdown === index ? 'active' : ''}`}>
+                                    <div
+                                        className={`nav-link-item ${activeDropdown === index ? 'active' : ''}`}
+                                        onClick={() => setActiveDropdown(activeDropdown === index ? null : index)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
                                         <item.icon size={18} />
                                         <span>{item.label}</span>
-                                        <ChevronDown size={14} className="chevron" />
+                                        <ChevronDown size={14} className={`chevron ${activeDropdown === index ? 'rotate' : ''}`} />
                                     </div>
                                 )}
 
                                 {item.children && activeDropdown === index && (
-                                    <div className="nav-dropdown-menu animate-in">
+                                    <div className="nav-dropdown-menu fade-in-down">
                                         {item.children.map((child, childIndex) => (
                                             <NavLink
                                                 key={childIndex}
                                                 to={child.path}
-                                                className={({ isActive }) => `dropdown-item ${isActive ? 'active' : ''}`}
+                                                className={({ isActive }) => `topnav-dropdown-item ${isActive ? 'active' : ''}`}
                                                 onClick={() => setActiveDropdown(null)}
                                             >
                                                 <child.icon size={16} />

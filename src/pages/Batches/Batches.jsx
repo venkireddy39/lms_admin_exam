@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FiPlus, FiSearch, FiFilter } from "react-icons/fi";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { useBatches } from './hooks/useBatches';
 import { useEnrichedBatches } from './hooks/useEnrichedBatches';
@@ -19,6 +19,7 @@ import './styles/batches.css';
 
 const Batches = () => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [courses, setCourses] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
@@ -123,6 +124,17 @@ const Batches = () => {
         setInstructorFilter,
         loading: loadingBatches
     } = useBatches(courses, instructors);
+
+    // Effect to handle navigation from Course Card -> Create Batch
+    useEffect(() => {
+        if (location.state?.createBatchForCourse && !loadingData && !loadingBatches) {
+            setCourseFilter(location.state.createBatchForCourse);
+            openModal(null, { courseId: location.state.createBatchForCourse });
+
+            // Clean up history state so a page refresh doesn't pop the modal open again
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state, loadingData, loadingBatches, courses]);
 
     // Manual Enrichment: Student counts
     const enrichedBatches = useEnrichedBatches(batches);

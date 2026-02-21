@@ -446,6 +446,18 @@ export const overrideInstallmentPlan = async (allocationId, newPlans) => {
     }
 };
 
+export const extendInstallmentDueDate = async (installmentId, newDueDate, reason) => {
+    try {
+        return await apiFetch(getUrl(`/installments/${installmentId}/extend`), {
+            method: 'PUT',
+            body: JSON.stringify({ newDueDate, reason })
+        });
+    } catch (error) {
+        console.error('Error extending installment due date:', error);
+        throw error;
+    }
+};
+
 export const waiveLateFee = async (penaltyId, waivedBy) => {
     try {
         return await apiFetch(getUrl(`/penalties/waive/${penaltyId}?waivedBy=${waivedBy}`), {
@@ -457,9 +469,8 @@ export const waiveLateFee = async (penaltyId, waivedBy) => {
     }
 };
 
-export const createBatchInstallmentPlan = async (batchId, template, userIds = [], totalAmount, courseId) => {
+export const createBatchInstallmentPlan = async (batchId, template, userIds = [], totalAmount, courseId, advance, adminDiscount, additionalDiscount, gstRate) => {
     try {
-        // Original used baseURL: '/api/installments'
         return await apiFetch(getUrl('/installments/batch'), {
             method: 'POST',
             body: JSON.stringify({
@@ -467,7 +478,11 @@ export const createBatchInstallmentPlan = async (batchId, template, userIds = []
                 template,
                 userIds,
                 totalAmount,
-                courseId
+                courseId,
+                advance,
+                adminDiscount,
+                additionalDiscount,
+                gstRate
             })
         });
     } catch (error) {

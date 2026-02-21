@@ -82,7 +82,6 @@
 }
 
 .nav-item {
-    position: relative;
     height: 100%;
     display: flex;
     align-items: center;
@@ -113,49 +112,57 @@
     transition: transform 0.2s;
 }
 
-.nav-item:hover .chevron {
+.nav-link-item .chevron.rotate {
     transform: rotate(180deg);
 }
 
 /* Dropdown Menu */
 .nav-dropdown-menu {
     position: absolute;
-    top: calc(100% - 10px);
-    left: 50%;
-    transform: translateX(-50%);
-    width: 220px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-    padding: 6px;
+    top: 100%;
+    left: 0;
+    right: 0;
+    transform: none;
+    width: auto;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 0;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+    padding: 12px 24px;
     z-index: 1002;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
 }
 
-.dropdown-item {
+.topnav-dropdown-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 8px;
+    padding: 10px 16px;
     color: #475569;
     font-size: 0.85rem;
     font-weight: 500;
     text-decoration: none;
-    border-radius: 8px;
-    transition: all 0.2s;
+    border-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.dropdown-item:hover {
+.topnav-dropdown-item:hover {
     background: #f8fafc;
     color: #3b82f6;
+    transform: translateY(-2px);
 }
 
-.dropdown-item.active {
-    background: rgba(59, 130, 246, 0.05);
-    color: #3b82f6;
+.topnav-dropdown-item.active {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 600;
 }
 
 /* Right Section */
@@ -359,6 +366,22 @@
     to {
         opacity: 1;
         transform: translate(-50%, 0);
+    }
+}
+
+.fade-in-down {
+    animation: fadeInDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 

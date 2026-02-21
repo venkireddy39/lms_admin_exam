@@ -11,7 +11,8 @@ const CourseGrid = ({
     onManageContent,
     onShowDetails,
     onShare,
-    onBookmark
+    onBookmark,
+    onCreateBatch
 }) => {
     if (!courses.length) {
         return <EmptyState onOpenModal={onOpenModal} />;
@@ -30,6 +31,7 @@ const CourseGrid = ({
                     onShowDetails={onShowDetails}
                     onShare={onShare}
                     onBookmark={onBookmark}
+                    onCreateBatch={onCreateBatch}
                 />
             ))}
         </div>

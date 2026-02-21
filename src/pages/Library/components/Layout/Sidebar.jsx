@@ -31,9 +31,6 @@ const Sidebar = ({ mobileOpen, onClose, className = '' }) => {
                     <BookOpen className="logo-icon" size={28} />
                     <span className="logo-text">LibAdmin</span>
                 </div>
-                <button className="btn btn-link p-0 text-muted d-md-none" onClick={onClose}>
-                    <X size={24} />
-                </button>
             </div>
 
             <nav className="sidebar-nav">

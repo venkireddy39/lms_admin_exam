@@ -122,7 +122,7 @@ export const useBatches = (courses, instructors = []) => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const openModal = (batch = null) => {
+    const openModal = (batch = null, createOverrides = null) => {
         if (batch) {
             setIsEdit(true);
             setEditId(batch.batchId); // Use entity ID
@@ -160,12 +160,15 @@ export const useBatches = (courses, instructors = []) => {
                 startDate: batch.startDate,
                 endDate: batch.endDate,
                 maxStudents: batch.maxStudents,
+                fee: batch.fee,
+                freeBatch: batch.freeBatch || false,
+                contentAccess: batch.contentAccess || false,
                 status: batch.status
             });
         } else {
             setIsEdit(false);
             setEditId(null);
-            setFormData(INITIAL_BATCH_FORM);
+            setFormData(createOverrides ? { ...INITIAL_BATCH_FORM, ...createOverrides } : INITIAL_BATCH_FORM);
         }
         setShowModal(true);
     };
@@ -191,6 +194,7 @@ export const useBatches = (courses, instructors = []) => {
         const batchPayload = {
             ...formData,
             maxStudents: formData.maxStudents ? Number(formData.maxStudents) : 0,
+            fee: formData.fee ? Number(formData.fee) : 0,
             courseId: courseIdNum,
             trainerId: formData.trainerId ? Number(formData.trainerId) : null
         };

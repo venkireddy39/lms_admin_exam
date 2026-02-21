@@ -39,6 +39,16 @@ export const validateBatchForm = (data) => {
         errors.push("Batch Limit cannot be negative");
     }
 
+    if (data.fee === "" || data.fee === null) {
+        errors.push("Batch Fee is required");
+    } else if (Number(data.fee) < 0) {
+        errors.push("Batch Fee cannot be negative");
+    }
+
+    if (!data.trainerId || !data.trainerName) {
+        errors.push("An instructor must be selected");
+    }
+
     return errors;
 };
 

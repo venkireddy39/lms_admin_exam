@@ -30,7 +30,7 @@ const BatchModal = ({
 
                     <div className="form-group-grid">
 
-                        {/* Course */}
+                        {/* Batch Name */}
                         <div className="form-field full-width">
                             <label>Course <span className="req">*</span></label>
                             <select
@@ -38,7 +38,7 @@ const BatchModal = ({
                                 name="courseId"
                                 value={formData.courseId}
                                 onChange={handleInputChange}
-                                disabled={isEdit}
+                                disabled={isEdit || !!formData.courseId}
                             >
                                 <option value="">Select a course</option>
                                 {courses.map(course => (
@@ -47,9 +47,9 @@ const BatchModal = ({
                                     </option>
                                 ))}
                             </select>
-                            {isEdit && (
+                            {(isEdit || !!formData.courseId) && (
                                 <span className="helper-text">
-                                    Course cannot be changed after creation.
+                                    Course is pre-selected and cannot be changed.
                                 </span>
                             )}
                         </div>
@@ -136,6 +136,43 @@ const BatchModal = ({
                                 onChange={handleInputChange}
                                 placeholder="e.g. 50"
                             />
+                        </div>
+
+                        {/* Batch Fee */}
+                        <div className="form-field full-width">
+                            <label>Batch Fee <span className="req">*</span></label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                className="form-input"
+                                name="fee"
+                                value={formData.fee || ''}
+                                onChange={handleInputChange}
+                                placeholder="e.g. 500.00"
+                            />
+                        </div>
+
+                        {/* Content Access */}
+                        <div className="form-field full-width">
+                            <label className="checkbox-label-premium">
+                                <input
+                                    type="checkbox"
+                                    name="contentAccess"
+                                    checked={formData.contentAccess || false}
+                                    onChange={(e) => {
+                                        handleInputChange({
+                                            target: {
+                                                name: 'contentAccess',
+                                                value: e.target.checked
+                                            }
+                                        });
+                                    }}
+                                />
+                                <div className="checkbox-text">
+                                    <span className="title">Enable Content Access</span>
+                                    <span className="desc">Allow students to view course materials immediately upon enrollment.</span>
+                                </div>
+                            </label>
                         </div>
 
                     </div>

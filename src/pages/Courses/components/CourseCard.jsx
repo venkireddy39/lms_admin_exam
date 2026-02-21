@@ -8,7 +8,8 @@ import {
     FiEdit2,
     FiTrash2,
     FiShare2,
-    FiBookmark
+    FiBookmark,
+    FiPlus
 } from "react-icons/fi";
 
 const CourseCard = ({
@@ -20,7 +21,8 @@ const CourseCard = ({
     onViewLearners,
     onShowDetails,
     onShare,
-    onBookmark
+    onBookmark,
+    onCreateBatch
 }) => {
     const [imgError, setImgError] = React.useState(false);
 
@@ -43,54 +45,54 @@ const CourseCard = ({
                     alt={course?.name || "Course image"}
                     onError={() => setImgError(true)}
                 />
+            </div>
 
-                {/* Bookmark Overlay */}
-                <div className="card-badges">
+            {/* Bookmark Overlay placed outside to avoid overflow:hidden clipping */}
+            <div className="card-badges">
+                <button
+                    className="badge-pill bg-white border-0 shadow-sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onBookmark?.(course.id);
+                    }}
+                    style={{ padding: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title={course.isBookmarked ? "Remove Bookmark" : "Bookmark Course"}
+                >
+                    <FiBookmark
+                        fill={course.isBookmarked ? "#f59e0b" : "none"}
+                        color={course.isBookmarked ? "#f59e0b" : "#64748b"}
+                        size={18}
+                    />
+                </button>
+
+                {/* Status Pill (if needed, otherwise we use the dropdown for actions) */}
+                <div className="dropdown">
                     <button
                         className="badge-pill bg-white border-0 shadow-sm"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onBookmark?.(course.id);
-                        }}
+                        data-bs-toggle="dropdown"
                         style={{ padding: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title={course.isBookmarked ? "Remove Bookmark" : "Bookmark Course"}
                     >
-                        <FiBookmark
-                            fill={course.isBookmarked ? "#f59e0b" : "none"}
-                            color={course.isBookmarked ? "#f59e0b" : "#64748b"}
-                            size={18}
-                        />
+                        <FiMoreVertical size={18} />
                     </button>
 
-                    {/* Status Pill (if needed, otherwise we use the dropdown for actions) */}
-                    <div className="dropdown">
-                        <button
-                            className="badge-pill bg-white border-0 shadow-sm"
-                            data-bs-toggle="dropdown"
-                            style={{ padding: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                            <FiMoreVertical size={18} />
-                        </button>
-
-                        <ul className="dropdown-menu dropdown-menu-end shadow border-0">
-                            <li>
-                                <button className="dropdown-item py-2" onClick={() => onShare?.(course)}>
-                                    <FiShare2 className="me-2 text-primary" /> Share
-                                </button>
-                            </li>
-                            <li>
-                                <button className="dropdown-item py-2" onClick={() => onEdit?.(course.id)}>
-                                    <FiEdit2 className="me-2 text-secondary" /> Edit
-                                </button>
-                            </li>
-                            <li><hr className="dropdown-divider" /></li>
-                            <li>
-                                <button className="dropdown-item py-2 text-danger" onClick={() => onDelete?.(course.id)}>
-                                    <FiTrash2 className="me-2" /> Delete
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
+                    <ul className="dropdown-menu dropdown-menu-end shadow border-0">
+                        <li>
+                            <button className="dropdown-item py-2" onClick={() => onShare?.(course)}>
+                                <FiShare2 className="me-2 text-primary" /> Share
+                            </button>
+                        </li>
+                        <li>
+                            <button className="dropdown-item py-2" onClick={() => onEdit?.(course.id)}>
+                                <FiEdit2 className="me-2 text-secondary" /> Edit
+                            </button>
+                        </li>
+                        <li><hr className="dropdown-divider" /></li>
+                        <li>
+                            <button className="dropdown-item py-2 text-danger" onClick={() => onDelete?.(course.id)}>
+                                <FiTrash2 className="me-2" /> Delete
+                            </button>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
@@ -115,9 +117,9 @@ const CourseCard = ({
 
                 {/* Meta / Stats */}
                 <div className="d-flex align-items-center gap-3 mb-3">
-                    <div className="d-flex align-items-center text-muted small">
+                    <div className="d-flex align-items-center text-muted small" onClick={() => onViewLearners?.(course.id)} style={{ cursor: 'pointer' }}>
                         <FiUsers className="me-1 text-primary" />
-                        <span>{course?.learnersCount || 0} Learners</span>
+                        <span className="text-primary text-decoration-underline">{course?.learnersCount || 0} Learners</span>
                     </div>
                 </div>
 
@@ -142,10 +144,12 @@ const CourseCard = ({
                     </button>
                     <button
                         className="action-btn-card"
-                        onClick={() => onViewLearners?.(course.id)}
+                        onClick={() => {
+                            onCreateBatch?.(course.id, course.name);
+                        }}
                         style={{ background: '#eff6ff', border: '1px solid #dbeafe', color: '#2563eb' }}
                     >
-                        <FiUsers size={14} /> Learners
+                        <FiPlus size={14} /> Create Batch
                     </button>
                 </div>
             </div>
