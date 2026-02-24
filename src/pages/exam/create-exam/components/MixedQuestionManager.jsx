@@ -2,11 +2,22 @@ import React, { useState, useEffect } from 'react';
 import QuestionForm from '../../components/QuestionForm';
 
 const MixedQuestionManager = ({ onAdd, initialData, onCancel }) => {
-    const [activeTab, setActiveTab] = useState(initialData?.type || "quiz");
+    const mapBackendTypeToTab = (type) => {
+        if (!type) return "quiz";
+        const t = type.toUpperCase();
+        if (t === 'LONG_ESSAY' || t === 'LONG') return 'long';
+        if (t === 'MCQ' || t === 'QUIZ') return 'quiz';
+        if (t === 'SHORT_ANSWER' || t === 'SHORT') return 'short';
+        if (t === 'CODING') return 'coding';
+        if (t === 'ABACUS') return 'abacus';
+        return type.toLowerCase();
+    };
+
+    const [activeTab, setActiveTab] = useState(mapBackendTypeToTab(initialData?.type || initialData?.questionType));
 
     useEffect(() => {
-        if (initialData?.type) {
-            setActiveTab(initialData.type);
+        if (initialData?.type || initialData?.questionType) {
+            setActiveTab(mapBackendTypeToTab(initialData.type || initialData.questionType));
         }
     }, [initialData]);
 

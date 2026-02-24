@@ -39,11 +39,16 @@ export default defineConfig({
       // 3. STATIC UPLOADS (Fix for Images showing as default)
       // If backend returns "/uploads/image.jpg", proxy it to 5151
       '/uploads': {
-        target: 'http://192.168.1.18:5151',
+        target: 'http://192.168.1.63:5151',
         changeOrigin: true,
         secure: false,
       },
       '/images': {
+        target: 'http://192.168.1.63:5151',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api/attendance': {
         target: 'http://192.168.1.18:5151',
         changeOrigin: true,
         secure: false,
@@ -51,7 +56,7 @@ export default defineConfig({
 
       // 4. MANAGEMENT SERVICE (Port 5151)
       '/api': {
-        target: 'http://192.168.1.18:5151',
+        target: 'http://192.168.1.63:5151',
         changeOrigin: true,
         secure: false,
       },

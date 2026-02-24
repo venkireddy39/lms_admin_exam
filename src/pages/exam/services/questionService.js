@@ -106,32 +106,29 @@ export const QuestionService = {
         // We try the nested endpoint first, then the flat one if needed
         const url = `${BASE_URL}/${questionId}/options`;
 
-        // Payload alignment with QuestionOption.java
-        const payload = options.map(opt => ({
-            questionId: Number(questionId),
-            optionText: String(opt.text || opt.optionText || opt),
-            isCorrect: Boolean(opt.isCorrect || opt.is_correct || false)
-        }));
+        const formData = new FormData();
+
+        options.forEach(opt => {
+            const isCorr = Boolean(opt.isCorrect || opt.is_correct || false);
+            formData.append('isCorrect', isCorr);
+        });
+
+        options.forEach(opt => {
+            const textValue = String(opt.text || opt.optionText || opt || '');
+            formData.append('optionText', textValue);
+        });
 
         try {
             const data = await apiFetch(url, {
                 method: "POST",
-                body: JSON.stringify(payload)
+                body: formData,
+                headers: { "Content-Type": null } // Boundary managed by browser
             });
-            logApi("POST OPTIONS", url, payload, data);
+            logApi("POST OPTIONS", url, "[FormData]", data);
             return data;
         } catch (error) {
-            // Fallback to flat endpoint if nested fails
-            const flatUrl = "/api/questions/options/bulk";
-            try {
-                return await apiFetch(flatUrl, {
-                    method: "POST",
-                    body: JSON.stringify(payload)
-                });
-            } catch (innerError) {
-                logApi("POST OPTIONS FAILED", url, payload, null, error);
-                throw error;
-            }
+            logApi("POST OPTIONS FAILED", url, "[FormData]", null, error);
+            throw error;
         }
     }
 };

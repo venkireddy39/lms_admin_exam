@@ -29,7 +29,7 @@ const LibraryApp = lazy(() => import('../pages/Library/App'));
 const AffiliateRegister = lazy(() => import('../pages/Affiliates/AffiliateRegister'));
 const AffiliatePortal = lazy(() => import('../pages/Affiliates/AffiliatePortal'));
 const StudentDashboard = lazy(() => import('../pages/Student/Dashboard/StudentDashboard'));
-const LoginPage = lazy(() => import('../pages/Login/LoginPage'));
+// Removed LoginPage import as we are bypassing it
 const StudentCourses = lazy(() => import('../pages/Student/Courses/StudentCourses'));
 const StudentBatches = lazy(() => import('../pages/Student/Batches/StudentBatches'));
 const StudentAttendance = lazy(() => import('../pages/Student/Attendance/StudentAttendance'));
@@ -50,6 +50,8 @@ const StudentCommunication = lazy(() => import('../pages/Student/Communication/S
 const StudentReports = lazy(() => import('../pages/Student/Reports/StudentReports'));
 const StudentHelpDesk = lazy(() => import('../pages/Student/HelpDesk/StudentHelpDesk'));
 const AutomationDashboard = lazy(() => import('../pages/Automation/AutomationDashboard'));
+const StudentFeePage = lazy(() => import('../pages/Student/Fee/StudentFeePage'));
+const ParentFeePage = lazy(() => import('../pages/Parent/Fee/ParentFeePage'));
 
 const RootRedirect = () => {
   const { user, loading } = useAuth();
@@ -61,7 +63,10 @@ const RootRedirect = () => {
   if (role === 'STUDENT') {
     return <Navigate to="/student/dashboard" replace />;
   }
-  if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'LIBRARIAN' || role === 'MARKETING_MANAGER' || role === 'INSTRUCTOR' || role === 'PARENT' || role === 'DRIVER' || role === 'CONDUCTOR') {
+  if (role === 'PARENT') {
+    return <Navigate to="/parent/dashboard" replace />;
+  }
+  if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'LIBRARIAN' || role === 'MARKETING_MANAGER' || role === 'INSTRUCTOR' || role === 'DRIVER' || role === 'CONDUCTOR') {
     return <Navigate to="/admin/dashboard" replace />;
   }
   return <Navigate to="/login" replace />;
@@ -73,7 +78,7 @@ const AppRoutes = () => {
       <Routes>
 
         {/* ================= PUBLIC ROUTES ================= */}
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/" element={<RootRedirect />} />
         <Route path="/course-overview/:id" element={<CourseOverview />} />
         <Route path="/share/:shareCode" element={<CourseOverview />} />
@@ -103,6 +108,10 @@ const AppRoutes = () => {
             <Route path="profile" element={<StudentProfile />} />
             <Route path="certificates" element={<StudentCertificates />} />
             <Route path="notifications" element={<StudentNotifications />} />
+
+            {/* New Student Fee View */}
+            <Route path="fee" element={<StudentFeePage />} />
+
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>
@@ -145,11 +154,23 @@ const AppRoutes = () => {
           <Route path="*" element={<NotFound />} />
         </Route>
 
+        {/* ================= PARENT PORTAL ================= */}
+        <Route path="/parent" element={<AdminLayout />}> {/* Re-using AdminLayout temporarily, or could be ParentLayout */}
+          <Route index element={<Navigate to="/parent/dashboard" replace />} />
+          <Route path="dashboard" element={<div>Parent Dashboard Coming Soon</div>} />
+
+          {/* New Parent Fee View */}
+          <Route path="fee" element={<ParentFeePage />} />
+          <Route path="fee/pay" element={<ParentFeePage />} />
+
+          <Route path="*" element={<NotFound />} />
+        </Route>
+
         {/* Legacy redirect for old dashboard path */}
         <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
 
         {/* ===== 404 ===== */}
-        <Route path="*" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

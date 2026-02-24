@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaEye, FaEdit, FaTrash, FaPlus, FaSearch, FaFilter } from "react-icons/fa";
-import { FolderX, Loader2, Award, Calendar, BarChart3, Clock, FileText, Rocket } from "lucide-react";
+import { FolderX, Loader2, Award, Calendar, BarChart3, Clock, FileText, Rocket, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   PieChart, Pie, Cell, AreaChart, Area,
@@ -13,6 +13,7 @@ import { toast } from "react-toastify";
 
 const ExamDashboard = () => {
   const [exams, setExams] = useState([]);
+  const [deletedExams, setDeletedExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("total");
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,17 +27,18 @@ const ExamDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await examService.getAllExams();
+      const [data, deletedData] = await Promise.all([
+        examService.getAllExams(),
+        examService.getDeletedExams()
+      ]);
       const list = Array.isArray(data) ? data : [];
-
-      // Real DB sorting: Newest first. Handle cases where date might be null.
       list.sort((a, b) => {
         const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0;
         const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0;
         return dateB - dateA;
       });
-
       setExams(list);
+      setDeletedExams(Array.isArray(deletedData) ? deletedData : []);
     } catch (error) {
       toast.error("Failed to fetch exams");
     } finally {
@@ -45,13 +47,39 @@ const ExamDashboard = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this exam? This action cannot be undone.")) return;
+    if (!window.confirm("Are you sure you want to delete this exam?")) return;
     try {
       await examService.deleteExam(id);
+      const deleted = exams.find(e => e.id === id);
       setExams(exams.filter(e => e.id !== id));
+      if (deleted) setDeletedExams([...deletedExams, deleted]);
       toast.success("Exam deleted successfully");
     } catch (error) {
       toast.error("Failed to delete exam");
+    }
+  };
+
+  const handleRestore = async (id) => {
+    if (!window.confirm("Are you sure you want to restore this exam?")) return;
+    try {
+      await examService.restoreExam(id);
+      const restored = deletedExams.find(e => e.id === id);
+      setDeletedExams(deletedExams.filter(e => e.id !== id));
+      if (restored) setExams([...exams, restored]);
+      toast.success("Exam restored successfully");
+    } catch (error) {
+      toast.error("Failed to restore exam");
+    }
+  };
+
+  const handleHardDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to PERMANENTLY delete this exam? This action cannot be undone.")) return;
+    try {
+      await examService.hardDeleteExam(id);
+      setDeletedExams(deletedExams.filter(e => e.id !== id));
+      toast.success("Exam permanently deleted");
+    } catch (error) {
+      toast.error("Failed to permanently delete exam");
     }
   };
 
@@ -68,10 +96,12 @@ const ExamDashboard = () => {
 
   const filteredExams = useMemo(() => {
     const q = searchTerm.toLowerCase();
-    return exams.filter(exam => {
+    const sourceList = filter === "deleted" ? deletedExams : exams;
+
+    return sourceList.filter(exam => {
       const status = exam.status?.toLowerCase() || "upcoming";
       const matchesFilter =
-        filter === "total" ||
+        filter === "total" || filter === "deleted" ||
         (filter === "completed" && status === "completed") ||
         (filter === "upcoming" && (status === "upcoming" || status === "scheduled")) ||
         (filter === "active" && (status === "active" || status === "ongoing"));
@@ -82,7 +112,7 @@ const ExamDashboard = () => {
 
       return matchesFilter && matchesSearch;
     });
-  }, [exams, filter, searchTerm]);
+  }, [exams, deletedExams, filter, searchTerm]);
 
   const pieData = [
     { name: "Completed", value: stats.completed, color: "#10b981" },
@@ -287,7 +317,7 @@ const ExamDashboard = () => {
               </div>
             </div>
             <div className="d-flex gap-2">
-              {['total', 'active', 'upcoming', 'completed'].map((f) => (
+              {['total', 'active', 'upcoming', 'completed', 'deleted'].map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -351,17 +381,30 @@ const ExamDashboard = () => {
                         </td>
                         <td className="pe-4 text-end">
                           <div className="d-flex justify-content-end gap-1">
-                            <Link to={`/admin/exams/simulation/mnc-preview/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm text-primary" title="Preview Exam">
-                              <Rocket size={16} />
-                            </Link>
-                            {exam.status !== "completed" && (
+                            {filter === 'deleted' ? (
                               <>
-                                <Link to={`/admin/exams/edit-exam/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm text-warning" title="Edit">
-                                  <FaEdit />
-                                </Link>
-                                <button onClick={() => handleDelete(exam.id)} className="btn btn-sm btn-icon-light shadow-sm text-danger" title="Delete">
+                                <button onClick={() => handleRestore(exam.id)} className="btn btn-sm btn-icon-light shadow-sm text-success" title="Restore">
+                                  <RefreshCw size={16} />
+                                </button>
+                                <button onClick={() => handleHardDelete(exam.id)} className="btn btn-sm btn-icon-light shadow-sm text-danger" title="Permanently Delete">
                                   <FaTrash />
                                 </button>
+                              </>
+                            ) : (
+                              <>
+                                <Link to={`/admin/exams/simulation/mnc-preview/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm text-primary" title="Preview Exam">
+                                  <Rocket size={16} />
+                                </Link>
+                                {exam.status !== "completed" && (
+                                  <>
+                                    <Link to={`/admin/exams/edit-exam/${exam.id}`} className="btn btn-sm btn-icon-light shadow-sm text-warning" title="Edit">
+                                      <FaEdit />
+                                    </Link>
+                                    <button onClick={() => handleDelete(exam.id)} className="btn btn-sm btn-icon-light shadow-sm text-danger" title="Delete">
+                                      <FaTrash />
+                                    </button>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>

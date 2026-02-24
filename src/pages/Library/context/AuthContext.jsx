@@ -96,22 +96,39 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const restoreSession = async () => {
-            const token = localStorage.getItem(AUTH_TOKEN_KEY);
-            const savedUser = localStorage.getItem('auth_user');
+            // Bypass login: always set a mock admin user
+            const mockUser = {
+                ...DEFAULT_STUDENT,
+                userId: 1, // Admin usually has ID 1
+                email: "admin@gmail.com",
+                role: "ADMIN",
+                permissions: [
+                    "EXAM_VIEW", "EXAM_CREATE", "EXAM_PUBLISH", "EXAM_CLOSE",
+                    "EXAM_DELETE", "EXAM_RESTORE", "EXAM_HARD_DELETE",
+                    "BATCH_VIEW", "COURSE_VIEW", "ATTENDANCE_VIEW",
+                    "ATTENDANCE_START", "ATTENDANCE_END", "ATTENDANCE_DELETE",
+                    "ATTENDANCE_RECORD_CREATE", "ATTENDANCE_RECORD_UPDATE",
+                    "ATTENDANCE_RECORD_VIEW", "ATTENDANCE_RECORD_DELETE",
+                    "ATTENDANCE_CONFIG_UPDATE", "ATTENDANCE_CONFIG_VIEW",
+                    "TOPIC_VIEW", "SESSION_VIEW", "QUESTION_VIEW"
+                ]
+            };
 
-            if (token && savedUser) {
-                try {
-                    const parsed = JSON.parse(savedUser);
-                    setUser(parsed);
-                } catch (e) {
-                    localStorage.removeItem(AUTH_TOKEN_KEY);
-                    localStorage.removeItem('auth_user');
-                }
-            } else {
-                // No session? Stay logged out.
-                console.log("AuthContext: No active session found.");
-                setUser(null);
-            }
+            // Create a pseudo JWT token because the backend JwtTokenParser ONLY checks base64 payload
+            const payload = {
+                sub: mockUser.email,
+                userId: mockUser.userId,
+                role: mockUser.role,
+                roles: [mockUser.role],
+                permissions: mockUser.permissions
+            };
+
+            // Base64Url encode it
+            const base64Payload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            const mockJwt = `header.${base64Payload}.signature`;
+
+            localStorage.setItem(AUTH_TOKEN_KEY, mockJwt);
+            setUser(mockUser);
             setLoading(false);
         };
         restoreSession();

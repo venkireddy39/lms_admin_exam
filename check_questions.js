@@ -3,14 +3,7 @@ const fetch = require('node-fetch'); // Assuming node-fetch available or use nat
 
 async function check() {
     const examId = 16;
-    const baseUrl = 'http://localhost:5173'; // Proxy? Or 8080? 
-    // Proxy might not work from node script without cookie.
-    // Try raw backend port if known. User didn't specify.
-    // Assuming 5173 proxies correctly.
-
-    // Auth might be needed!
-    // If Auth is needed, this script will fail 401/403.
-    // I can't easily get token from localStorage here.
+    const baseUrl = 'http://localhost:5173';
 
     console.log("Checking questions for Exam", examId);
 
@@ -43,7 +36,4 @@ async function check() {
     }
 }
 
-// Since I cannot run node-fetch easily if not installed...
-// I will rely on standard 'http' module if needed, but native fetch is in Node 18.
-// I'll assume Node 18.
 check();

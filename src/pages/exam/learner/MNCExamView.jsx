@@ -64,30 +64,48 @@ const MNCExamView = () => {
 
             if (examService.isValidId(id)) {
                 try {
-                    const [incoming, settingsData] = await Promise.all([
-                        examService.getExamPaper(id),
-                        examService.getExamSettings(id).catch(() => ({}))
+                    const [incoming, settingsData, fetchedQuestions] = await Promise.all([
+                        examService.getExamById(id),
+                        examService.getExamSettings(id).catch(() => ({})),
+                        examService.getExamQuestions(id).catch(() => [])
                     ]);
 
                     if (incoming) {
-                        const transformedQuestions = (incoming.questions || []).map((q, idx) => ({
-                            id: q.id || idx + 1,
-                            text: q.question || q.text || "Untitled Question",
-                            type: (q.type || "mcq").toLowerCase(),
-                            starterCode: q.starterCode || q.code || "",
-                            language: q.language || 'javascript',
-                            testCases: (q.testCases || q.codingTestCases || []).map(tc => ({
-                                id: tc.testCaseId || tc.id,
-                                input: tc.input || tc.inputData || "",
-                                output: tc.output || tc.expectedOutput || "",
-                                hidden: tc.hidden || false
-                            })),
-                            options: q.options ? q.options.map((opt, oIdx) => ({
-                                id: opt.optionId || opt.id || String.fromCharCode(65 + oIdx),
-                                text: opt.optionText || opt.text || opt
-                            })) : [],
-                            marks: q.marks || 1,
-                            negative: settingsData?.negativeMarking ? (settingsData.negativeMarkingPenalty || 0) : 0
+                        const rawQuestions = (Array.isArray(fetchedQuestions) && fetchedQuestions.length > 0)
+                            ? fetchedQuestions
+                            : (incoming.questions || []);
+
+                        const transformedQuestions = await Promise.all(rawQuestions.map(async (q, idx) => {
+                            const qType = (q.type || q.questionType || "mcq").toLowerCase();
+                            let testCases = [];
+                            if (qType === 'coding') {
+                                try {
+                                    const tcs = await examService.getTestCases(q.id || q.questionId);
+                                    testCases = Array.isArray(tcs) ? tcs : [];
+                                } catch (e) { }
+                            } else {
+                                testCases = q.testCases || q.codingTestCases || [];
+                            }
+
+                            return {
+                                id: q.id || q.questionId || idx + 1,
+                                text: q.question || q.text || q.questionText || "Untitled Question",
+                                type: qType,
+                                starterCode: q.starterCode || q.code || "",
+                                language: q.language || q.programmingLanguage || 'javascript',
+                                testCases: testCases.map(tc => ({
+                                    id: tc.testCaseId || tc.id,
+                                    input: tc.input || tc.inputData || "",
+                                    output: tc.output || tc.expectedOutput || "",
+                                    hidden: tc.hidden || false
+                                })),
+                                options: q.options ? q.options.map((opt, oIdx) => ({
+                                    id: opt.optionId || opt.id || String.fromCharCode(65 + oIdx),
+                                    text: opt.optionText || opt.text || opt
+                                })) : [],
+                                marks: q.marks || 1,
+                                negative: settingsData?.negativeMarking ? (settingsData.negativeMarkingPenalty || 0) : 0
+                            };
                         }));
 
                         loadedExam = {

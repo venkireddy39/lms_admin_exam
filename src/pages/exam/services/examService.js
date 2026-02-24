@@ -121,6 +121,28 @@ export const examService = {
         });
     },
 
+    getDeletedExams: async () => {
+        try {
+            const data = await apiFetch('/api/exams/deleted');
+            return Array.isArray(data) ? data : [];
+        } catch (error) {
+            console.error("Failed to fetch deleted exams:", error);
+            return [];
+        }
+    },
+
+    hardDeleteExam: async (id) => {
+        return await apiFetch(`/api/exams/${id}/hard`, {
+            method: 'DELETE'
+        });
+    },
+
+    restoreExam: async (id) => {
+        return await apiFetch(`/api/exams/${id}/restore`, {
+            method: 'PUT'
+        });
+    },
+
     publishExam: async (id) => {
         return await apiFetch(`/api/exams/${id}/publish`, { method: "PUT" });
     },
@@ -354,6 +376,13 @@ export const examService = {
         if (lang === 'C#') lang = 'CSHARP'; // Assuming standard enum
         if (lang) formData.append('programmingLanguage', lang);
 
+        if (questionData.modelAnswer) {
+            formData.append('modelAnswer', questionData.modelAnswer);
+        }
+        if (questionData.keywords) {
+            formData.append('keywords', questionData.keywords);
+        }
+
         // 3. Image Handling (Base64 -> Blob)
         const dp = questionData.image || questionData.questionImageUrl;
         if (dp) {
@@ -432,16 +461,51 @@ export const examService = {
     // --- Question Options ---
 
     addQuestionOptions: async (questionId, options) => {
-        // Normalize fields for Java Backend (QuestionOption.java)
-        const payload = options.map(opt => ({
-            questionId: Number(questionId),
-            optionText: String(opt.text || opt.optionText || (typeof opt === 'string' ? opt : "")),
-            isCorrect: Boolean(opt.isCorrect || opt.is_correct || false),
-            optionImage: opt.image || opt.optionImage || null
-        }));
+        const formData = new FormData();
+
+        // 1. Append all isCorrect booleans directly as text values ('true' or 'false') 
+        // to match Postman screenshot exactly.
+        options.forEach(opt => {
+            const isCorr = Boolean(opt.isCorrect || opt.is_correct || false);
+            formData.append('isCorrect', isCorr); // Send boolean literal to let FormData cast it naturally
+        });
+
+        // 2. Append all option texts directly as string values
+        options.forEach(opt => {
+            const textValue = String(opt.optionText || opt.text || (typeof opt === 'string' ? opt : ''));
+            formData.append('optionText', textValue);
+        });
+
+        // 3. Append all option images (or empty files to maintain array index alignment)
+        options.forEach(opt => {
+            const dp = opt.optionImage || opt.image;
+            if (dp && (dp instanceof File || dp instanceof Blob)) {
+                formData.append('optionImage', dp);
+            } else if (dp && typeof dp === 'string' && dp.startsWith('data:')) {
+                try {
+                    const arr = dp.split(',');
+                    const mime = arr[0].match(/:(.*?);/)[1];
+                    const bstr = atob(arr[1]);
+                    let n = bstr.length;
+                    const u8arr = new Uint8Array(n);
+                    while (n--) {
+                        u8arr[n] = bstr.charCodeAt(n);
+                    }
+                    const blob = new Blob([u8arr], { type: mime });
+                    formData.append('optionImage', blob, "option_image.png");
+                } catch (e) {
+                    formData.append('optionImage', new File([""], "empty.txt", { type: "text/plain" }));
+                }
+            } else {
+                // Spring Boot requires the array lengths to match, so we send an empty txt file
+                formData.append('optionImage', new File([""], "empty.txt", { type: "text/plain" }));
+            }
+        });
+
         return await apiFetch(`/api/questions/${questionId}/options`, {
             method: 'POST',
-            body: JSON.stringify(payload)
+            body: formData,
+            headers: { "Content-Type": null } // Let browser set boundary to multipart/form-data
         });
     },
 
@@ -471,8 +535,36 @@ export const examService = {
     // --- Exam Questions Linking ---
 
     addExamQuestions: async (examId, questions) => {
-        console.log("Adding ExamQuestions Payload:", JSON.stringify(questions, null, 2));
+        console.log("Adding ExamQuestions Payload (Legacy):", JSON.stringify(questions, null, 2));
         return await apiFetch(`/api/exams/${examId}/questions`, {
+            method: 'POST',
+            body: JSON.stringify(questions)
+        });
+    },
+
+    // --- Sections Binding (New Correct Flow) ---
+
+    createQuestionSection: async (sectionData) => {
+        return await apiFetch(`/api/sections`, {
+            method: 'POST',
+            body: JSON.stringify(sectionData)
+        });
+    },
+
+    mapQuestionToSection: async (sectionId, questionId) => {
+        return await apiFetch(`/api/sections/${sectionId}/questions/${questionId}`, {
+            method: 'POST'
+        });
+    },
+
+    addSectionToExam: async (examId, sectionId, sectionOrder = 1, shuffle = false) => {
+        return await apiFetch(`/api/exams/${examId}/sections?sectionId=${sectionId}&sectionOrder=${sectionOrder}&shuffleQuestions=${shuffle}`, {
+            method: 'POST'
+        });
+    },
+
+    addQuestionsToExamSection: async (examSectionId, questions) => {
+        return await apiFetch(`/api/exam-sections/${examSectionId}/questions`, {
             method: 'POST',
             body: JSON.stringify(questions)
         });
@@ -480,63 +572,86 @@ export const examService = {
 
     getExamQuestions: async (examId) => {
         let data = [];
-
-        // Strategy 1: Fetch full exam object, check for embedded 'questions'
         try {
-            const exam = await apiFetch(`/api/exams/${examId}`);
-            if (exam && Array.isArray(exam.questions)) {
-                data = exam.questions;
-            }
-        } catch (e) { console.warn("[ExamService] Failed to fetch exam for questions", e); }
-
-        // Strategy 2: If no data, try dedicated questions endpoint
-        if (!data || data.length === 0) {
+            // First, try to get questions directly linked to the exam via sections
+            let allowedQuestionIds = new Set();
             try {
-                const qs = await apiFetch(`/api/exams/${examId}/questions`);
-                if (qs && Array.isArray(qs)) data = qs;
-            } catch (e) { }
-        }
-        // Strategy 3: Try generic questions endpoint WITH CLIENT-SIDE FILTER
-        // (Since backend specific endpoints fail or return ghost data)
-        if (!data || data.length === 0) {
-            try {
-                // Try fetching all (or filtered if backend supports it)
-                const allQs = await apiFetch(`/api/questions?examId=${examId}`);
-                if (allQs && Array.isArray(allQs)) {
-                    // STRICT FILTER: Only accept if explicitly linked
-                    // This prevents "Ghost questions" from other exams
-                    data = allQs.filter(q => {
-                        const linkedExamId = q.examId || (q.exam ? q.exam.id : null) || (q.exam_id);
-                        return String(linkedExamId) === String(examId);
-                    });
+                const sections = await apiFetch(`/api/exams/${examId}/sections`);
+                if (sections && Array.isArray(sections)) {
+                    for (const sec of sections) {
+                        try {
+                            const qs = await apiFetch(`/api/exam-sections/${sec.examSectionId}/questions`);
+                            if (qs && Array.isArray(qs)) {
+                                qs.forEach(q => {
+                                    if (q.questionId) allowedQuestionIds.add(String(q.questionId));
+                                    if (q.id) allowedQuestionIds.add(String(q.id));
+                                });
+                            }
+                        } catch (err) {
+                            console.warn(`[ExamService] Failed to fetch questions for section ${sec.examSectionId}`, err);
+                        }
+                    }
                 }
-            } catch (e) { }
+            } catch (secErr) {
+                console.warn("[ExamService] Could not fetch sections for filtering", secErr);
+            }
+
+            // As per Postman tests, Admin queries use the global question repository
+            const allQs = await apiFetch(`/api/questions`);
+            if (allQs && Array.isArray(allQs)) {
+                if (allowedQuestionIds.size > 0) {
+                    // Filter by the IDs found in the sections
+                    data = allQs.filter(q => allowedQuestionIds.has(String(q.id || q.questionId)));
+                } else {
+                    // Deep Fallback: Filter questions manually looking for matching examId
+                    data = allQs.filter(q => {
+                        const rawData = String(JSON.stringify(q));
+                        const lid1 = q.examId || (q.exam ? q.exam.id : null) || q.exam_id;
+                        const lid2 = q.examQuestion?.examSection?.exam?.id || q.examQuestion?.examSection?.examId;
+                        // Check explicit ids or if the stringified JSON contains "examId":2 or "exam":{"id":2
+                        return String(lid1) === String(examId) || String(lid2) === String(examId) ||
+                            rawData.includes(`"examId":${examId}`) || rawData.includes(`"exam_id":${examId}`) ||
+                            rawData.includes(`"exam":{"id":${examId}`);
+                    });
+                    console.log(`[ExamService] Deep global fallback found ${data.length} questions for exam ${examId}`);
+                }
+            }
+        } catch (e) {
+            console.warn("[ExamService] Failed to load global questions", e);
         }
 
-
-        return (data || []).map(q => {
+        // Ensure all questions have options loaded if missing
+        const finalData = await Promise.all((data || []).map(async q => {
             // Check if 'q' wraps a 'question' object (ExamQuestion entity structure)
             const isWrapped = q.question && typeof q.question === 'object';
             const coreQ = isWrapped ? q.question : q;
 
             // Extract fields
-            // CRITICAL: specific ID priority. 
-            // If wrapped, q.id is usually ExamQuestion ID (link). coreQ.id is Question ID (content).
-            // Frontend needs ExamQuestion ID for submitting responses.
             const examQuestionId = isWrapped ? (q.id || q.examQuestionId) : (q.id || q.questionId);
             const questionId = coreQ.id || coreQ.questionId;
-
-            // Use examQuestionId as main 'id' if available, else questionId
             const finalId = examQuestionId || questionId;
 
             const qText = coreQ.questionText || coreQ.question || coreQ.text || q.questionText || (typeof q.question === 'string' ? q.question : "") || "No text";
             const qType = (coreQ.questionType || coreQ.type || q.questionType || q.type || "MCQ").toLowerCase();
             const qMarks = q.marks || coreQ.marks || 1;
-            const qOptions = coreQ.options || q.options || [];
+
+            let qOptions = coreQ.options || q.options || [];
+
+            // If options are empty but it's an MCQ, try fetching options directly
+            if (qOptions.length === 0 && (qType === 'mcq' || qType === 'quiz') && questionId) {
+                try {
+                    const fetchedOpts = await apiFetch(`/api/questions/${questionId}/options`);
+                    if (fetchedOpts && Array.isArray(fetchedOpts)) {
+                        qOptions = fetchedOpts;
+                    }
+                } catch (optErr) {
+                    console.warn(`Failed to fetch options for Q ${questionId}`);
+                }
+            }
 
             return {
                 ...q,
-                id: finalId, // This is what LearnerView uses for submitting
+                id: finalId, // LearnerView uses this for submitting
                 questionId: questionId, // Keep reference to real question ID
                 question: qText,
                 text: qText,
@@ -545,20 +660,28 @@ export const examService = {
                 options: qOptions.map(opt => {
                     if (typeof opt === 'object' && opt !== null) {
                         return {
-                            id: opt.optionId || opt.id || opt.id,
-                            text: opt.optionText || opt.text || ""
+                            id: opt.optionId || opt.id,
+                            text: opt.optionText || opt.text || "",
+                            image: opt.optionImage || opt.optionImageUrl || opt.image || null,
+                            isCorrect: opt.isCorrect || false
                         };
                     }
                     return { id: String(opt), text: String(opt) };
                 })
             };
-        });
+        }));
+
+        return finalData;
     },
 
     getExamQuestionsView: async (examId) => {
         // Strategy 1: Try the specific "View" endpoint as requested
         try {
-            const viewData = await apiFetch(`/api/exams/${examId}/questions/view`);
+            const viewData = await apiFetch(`/api/exams/${examId}/questions/view`).catch(e => {
+                console.warn(`[getExamQuestionsView] View endpoint failed, triggering fallback`);
+                return null; // Return null on HTTP error to trigger fallback
+            });
+
             if (viewData && viewData.length > 0) {
                 return viewData.map(q => ({
                     ...q,
@@ -569,12 +692,13 @@ export const examService = {
                     marks: q.marks || 1,
                     options: (q.options || []).map(opt => ({
                         id: opt.optionId || opt.id || String(opt),
-                        text: opt.optionText || opt.text || String(opt)
+                        text: opt.optionText || opt.text || String(opt),
+                        image: opt.optionImage || opt.image || null
                     }))
                 }));
             }
         } catch (e) {
-            console.warn("View endpoint failed, falling back to standard fetch", e);
+            console.warn("View endpoint threw exception, falling back to standard fetch", e);
         }
 
         // Fallback: Use the robust Main Strategy

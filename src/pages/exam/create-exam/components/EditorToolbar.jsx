@@ -43,7 +43,7 @@ const EditorToolbar = ({
                         <i className="bi bi-eye me-1"></i> Preview
                     </button>
                     <button className="btn btn-success btn-sm fw-bold shadow-sm px-3 border-0" onClick={onSave}>
-                        <i className="bi bi-cloud-check me-1"></i> Save & Publish
+                        <i className="bi bi-cloud-arrow-up me-1"></i> Save Draft
                     </button>
                 </div>
             </div>

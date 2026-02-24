@@ -90,4 +90,19 @@ export async function apiFetch(url, options = {}) {
     }
 }
 
+/**
+ * Utility to construct full URL path for fee-management API
+ */
+export function getUrl(path) {
+    if (path.startsWith('http')) return path;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+    // Check if the path is explicitly for payment gateway or fee management
+    if (cleanPath.startsWith('/payment-gateway')) {
+        return `/api${cleanPath}`;
+    }
+
+    return `/api/fee-management${cleanPath}`;
+}
+
 export default api;

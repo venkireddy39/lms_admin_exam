@@ -103,7 +103,12 @@ const PreviewMode = ({ examData, onClose }) => {
                                                     <div className="badge bg-white text-dark border me-3" style={{ width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                         {String.fromCharCode(65 + i)}
                                                     </div>
-                                                    <span className="fs-5">{opt}</span>
+                                                    <div className="d-flex flex-column gap-2">
+                                                        <span className="fs-5">{typeof opt === 'object' ? (opt.optionText || opt.text || "") : opt}</span>
+                                                        {typeof opt === 'object' && opt.image && (
+                                                            <img src={opt.image} alt="Option preview" style={{ maxHeight: "100px", maxWidth: "150px", display: 'block', borderRadius: '4px', border: '1px solid #dee2e6' }} />
+                                                        )}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -216,9 +221,14 @@ const PreviewMode = ({ examData, onClose }) => {
                                                                         {q.type === 'quiz' && (
                                                                             <div className="ps-3 border-start border-3 border-light">
                                                                                 {q.options.map((opt, i) => (
-                                                                                    <div key={i} className="form-check mb-1">
-                                                                                        <input className="form-check-input" type="radio" disabled />
-                                                                                        <label className="form-check-label text-dark">{opt}</label>
+                                                                                    <div key={i} className="form-check mb-2">
+                                                                                        <input className="form-check-input mt-2" type="radio" disabled />
+                                                                                        <label className="form-check-label text-dark d-flex flex-column gap-2">
+                                                                                            <span>{typeof opt === 'object' ? (opt.optionText || opt.text || "") : opt}</span>
+                                                                                            {typeof opt === 'object' && opt.image && (
+                                                                                                <img src={opt.image} alt="Option preview" style={{ maxHeight: "80px", maxWidth: "120px", display: 'block', borderRadius: '4px', border: '1px solid #dee2e6' }} />
+                                                                                            )}
+                                                                                        </label>
                                                                                     </div>
                                                                                 ))}
                                                                             </div>
@@ -259,9 +269,14 @@ const PreviewMode = ({ examData, onClose }) => {
                                                             {q.type === 'quiz' && (
                                                                 <div className="ps-3 border-start border-3 border-light">
                                                                     {q.options.map((opt, i) => (
-                                                                        <div key={i} className="form-check mb-1">
-                                                                            <input className="form-check-input" type="radio" disabled />
-                                                                            <label className="form-check-label text-dark">{opt}</label>
+                                                                        <div key={i} className="form-check mb-2">
+                                                                            <input className="form-check-input mt-2" type="radio" disabled />
+                                                                            <label className="form-check-label text-dark d-flex flex-column gap-2">
+                                                                                <span>{typeof opt === 'object' ? (opt.optionText || opt.text || "") : opt}</span>
+                                                                                {typeof opt === 'object' && opt.image && (
+                                                                                    <img src={opt.image} alt="Option preview" style={{ maxHeight: "80px", maxWidth: "120px", display: 'block', borderRadius: '4px', border: '1px solid #dee2e6' }} />
+                                                                                )}
+                                                                            </label>
                                                                         </div>
                                                                     ))}
                                                                 </div>

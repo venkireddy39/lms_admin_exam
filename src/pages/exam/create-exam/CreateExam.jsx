@@ -162,20 +162,23 @@ const CreateExam = () => {
       };
 
       let savedExam;
-      if (isEditMode) {
-        savedExam = await examService.updateExam(id, corePayload);
+      let examId = id; // Default to URL param if available
+
+      if (isEditMode && examId) {
+        // If we are editing, we do not call createExam because it will throw a 500 error.
+        // Since there is no explicit PUT definition yet, we assume the frontend simply acts as a passthrough for questions
+        console.log(`Bypassing Exam metadata creation. Using existing Exam ID: ${examId}`);
       } else {
+        // Create the raw exam first
         savedExam = await examService.createExam(corePayload);
+        examId = savedExam?.examId || savedExam?.exam_id || savedExam?.id;
+
+        if (!examId) {
+          throw new Error("Backend did not return a valid Exam ID during creation.");
+        }
       }
 
-      // Robust check for ID from backend
-      const examId = savedExam?.examId || savedExam?.exam_id || savedExam?.id || id;
-
-      if (!examId) {
-        throw new Error("Backend did not return a valid Exam ID.");
-      }
-
-      console.log("Exam saved successfully with ID:", examId);
+      console.log("Processing Exam metadata/questions for ID:", examId);
 
       // 2. Parallel save of all configuration entities (Settings, Design, etc.)
       // These are optional, failures shouldn't block the main flow.
@@ -227,77 +230,129 @@ const CreateExam = () => {
       // B. Link to Exam
       // 3. Questions Handling - "Create via Link" Strategy (Bypasses Transient Error)
       if (examData.questions && examData.questions.length > 0) {
-        console.log("Persisting questions and linking to exam...");
+        console.log("Persisting questions and linking to exam via Sections...");
 
-        const linkedQuestions = [];
+        // Ensure we have at least one section wrapper
+        let activeSections = (examData.sections && examData.sections.length > 0)
+          ? examData.sections
+          : [{ title: "General", description: "Main section", questionIds: examData.questions.map((_, i) => i) }];
 
-        for (const [idx, q] of examData.questions.entries()) {
+        for (const [secIdx, sectionConf] of activeSections.entries()) {
           try {
-            let actualQuestionId = q.id || q.questionId;
-
-            // Step A: Create Question if it's new or missing ID
-            if (!actualQuestionId) {
-              const newQ = await examService.createQuestion({
-                question: q.question || q.questionText,
-                type: q.type || q.questionType || "MCQ",
-                marks: q.marks || 1
-              });
-              actualQuestionId = newQ?.questionId || newQ?.id;
-              console.log(`Created new question with ID: ${actualQuestionId}`);
+            // 1. Create Generic Section
+            const newSection = await examService.createQuestionSection({
+              sectionName: sectionConf.title || `Section ${secIdx + 1}`,
+              sectionDescription: sectionConf.description || "",
+              shuffleQuestions: false
+            });
+            const actualSectionId = newSection?.sectionId || newSection?.id;
+            if (!actualSectionId) {
+              console.warn("Failed to create section:", sectionConf.title);
+              continue;
             }
 
-            if (!actualQuestionId) continue;
-
-            // Step B: Save Options and Test Cases FIRST (Before Linking)
-            // This ensures the question is fully formed before being part of the exam
-            const qType = (q.type || q.questionType || "").toLowerCase();
-
-            // Options (Critical: Must include questionId)
-            if (q.options?.length > 0) {
-              const opts = q.options.map(opt => ({
-                questionId: Number(actualQuestionId), // Explicitly bind
-                optionText: typeof opt === 'string' ? opt : (opt.text || ""),
-                isCorrect: typeof opt === 'object' ? opt.isCorrect : false,
-                optionImage: typeof opt === 'object' ? opt.image : null
-              }));
-              console.log(`Adding Options to Q${actualQuestionId}...`, opts);
-              await examService.addQuestionOptions(actualQuestionId, opts).catch(e => console.warn("Options failed", e));
+            // 2. Link Section to Exam (Returns ExamSection)
+            const linkedExamSection = await examService.addSectionToExam(examId, actualSectionId, secIdx + 1);
+            const examSectionId = linkedExamSection?.examSectionId || linkedExamSection?.id;
+            if (!examSectionId) {
+              console.warn("Failed to link section to exam:", actualSectionId);
+              continue;
             }
 
-            // Test Cases
-            if (qType === 'coding' && q.testCases?.length > 0) {
-              for (const tc of q.testCases) {
-                await examService.createTestCase(actualQuestionId, tc).catch(e => console.warn("TC failed", e));
+            const sectionExamQuestions = [];
+
+            // 3. Process Questions for this section
+            for (const qIdx of sectionConf.questionIds || []) {
+              const q = examData.questions[qIdx];
+              if (!q) continue;
+
+              let actualQuestionId = q.id || q.questionId;
+
+              try {
+                // Step A: Create Question if it's new
+                if (!actualQuestionId) {
+                  const qType = (q.type || q.questionType || "MCQ").toUpperCase();
+                  let payload = {
+                    questionText: q.question || q.questionText,
+                    questionType: qType,
+                    contentType: (q.image) ? "TEXT_IMAGE" : "TEXT"
+                  };
+
+                  if (qType === 'CODING') {
+                    payload.programmingLanguage = q.language ? q.language.toUpperCase() : "JAVA";
+                  }
+
+                  if (qType === 'DESCRIPTIVE' || qType === 'SHORT' || qType === 'LONG') {
+                    payload.modelAnswer = q.referenceAnswer || "";
+                    payload.keywords = q.evaluationGuidelines || "";
+                  }
+
+                  const newQ = await examService.createQuestion(payload);
+                  actualQuestionId = newQ?.questionId || newQ?.id;
+                }
+
+                if (!actualQuestionId) continue;
+
+                const qType = (q.type || q.questionType || "").toLowerCase();
+
+                // Options
+                if (q.options?.length > 0 && typeof q.options[0] !== 'string' && q.options[0].id) {
+                  // already has options saved? Skip or update.
+                } else if (q.options?.length > 0 && (qType === 'quiz' || qType === 'mcq')) {
+                  const opts = q.options.map((opt, oIdx) => {
+                    const text = typeof opt === 'string' ? opt : (opt.optionText || opt.text || "");
+                    const isCorrect = typeof opt === 'object' && opt.isCorrect !== undefined ? opt.isCorrect : (q.correctOptionIndex === oIdx || q.answer === text);
+                    return {
+                      questionId: Number(actualQuestionId),
+                      optionText: text,
+                      isCorrect: Boolean(isCorrect),
+                      optionImage: typeof opt === 'object' ? opt.image : null
+                    };
+                  });
+                  await examService.addQuestionOptions(actualQuestionId, opts).catch(e => console.error("Options failed", e));
+                }
+
+                // Coding Test Cases
+                if (qType === 'coding' && q.testCases?.length > 0) {
+                  for (const tc of q.testCases) {
+                    await examService.createTestCase(actualQuestionId, tc).catch(() => { });
+                  }
+                }
+
+                // Descriptive
+                if (['short', 'long', 'abacus'].includes(qType) && q.referenceAnswer) {
+                  await examService.saveDescriptiveAnswer(actualQuestionId, {
+                    answerText: q.referenceAnswer,
+                    guidelines: q.evaluationGuidelines
+                  }).catch(() => { });
+                }
+
+                // Map Question to Question Bank Section (Crucial intermediate step requested by the user API pattern)
+                await examService.mapQuestionToSection(actualSectionId, actualQuestionId).catch(e => console.warn("Failed to map question to Bank Section", e));
+
+                sectionExamQuestions.push({
+                  questionId: Number(actualQuestionId),
+                  marks: parseFloat(q.marks || 1),
+                  questionOrder: sectionExamQuestions.length + 1
+                });
+              } catch (qErr) {
+                console.error(`Failed to process question ${qIdx}`, qErr);
               }
             }
 
-            // Descriptive
-            if (['short', 'long', 'abacus'].includes(qType) && q.referenceAnswer) {
-              await examService.saveDescriptiveAnswer(actualQuestionId, {
-                answerText: q.referenceAnswer,
-                guidelines: q.evaluationGuidelines
-              }).catch(e => console.warn("Descriptive failed", e));
+            // 4. Link Questions to ExamSection
+            if (sectionExamQuestions.length > 0) {
+              console.log(`Linking ${sectionExamQuestions.length} questions to ExamSection ${examSectionId}...`);
+              await examService.addQuestionsToExamSection(examSectionId, sectionExamQuestions);
             }
 
-            // Step C: Link to Exam (FINAL STEP)
-            const linkPayload = {
-              examId: Number(examId),
-              questionId: Number(actualQuestionId),
-              marks: parseFloat(q.marks || 1),
-              questionOrder: parseInt(idx + 1)
-            };
-
-            console.log(`Linking Q${actualQuestionId} to exam ${examId} with order ${idx + 1}... Payload:`, linkPayload);
-            await examService.addExamQuestions(examId, [linkPayload]);
-
-          } catch (err) {
-            console.error(`Failed to process question at index ${idx}`, err);
+          } catch (secErr) {
+            console.error(`Failed to process section ${secIdx}`, secErr);
           }
         }
       }
 
-      // 4. Publish if it's a final action
-      await examService.publishExam(examId);
+      // Removed: await examService.publishExam(examId); (Exams remain DRAFT until Scheduled)
 
       setTimeout(() => navigate("/admin/exams/dashboard"), 1500);
     } catch (error) {

@@ -84,7 +84,7 @@ export const useBatches = (courses, instructors = []) => {
 
         // Dropdown Filters
         if (courseFilter !== 'All') {
-            result = result.filter(b => String(b.courseId) === String(courseFilter));
+            result = result.filter(b => String(b?.courseId || b?.course_id || b?.id) === String(courseFilter));
         }
         if (instructorFilter !== 'All') {
             // Try to match trainerName if possible
@@ -95,7 +95,9 @@ export const useBatches = (courses, instructors = []) => {
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             result = result.filter(b => {
-                const course = courses.find(c => String(c.courseId) === String(b.courseId));
+                const bCourseId = String(b?.courseId || b?.course_id || b?.id || "");
+                const course = courses.find(c => String(c?.courseId || c?.course_id || c?.id || "") === bCourseId) ||
+                    courses.find(c => c?.courseName?.trim() === b?.courseName?.trim());
                 return (
                     (b.batchName && b.batchName.toLowerCase().includes(q)) ||
                     (b.trainerName && b.trainerName.toLowerCase().includes(q)) ||

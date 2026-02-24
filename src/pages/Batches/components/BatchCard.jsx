@@ -9,7 +9,9 @@ import { calculateProgress } from '../utils/batchUtils';
 import { BATCH_STATUS } from '../constants/batchConstants';
 
 const BatchCard = ({ batch, courses = [], onEdit, onDelete, onManageContent }) => {
-    const course = courses.find(c => String(c.courseId) === String(batch.courseId));
+    const bCourseId = String(batch?.courseId || batch?.course_id || batch?.id || "");
+    const course = courses.find(c => String(c?.courseId || c?.course_id || c?.id || "") === bCourseId) ||
+        courses.find(c => c?.courseName?.trim() === batch?.courseName?.trim()); // Fallback by name if available
 
     const students = batch.students ?? 0;
     const maxStudents = batch.maxStudents ?? 0;

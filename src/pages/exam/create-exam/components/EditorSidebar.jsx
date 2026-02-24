@@ -43,13 +43,7 @@ const EditorSidebar = ({
             <div className="card-body p-0 overflow-auto">
                 {activeTab === 'add' ? (
                     <div className="p-0">
-                        {type === 'mixed' ? (
-                            <MixedQuestionManager onAdd={addQuestion} initialData={editingQuestion} onCancel={cancelEdit} />
-                        ) : (
-                            <div className="p-3">
-                                <QuestionForm type={type} onAdd={addQuestion} initialData={editingQuestion} onCancel={cancelEdit} />
-                            </div>
-                        )}
+                        <MixedQuestionManager onAdd={addQuestion} initialData={editingQuestion} onCancel={cancelEdit} />
                     </div>
                 ) : activeTab === 'sections' ? (
                     <SectionManager

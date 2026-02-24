@@ -4,30 +4,36 @@ import "react-toastify/dist/ReactToastify.css";
 import { motion } from "framer-motion";
 import { Calendar, Clock, Mail, ChevronRight, Loader2, Info } from "lucide-react";
 import { examService } from "../services/examService";
+import { batchService } from "../../Batches/services/batchService";
 
 const ExamSchedule = () => {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedExam, setSelectedExam] = useState("");
+  const [batches, setBatches] = useState([]);
   const [scheduleData, setScheduleData] = useState({
-    course: "",
+    batchId: "",
     startTime: "",
     endTime: "",
     emailNotify: false
   });
 
   useEffect(() => {
-    fetchExams();
+    fetchExamsAndBatches();
   }, []);
 
-  const fetchExams = async () => {
+  const fetchExamsAndBatches = async () => {
     setLoading(true);
     try {
-      const data = await examService.getAllExams();
-      setExams(Array.isArray(data) ? data : []);
+      const [examsData, batchesData] = await Promise.all([
+        examService.getAllExams(),
+        batchService.getAllBatches()
+      ]);
+      setExams(Array.isArray(examsData) ? examsData : []);
+      setBatches(Array.isArray(batchesData) ? batchesData : []);
     } catch (error) {
-      toast.error("Failed to load exams");
+      toast.error("Failed to load initial data");
     } finally {
       setLoading(false);
     }
@@ -36,8 +42,8 @@ const ExamSchedule = () => {
   const handleSchedule = async (e) => {
     e.preventDefault();
 
-    if (!selectedExam || !scheduleData.startTime) {
-      toast.error("Please select an exam and start time");
+    if (!selectedExam || !scheduleData.batchId || !scheduleData.startTime) {
+      toast.error("Please select an exam, a batch and a start time");
       return;
     }
 
@@ -65,7 +71,7 @@ const ExamSchedule = () => {
   const handleReset = () => {
     setSelectedExam("");
     setScheduleData({
-      course: "",
+      batchId: "",
       startTime: "",
       endTime: "",
       emailNotify: false
@@ -162,16 +168,21 @@ const ExamSchedule = () => {
                     </div>
                   </div>
 
-                  {/* COURSE/BATCH */}
                   <div className="col-12">
                     <label className="form-label text-muted small fw-bold text-uppercase mb-2 ls-1">Course / Batch / Group</label>
-                    <input
-                      type="text"
-                      className="form-control form-control-lg"
-                      placeholder="e.g., Full Stack Jan Batch A"
-                      value={scheduleData.course}
-                      onChange={e => setScheduleData({ ...scheduleData, course: e.target.value })}
-                    />
+                    <select
+                      className="form-select form-select-lg"
+                      value={scheduleData.batchId}
+                      onChange={e => setScheduleData({ ...scheduleData, batchId: e.target.value })}
+                      required
+                    >
+                      <option value="">Select a batch...</option>
+                      {batches.map(batch => (
+                        <option key={batch.batchId || batch.id} value={batch.batchId || batch.id}>
+                          {batch.batchName || batch.name} {batch.course?.courseName ? `(${batch.course.courseName})` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* DATES */}

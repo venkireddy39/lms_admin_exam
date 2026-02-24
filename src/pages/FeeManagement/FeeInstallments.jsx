@@ -1304,6 +1304,25 @@ const FeeInstallments = () => {
                                                 </button>
                                             )}
 
+                                            {/* NEW: Send Payment Link Action */}
+                                            {inst.status !== 'PAID' && typeof inst.id === 'number' && inst.id > 1000000 && (
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const res = await apiFetch(getUrl(`/payment-gateway/send-link/${inst.id}`), { method: 'POST' });
+                                                            alert(res.message || "Payment link sent to student's email.");
+                                                        } catch (error) {
+                                                            alert("Failed to send payment link. " + (error.response?.data?.message || ""));
+                                                        }
+                                                    }}
+                                                    className="btn-icon"
+                                                    style={{ width: 32, height: 32, color: '#10b981', borderColor: '#d1fae5', background: '#ecfdf5' }}
+                                                    title="Send Payment Link via Email"
+                                                >
+                                                    <FiDollarSign size={14} />
+                                                </button>
+                                            )}
+
                                             {planType === 'Custom' && (
                                                 <button
                                                     onClick={() => removeInstallment(idx)}

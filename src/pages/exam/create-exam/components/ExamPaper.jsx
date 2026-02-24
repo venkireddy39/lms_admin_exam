@@ -119,7 +119,12 @@ const ExamPaper = ({ examData, zoom, removeQuestion, editQuestion, editingIndex 
                                                             <div className="rounded-circle border border-dark d-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px', fontSize: '10px', flexShrink: 0 }}>
                                                                 {String.fromCharCode(97 + i).toUpperCase()}
                                                             </div>
-                                                            <span className="small text-muted text-truncate">{typeof o === 'object' ? (o.optionText || o.text || "") : o}</span>
+                                                            <div className="d-flex flex-column gap-2">
+                                                                <span className="small text-muted text-truncate">{typeof o === 'object' ? (o.optionText || o.text || "") : o}</span>
+                                                                {typeof o === 'object' && o.image && (
+                                                                    <img src={o.image} alt="Option preview" style={{ maxHeight: "80px", maxWidth: "120px", display: 'block', borderRadius: '4px', border: '1px solid #dee2e6' }} />
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
