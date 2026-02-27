@@ -10,30 +10,23 @@ const FeeTypeModal = ({
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        active: true,
-        refundable: false,
-        mandatory: true,
-        oneTime: true,
-        applyLateFee: false,
-        applyAutoDebit: false,
-        admissionFee: false,
+        isActive: true,
         displayOrder: 1
     });
 
     useEffect(() => {
         if (initialData) {
-            setFormData(initialData);
+            setFormData({
+                name: initialData.name || '',
+                description: initialData.description || '',
+                isActive: initialData.isActive !== undefined ? initialData.isActive : true,
+                displayOrder: initialData.displayOrder || 1
+            });
         } else {
             setFormData({
                 name: '',
                 description: '',
-                active: true,
-                refundable: false,
-                mandatory: true,
-                oneTime: true,
-                applyLateFee: false,
-                applyAutoDebit: false,
-                admissionFee: false,
+                isActive: true,
                 displayOrder: 1
             });
         }
@@ -55,7 +48,7 @@ const FeeTypeModal = ({
 
     return (
         <div className="modal-overlay-fixed">
-            <div className="modal-box premium-modal" style={{ maxWidth: '600px' }}>
+            <div className="modal-box premium-modal" style={{ maxWidth: '500px' }}>
                 <div className="modal-head">
                     <h2>{initialData ? 'Edit Fee Type' : 'Create Fee Type'}</h2>
                     <button className="close-btn" onClick={onClose}>
@@ -65,7 +58,7 @@ const FeeTypeModal = ({
 
                 <div className="modal-body">
                     <p className="modal-subtitle">
-                        Configure fee type details and rules.
+                        Create clean fee categories without automation logic.
                     </p>
 
                     <div className="form-group-grid">
@@ -79,7 +72,7 @@ const FeeTypeModal = ({
                                 name="name"
                                 value={formData.name}
                                 onChange={handleInputChange}
-                                placeholder="e.g. Admission Fee"
+                                placeholder="e.g. TUITION, ADMISSION"
                             />
                         </div>
 
@@ -110,78 +103,17 @@ const FeeTypeModal = ({
                         </div>
 
                         {/* Configuration Flags */}
-                        <div className="form-field full-width" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
+                        <div className="form-field full-width">
                             <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                 <input
                                     type="checkbox"
-                                    name="active"
-                                    checked={formData.active}
+                                    name="isActive"
+                                    checked={formData.isActive}
                                     onChange={handleInputChange}
                                 />
                                 Is Active
                             </label>
-
-                            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    name="refundable"
-                                    checked={formData.refundable}
-                                    onChange={handleInputChange}
-                                />
-                                Refundable
-                            </label>
-
-                            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    name="mandatory"
-                                    checked={formData.mandatory}
-                                    onChange={handleInputChange}
-                                />
-                                Mandatory
-                            </label>
-
-                            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    name="oneTime"
-                                    checked={formData.oneTime}
-                                    onChange={handleInputChange}
-                                />
-                                One-Time Fee
-                            </label>
-
-                            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    name="applyLateFee"
-                                    checked={formData.applyLateFee}
-                                    onChange={handleInputChange}
-                                />
-                                Apply Late Fee
-                            </label>
-
-                            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    name="applyAutoDebit"
-                                    checked={formData.applyAutoDebit}
-                                    onChange={handleInputChange}
-                                />
-                                Auto-Debit
-                            </label>
-                            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    name="admissionFee"
-                                    checked={formData.admissionFee}
-                                    onChange={handleInputChange}
-                                />
-                                Is Admission Fee
-                            </label>
                         </div>
-
                     </div>
                 </div>
 

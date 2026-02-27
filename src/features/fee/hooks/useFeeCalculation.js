@@ -22,19 +22,37 @@ export function useFeeCalculation(initialTotalFee = 0) {
     const addInstallment = () => {
         setInstallments([
             ...installments,
-            { id: Date.now().toString(), dueDate: '', amount: remainingToAllocate }
+            { id: Date.now().toString(), name: `Term ${installments.length + 1}`, dueDate: '', amount: remainingToAllocate }
         ]);
     };
 
     const updateInstallment = (id, field, value) => {
-        setInstallments(installments.map(inst => {
-            if (inst.id === id) {
-                // Prevent negative amounts
-                if (field === 'amount' && Number(value) < 0) value = 0;
-                return { ...inst, [field]: value };
+        setInstallments(prevInstallments => {
+            let updated = prevInstallments.map(inst => {
+                if (inst.id === id) {
+                    if (field === 'amount' && Number(value) < 0) value = 0;
+                    return { ...inst, [field]: value };
+                }
+                return inst;
+            });
+
+            // Auto-fill dates logic: if a date is set, cascade +1 month to subsequent empty dates
+            if (field === 'dueDate' && value) {
+                const changedIndex = prevInstallments.findIndex(inst => inst.id === id);
+                if (changedIndex !== -1) {
+                    let currentDate = new Date(value);
+                    for (let i = changedIndex + 1; i < updated.length; i++) {
+                        // Only auto-fill if the subsequent date is empty or was identical to the old date cascade
+                        if (!updated[i].dueDate || updated[i].dueDate === prevInstallments[i].dueDate) {
+                            currentDate.setMonth(currentDate.getMonth() + 1);
+                            updated[i] = { ...updated[i], dueDate: currentDate.toISOString().split('T')[0] };
+                        }
+                    }
+                }
             }
-            return inst;
-        }));
+
+            return updated;
+        });
     };
 
     const removeInstallment = (id) => {
@@ -49,6 +67,7 @@ export function useFeeCalculation(initialTotalFee = 0) {
 
         const newInstallments = Array.from({ length: count }).map((_, i) => ({
             id: Date.now().toString() + i,
+            name: `Term ${i + 1}`,
             dueDate: '',
             // Dump the remainder into the first installment to avoid rounding loss
             amount: i === 0 ? Number((splitAmount + remainder).toFixed(2)) : splitAmount

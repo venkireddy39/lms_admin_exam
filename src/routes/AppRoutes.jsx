@@ -29,6 +29,15 @@ const FeeManagementDashboard = lazy(() => import('../features/fee/pages/FeeManag
 // const FeeCreate = lazy(() => import('../pages/FeeManagement/FeeCreate'));
 // const InstallmentView = lazy(() => import('../pages/FeeManagement/InstallmentView'));
 // const CreateFee = lazy(() => import('../pages/FeeManagement/CreateFee'));
+
+// New Fee Modules
+const FeeTypeListPage = lazy(() => import('../features/feeType/pages/FeeTypeListPage'));
+const FeeTypeFormPage = lazy(() => import('../features/feeType/pages/FeeTypeFormPage'));
+const FeeStructureListPage = lazy(() => import('../features/feeStructure/pages/FeeStructureListPage'));
+const FeeStructureFormPage = lazy(() => import('../features/feeStructure/pages/FeeStructureFormPage'));
+const FeeAllocationListPage = lazy(() => import('../features/feeAllocation/pages/FeeAllocationListPage'));
+const FeeAllocationFormPage = lazy(() => import('../features/feeAllocation/pages/FeeAllocationFormPage'));
+const FeeAllocationDetailPage = lazy(() => import('../features/feeAllocation/pages/FeeAllocationDetailPage'));
 const LibraryApp = lazy(() => import('../pages/Library/App'));
 const AffiliateRegister = lazy(() => import('../pages/Affiliates/AffiliateRegister'));
 const AffiliatePortal = lazy(() => import('../pages/Affiliates/AffiliatePortal'));
@@ -140,6 +149,20 @@ const AppRoutes = () => {
           {/* Legacy isolated module routes removed since Dashboard handles config and ledger views */}
           {/* <Route path="fee/create" element={<FeeCreate />} /> */}
           {/* <Route path="fee/allocation/:id" element={<InstallmentView />} /> */}
+
+          {/* New Fee Modules Routes */}
+          <Route path="fee-types" element={<FeeTypeListPage />} />
+          <Route path="fee-types/new" element={<FeeTypeFormPage />} />
+          <Route path="fee-types/:id/edit" element={<FeeTypeFormPage />} />
+
+          <Route path="fee-structures" element={<FeeStructureListPage />} />
+          <Route path="fee-structures/new" element={<FeeStructureFormPage />} />
+          <Route path="fee-structures/:id/edit" element={<FeeStructureFormPage />} />
+
+          <Route path="fee-allocations" element={<FeeAllocationListPage />} />
+          <Route path="fee-allocations/new" element={<FeeAllocationFormPage />} />
+          <Route path="fee-allocations/:id" element={<FeeAllocationDetailPage />} />
+
           <Route path="marketing" element={<Marketing />} />
           <Route path="affiliates" element={<Affiliates />} />
           <Route path="affiliate/portal" element={<AffiliatePortal />} />

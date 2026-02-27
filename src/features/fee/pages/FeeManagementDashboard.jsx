@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import FeeConfigForm from '../components/FeeConfigForm';
 import StudentFeeSummary from '../components/StudentFeeSummary';
 import InstallmentTable from '../components/InstallmentTable';
@@ -7,6 +8,7 @@ import { feeApi } from '../api/feeApi';
 import { FiSettings, FiUsers, FiSearch, FiRefreshCw } from 'react-icons/fi';
 
 export default function FeeManagementDashboard() {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('config'); // 'config' | 'ledger'
 
     // Ledger State
@@ -47,46 +49,55 @@ export default function FeeManagementDashboard() {
     };
 
     return (
-        <div className="bg-gray-50 min-h-screen py-8">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="container-fluid bg-light min-vh-100 py-4">
+            <div className="container-lg">
 
                 {/* Dashboard Header */}
-                <div className="mb-8 md:flex md:items-center md:justify-between">
-                    <div className="flex-1 min-w-0">
-                        <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+                    <div>
+                        <h2 className="h3 fw-bold text-dark mb-1">
                             Fee Management Console
                         </h2>
-                        <p className="mt-2 text-sm text-gray-500">
+                        <p className="text-secondary small mb-0">
                             Configure base structures and manage individual student ledgers cleanly and securely.
                         </p>
+                    </div>
+                    <div className="d-flex gap-2 mt-3 mt-md-0">
+                        <button
+                            onClick={() => navigate('/admin/fee-types')}
+                            className="btn btn-white border shadow-sm fw-medium text-dark d-flex align-items-center px-4"
+                        >
+                            Manage Fee Types
+                        </button>
+                        <button
+                            onClick={() => navigate('/admin/fee-structures')}
+                            className="btn btn-white border shadow-sm fw-medium text-dark d-flex align-items-center px-4"
+                        >
+                            View All Structures
+                        </button>
                     </div>
                 </div>
 
                 {/* Navigation Tabs */}
-                <div className="mb-6 border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                        <button
-                            onClick={() => setActiveTab('config')}
-                            className={`${activeTab === 'config'
-                                    ? 'border-indigo-500 text-indigo-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition`}
-                        >
-                            <FiSettings className="mr-2 h-5 w-5" />
-                            Fee Configuration (Admin)
-                        </button>
-
-                        <button
-                            onClick={() => setActiveTab('ledger')}
-                            className={`${activeTab === 'ledger'
-                                    ? 'border-indigo-500 text-indigo-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition`}
-                        >
-                            <FiUsers className="mr-2 h-5 w-5" />
-                            Student Ledgers
-                        </button>
-                    </nav>
+                <div className="mb-4">
+                    <ul className="nav nav-pills bg-white p-1 rounded-pill shadow-sm d-inline-flex border">
+                        <li className="nav-item">
+                            <button
+                                onClick={() => setActiveTab('config')}
+                                className={`nav-link rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-medium ${activeTab === 'config' ? 'active shadow-sm' : 'text-secondary bg-transparent'}`}
+                            >
+                                <FiSettings /> Fee Configuration (Admin)
+                            </button>
+                        </li>
+                        <li className="nav-item">
+                            <button
+                                onClick={() => setActiveTab('ledger')}
+                                className={`nav-link rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-medium ${activeTab === 'ledger' ? 'active shadow-sm' : 'text-secondary bg-transparent'}`}
+                            >
+                                <FiUsers /> Student Ledgers
+                            </button>
+                        </li>
+                    </ul>
                 </div>
 
                 {/* Tab Rendering */}
@@ -98,28 +109,28 @@ export default function FeeManagementDashboard() {
                     )}
 
                     {activeTab === 'ledger' && (
-                        <div className="max-w-5xl mx-auto animate-fade-in-up">
+                        <div className="container-fluid px-0 animate-fade-in-up">
 
                             {/* Search Bar */}
-                            <form onSubmit={handleSearchSubmit} className="mb-6 flex gap-3">
-                                <div className="relative flex-grow max-w-md shadow-sm rounded-md">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <FiSearch className="h-5 w-5 text-gray-400" />
-                                    </div>
+                            <form onSubmit={handleSearchSubmit} className="mb-4 d-flex gap-3" style={{ maxWidth: '600px' }}>
+                                <div className="input-group shadow-sm">
+                                    <span className="input-group-text bg-white border-end-0 text-muted">
+                                        <FiSearch />
+                                    </span>
                                     <input
                                         type="number"
                                         min="1"
                                         required
                                         value={allocationIdInput}
                                         onChange={(e) => setAllocationIdInput(e.target.value)}
-                                        className="block w-full pl-10 sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                                        className="form-control border-start-0 ps-0"
                                         placeholder="Enter Allocation ID (e.g., 1)"
                                     />
                                 </div>
                                 <button
                                     type="submit"
                                     disabled={isFetchingLedger}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:bg-indigo-400"
+                                    className="btn btn-primary px-4 shadow-sm fw-medium text-nowrap"
                                 >
                                     {isFetchingLedger ? 'Loading...' : 'Find Ledger'}
                                 </button>
@@ -127,11 +138,11 @@ export default function FeeManagementDashboard() {
 
                             {/* Active Ledger Display */}
                             {allocationData ? (
-                                <div className="space-y-6">
-                                    <div className="flex justify-end">
+                                <div className="d-flex flex-column gap-4">
+                                    <div className="d-flex justify-content-end">
                                         <button
                                             onClick={refreshLedger}
-                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 flex items-center gap-1.5 transition"
+                                            className="btn btn-link text-decoration-none fw-medium d-flex align-items-center gap-1 p-0 text-primary"
                                         >
                                             <FiRefreshCw /> Refresh Ledger
                                         </button>
@@ -144,24 +155,28 @@ export default function FeeManagementDashboard() {
                                     />
 
                                     {/* The Installments Data Table */}
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                        <div className="px-4 py-5 border-b border-gray-200 sm:px-6 bg-gray-50 flex justify-between items-center">
-                                            <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                    <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
+                                        <div className="card-header bg-white border-bottom-0 pt-4 px-4 pb-0">
+                                            <h5 className="h5 fw-bold text-dark mb-3">
                                                 Installment Schedule
-                                            </h3>
+                                            </h5>
                                         </div>
-                                        <InstallmentTable
-                                            isEditMode={false}
-                                            installments={installmentsData}
-                                            actions={{}}
-                                        />
+                                        <div className="card-body p-0">
+                                            <InstallmentTable
+                                                isEditMode={false}
+                                                installments={installmentsData}
+                                                actions={{}}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="text-center py-24 bg-white border border-gray-200 rounded-lg shadow-sm">
-                                    <FiUsers className="mx-auto h-12 w-12 text-gray-300" />
-                                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Ledger Selected</h3>
-                                    <p className="mt-1 text-sm text-gray-500">Enter a Student Allocation ID to view and manage their fees.</p>
+                                <div className="card border p-5 text-center shadow-sm rounded-4 bg-white mt-5">
+                                    <div className="mx-auto bg-light rounded-circle d-flex align-items-center justify-content-center mb-3" style={{ width: '80px', height: '80px' }}>
+                                        <FiUsers className="text-secondary" size={32} />
+                                    </div>
+                                    <h4 className="fw-bold text-dark mb-2">No Ledger Selected</h4>
+                                    <p className="text-secondary mb-0">Enter a Student Allocation ID to view and manage their fees.</p>
                                 </div>
                             )}
 

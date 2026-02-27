@@ -88,7 +88,10 @@ const TopNavbar = () => {
             label: 'Finance',
             icon: DollarSign,
             children: [
-                { label: 'Fee Module', path: '/admin/fee', icon: CreditCard },
+                { label: 'Fee Management', path: '/admin/fee', icon: Layout },
+                { label: 'Fee Types', path: '/admin/fee-types', icon: Layers },
+                { label: 'Fee Structures', path: '/admin/fee-structures', icon: Clipboard },
+                { label: 'Student Fees', path: '/admin/fee-allocations', icon: Users },
             ]
         },
         {

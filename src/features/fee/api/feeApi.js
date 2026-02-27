@@ -7,65 +7,63 @@ export const feeApi = {
     // --- Configuration (Admin) ---
 
     getFeeTypes: async () => {
-        return await apiFetch(getUrl('/fee-management/fee-types'));
+        return await apiFetch('/api/fee-types');
     },
 
     getActiveFeeTypes: async () => {
-        return await apiFetch(getUrl('/fee-management/fee-types/active'));
+        return await apiFetch('/api/fee-types/active');
     },
 
-    // Note: Java controllers map to /api/fee-management/fee-structures and /api/fee for allocations
     createFeeStructure: async (data) => {
-        return await apiFetch(getUrl('/fee-management/fee-structures'), {
+        return await apiFetch('/api/fee-management/fee-structures', {
             method: 'POST',
             body: JSON.stringify(data)
         });
     },
 
     getFeeStructuresByCourse: async (courseId) => {
-        return await apiFetch(getUrl(`/fee-management/fee-structures/course/${courseId}`));
+        return await apiFetch(`/api/fee-management/fee-structures/course/${courseId}`);
     },
 
     getFeeStructuresByBatch: async (batchId) => {
-        return await apiFetch(getUrl(`/fee-management/fee-structures/batch/${batchId}`));
+        return await apiFetch(`/api/fee-management/fee-structures/batch/${batchId}`);
     },
 
     // --- Allocations & Student View ---
-    // Mapped in FeeController.java to /api/fee/...
 
-    allocateFee: async (studentId, structureId, installmentAmounts) => {
-        return await apiFetch(getUrl('/fee/allocations'), {
+    allocateFee: async (data) => {
+        return await apiFetch('/api/fee-management/fee-allocations', {
             method: 'POST',
-            body: JSON.stringify({ studentId, structureId, installmentAmounts })
+            body: JSON.stringify(data)
         });
     },
 
     getStudentAllocation: async (allocationId) => {
-        return await apiFetch(getUrl(`/fee/allocations/${allocationId}`));
+        return await apiFetch(`/api/fee-management/fee-allocations/${allocationId}`);
     },
 
     getStudentInstallments: async (allocationId) => {
-        return await apiFetch(getUrl(`/fee/allocations/${allocationId}/installments`));
+        return await apiFetch(`/api/fee-management/installments/allocation/${allocationId}`);
     },
 
     // --- Actions (Payments, Discounts, Penalties) ---
 
     recordPayment: async (allocationId, data) => {
-        return await apiFetch(getUrl(`/fee/allocations/${allocationId}/payments`), {
+        return await apiFetch(`/api/fee-management/payments/${allocationId}`, {
             method: 'POST',
             body: JSON.stringify(data)
         });
     },
 
     applyDiscount: async (allocationId, data) => {
-        return await apiFetch(getUrl(`/fee/allocations/${allocationId}/discount`), {
+        return await apiFetch(`/api/fee-management/discounts/${allocationId}`, {
             method: 'POST',
             body: JSON.stringify(data)
         });
     },
 
     applyPenalty: async (allocationId, data) => {
-        return await apiFetch(getUrl(`/fee/allocations/${allocationId}/penalty`), {
+        return await apiFetch(`/api/fee-management/installments/penalty/${allocationId}`, {
             method: 'POST',
             body: JSON.stringify(data)
         });

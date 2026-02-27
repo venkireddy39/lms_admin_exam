@@ -69,8 +69,18 @@ export default function InstallmentTable({
                         ) : (
                             installments.map((inst, index) => (
                                 <tr key={inst.id || index}>
-                                    <td className="px-4 py-3 fw-semibold text-dark">
-                                        Term {index + 1}
+                                    <td className="px-4 py-3" style={{ minWidth: "150px" }}>
+                                        {isEditMode ? (
+                                            <input
+                                                type="text"
+                                                value={inst.name || `Term ${index + 1}`}
+                                                onChange={(e) => actions.updateInstallment(inst.id, 'name', e.target.value)}
+                                                className="form-control form-control-sm fw-semibold"
+                                                required
+                                            />
+                                        ) : (
+                                            <span className="fw-semibold text-dark">{inst.name || `Installment ${index + 1}`}</span>
+                                        )}
                                     </td>
 
                                     {/* Edit Mode vs View Mode Toggles */}
@@ -97,6 +107,7 @@ export default function InstallmentTable({
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    step="0.01"
                                                     value={inst.amount || ''}
                                                     onChange={(e) => actions.updateInstallment(inst.id, 'amount', e.target.value)}
                                                     className="form-control"

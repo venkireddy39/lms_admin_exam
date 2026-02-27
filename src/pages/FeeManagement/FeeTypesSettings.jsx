@@ -17,7 +17,6 @@ const FeeTypesSettings = () => {
         setLoading(true);
         try {
             const data = await feeTypeService.getAllFeeTypes();
-            // Backend returns list of fee types
             setFeeTypes(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Error fetching fee types:", error);
@@ -70,33 +69,24 @@ const FeeTypesSettings = () => {
     };
 
     const openEditModal = (type) => {
-        // Normalize data for modal
-        setEditingType({
-            ...type,
-            active: type.active ?? type.isActive
-        });
+        setEditingType(type);
         setIsModalOpen(true);
     };
 
     const seedDefaults = async () => {
-        if (!window.confirm("This will attempt to create default fee types (Admission, Tuition, Lab, etc.). Continue?")) return;
+        if (!window.confirm("This will attempt to create default pure fee types (TUITION, ADMISSION, EXAM, MATERIAL, HOSTEL). Continue?")) return;
 
         const defaults = [
-            { name: "Admission Fee", description: "One time non refundable fee", active: true, refundable: false, mandatory: true, oneTime: true, applyLateFee: false, applyAutoDebit: false, admissionFee: true, displayOrder: 1 },
-            { name: "Tuition Fee", description: "Monthly recurring fee", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 2 },
-            { name: "Lab Fee", description: "Laboratory usage fee", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: false, applyAutoDebit: true, admissionFee: false, displayOrder: 3 },
-            { name: "Exam Fee", description: "Examination processing fee", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: true, applyAutoDebit: false, admissionFee: false, displayOrder: 4 },
-            { name: "Hostel Fee", description: "Accommodation fee", active: true, refundable: true, mandatory: false, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 5 },
-            { name: "Transport Fee", description: "Transportation service fee", active: true, refundable: true, mandatory: false, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 6 },
-            { name: "Material Fee", description: "Course material and books", active: true, refundable: false, mandatory: true, oneTime: true, applyLateFee: false, applyAutoDebit: false, admissionFee: false, displayOrder: 7 },
-            { name: "Certificate Fee", description: "Completion certificate cost", active: true, refundable: false, mandatory: true, oneTime: true, applyLateFee: false, applyAutoDebit: false, admissionFee: false, displayOrder: 8 },
-            { name: "Batch Fee", description: "Standard fee for the batch", active: true, refundable: false, mandatory: true, oneTime: false, applyLateFee: true, applyAutoDebit: true, admissionFee: false, displayOrder: 9 },
+            { name: "TUITION", description: "Main course tuition fee", isActive: true, displayOrder: 1 },
+            { name: "ADMISSION", description: "Admission fee", isActive: true, displayOrder: 2 },
+            { name: "EXAM", description: "Examination fee", isActive: true, displayOrder: 3 },
+            { name: "MATERIAL", description: "Study material fee", isActive: true, displayOrder: 4 },
+            { name: "HOSTEL", description: "Hostel accommodation fee", isActive: true, displayOrder: 5 }
         ];
 
         let successCount = 0;
         for (const type of defaults) {
             try {
-                // Check local duplicate first to avoid unnecessary API calls
                 const exists = feeTypes.some(t => t.name.toLowerCase() === type.name.toLowerCase());
                 if (!exists) {
                     await feeTypeService.createFeeType(type);
@@ -111,92 +101,78 @@ const FeeTypesSettings = () => {
     };
 
     return (
-        <div className="fee-types-container">
-            <div className="section-title">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="fee-types-container" style={{ padding: '24px' }}>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '20px', fontWeight: 'bold' }}>
                     <FiList /> Fee Types Management
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px' }}>
                     {feeTypes.length === 0 && !loading && (
-                        <button className="btn-secondary" onClick={seedDefaults} style={{ fontSize: '13px' }}>
+                        <button className="btn-secondary" onClick={seedDefaults} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', borderRadius: '4px', border: '1px solid #ccc', cursor: 'pointer', background: '#fff' }}>
                             <FiSettings size={14} style={{ marginRight: '6px' }} />
                             Seed Defaults
                         </button>
                     )}
-                    <button className="btn-primary" onClick={openCreateModal}>
-                        <FiPlus /> Create New Fee Type
+                    <button className="btn-primary" onClick={openCreateModal} style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer', background: '#007bff', color: '#fff' }}>
+                        <FiPlus style={{ marginRight: '6px' }} /> Create New Fee Type
                     </button>
                 </div>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
-                Define global fee categories (e.g., Tuition Fee, Exam Fee) to be used when creating standard fee structures.
+            <p style={{ fontSize: 14, color: '#666', marginBottom: '24px' }}>
+                Define global fee categories (e.g., TUITION, ADMISSION) that only store naming and order details. Keep it pure.
             </p>
 
-            <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="glass-card" style={{ padding: 0, overflow: 'hidden', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Order</th>
-                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Name</th>
-                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Type</th>
-                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Config</th>
-                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b' }}>Status</th>
-                            <th style={{ padding: '12px 16px', fontSize: 13, color: '#64748b', textAlign: 'right' }}>Actions</th>
+                            <th style={{ padding: '16px 24px', fontSize: 13, color: '#64748b' }}>Order</th>
+                            <th style={{ padding: '16px 24px', fontSize: 13, color: '#64748b' }}>Name</th>
+                            <th style={{ padding: '16px 24px', fontSize: 13, color: '#64748b' }}>Description</th>
+                            <th style={{ padding: '16px 24px', fontSize: 13, color: '#64748b' }}>Status</th>
+                            <th style={{ padding: '16px 24px', fontSize: 13, color: '#64748b', textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center' }}>Loading...</td></tr>
+                            <tr><td colSpan="5" style={{ padding: 24, textAlign: 'center' }}>Loading...</td></tr>
                         ) : feeTypes.length === 0 ? (
-                            <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>No fee types found. Create one to get started.</td></tr>
+                            <tr><td colSpan="5" style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>No fee types found. Create one to get started.</td></tr>
                         ) : (
                             feeTypes
                                 .sort((a, b) => (Number(a.displayOrder ?? 99)) - (Number(b.displayOrder ?? 99)))
                                 .map(type => {
-                                    // Normalize active status for display
-                                    const isActive = type.active ?? type.isActive;
+                                    // Make sure we read the right property depending on the backend response structure
+                                    const isActiveFlag = type.isActive !== undefined ? type.isActive : type.active;
 
                                     return (
                                         <tr key={type.id || Math.random()} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                                            <td style={{ padding: '16px 24px', color: '#64748b' }}>
                                                 {type.displayOrder || '-'}
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
-                                                <div style={{ fontWeight: 500 }}>{type.name}</div>
-                                                <div style={{ fontSize: 12, color: '#94a3b8' }}>{type.description}</div>
+                                            <td style={{ padding: '16px 24px' }}>
+                                                <div style={{ fontWeight: 600, color: '#111827' }}>{type.name}</div>
                                             </td>
-                                            <td style={{ padding: '12px 16px' }}>
-                                                {type.oneTime ?
-                                                    <span className="badge-gray" style={{ background: '#f1f5f9', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>One-Time</span> :
-                                                    <span className="badge-blue" style={{ background: '#eff6ff', color: '#2563eb', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>Recurring</span>
-                                                }
-                                                {type.admissionFee && <div style={{ fontSize: 11, color: '#ea580c', fontWeight: 500, marginTop: 4 }}>Admission</div>}
+                                            <td style={{ padding: '16px 24px', color: '#64748b' }}>
+                                                {type.description || '-'}
                                             </td>
-                                            <td style={{ padding: '12px 16px', fontSize: 12 }}>
-                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                    {type.mandatory && <span title="Mandatory" style={{ color: '#ef4444', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Mandatory</span>}
-                                                    {type.refundable && <span title="Refundable" style={{ color: '#16a34a', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Refundable</span>}
-                                                    {type.applyLateFee && <span title="Late Fee Applicable" style={{ color: '#d97706', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Late Fee</span>}
-                                                    {type.applyAutoDebit && <span title="Auto Debit Enabled" style={{ color: '#4f46e5', background: '#e0e7ff', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>Auto-Debit</span>}
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '12px 16px' }}>
-                                                {isActive ? (
-                                                    <span className="status-badge paid" style={{ fontSize: 11, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>Active</span>
+                                            <td style={{ padding: '16px 24px' }}>
+                                                {isActiveFlag ? (
+                                                    <span style={{ fontSize: 12, fontWeight: 500, color: '#16a34a', background: '#dcfce7', padding: '4px 12px', borderRadius: '16px' }}>Active</span>
                                                 ) : (
-                                                    <span className="status-badge overdue" style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px' }}>Inactive</span>
+                                                    <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b', background: '#f1f5f9', padding: '4px 12px', borderRadius: '16px' }}>Inactive</span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                                    <button onClick={() => openEditModal(type)} className="btn-icon" style={{ color: '#3b82f6', background: '#eff6ff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>
-                                                        <FiEdit2 size={14} />
+                                            <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                                    <button onClick={() => openEditModal(type)} style={{ color: '#3b82f6', background: '#eff6ff', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                        <FiEdit2 size={16} />
                                                     </button>
 
-                                                    {isActive && (
-                                                        <button onClick={() => handleDelete(type.id)} className="btn-icon" style={{ color: '#ef4444', background: '#fee2e2', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>
-                                                            <FiTrash2 size={14} />
+                                                    {isActiveFlag && (
+                                                        <button onClick={() => handleDelete(type.id)} style={{ color: '#ef4444', background: '#fee2e2', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                            <FiTrash2 size={16} />
                                                         </button>
                                                     )}
                                                 </div>

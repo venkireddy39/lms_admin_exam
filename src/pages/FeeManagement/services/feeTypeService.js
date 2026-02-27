@@ -1,6 +1,6 @@
 import { apiFetch } from "../../../services/api";
 
-const BASE_URL = "/api/fee-management/fee-types";
+const BASE_URL = "/api/fee-types";
 
 export const feeTypeService = {
     /**

@@ -11,7 +11,7 @@ const getUrl = (endpoint) => `${BASE_URL}${endpoint}`;
 
 export const getAllFeeTypes = async () => {
     try {
-        return await apiFetch(getUrl('/fee-types'));
+        return await apiFetch('/api/fee-types');
     } catch (error) {
         console.error('Error fetching all fee types:', error);
         throw error;
@@ -20,7 +20,7 @@ export const getAllFeeTypes = async () => {
 
 export const getActiveFeeTypes = async () => {
     try {
-        return await apiFetch(getUrl('/fee-types/active'));
+        return await apiFetch('/api/fee-types/active');
     } catch (error) {
         console.error('Error fetching active fee types:', error);
         throw error;
@@ -29,7 +29,7 @@ export const getActiveFeeTypes = async () => {
 
 export const createFeeType = async (feeTypeData) => {
     try {
-        return await apiFetch(getUrl('/fee-types'), {
+        return await apiFetch('/api/fee-types', {
             method: 'POST',
             body: JSON.stringify(feeTypeData)
         });
@@ -41,7 +41,7 @@ export const createFeeType = async (feeTypeData) => {
 
 export const updateFeeType = async (id, feeTypeData) => {
     try {
-        return await apiFetch(getUrl(`/fee-types/${id}`), {
+        return await apiFetch(`/api/fee-types/${id}`, {
             method: 'PUT',
             body: JSON.stringify(feeTypeData)
         });
@@ -53,7 +53,7 @@ export const updateFeeType = async (id, feeTypeData) => {
 
 export const deleteFeeType = async (id) => {
     try {
-        return await apiFetch(getUrl(`/fee-types/${id}`), {
+        return await apiFetch(`/api/fee-types/${id}`, {
             method: 'DELETE'
         });
     } catch (error) {
