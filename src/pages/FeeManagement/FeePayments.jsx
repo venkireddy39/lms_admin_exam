@@ -27,7 +27,7 @@ const FeePayments = ({ setActiveTab }) => {
     const [selectedAlloc, setSelectedAlloc] = useState(null);
     const [installments, setInstallments] = useState([]);
     const [loadingInst, setLoadingInst] = useState(false);
-    const [selectedInstallment, setSelectedInstallment] = useState(null);
+    const [selectedInstallmentIds, setSelectedInstallmentIds] = useState([]);
     const [payAmount, setPayAmount] = useState('');
     const [earlyDiscount, setEarlyDiscount] = useState('');
     const [payMode, setPayMode] = useState('CASH');
@@ -97,7 +97,7 @@ const FeePayments = ({ setActiveTab }) => {
     const handleSelectAlloc = async (alloc) => {
         setSelectedAlloc(alloc);
         setModalSearch(alloc.studentName);
-        setSelectedInstallment(null);
+        setSelectedInstallmentIds([]);
         setPayAmount('');
         setEarlyDiscount('');
         setLoadingInst(true);
@@ -129,10 +129,20 @@ const FeePayments = ({ setActiveTab }) => {
         }
     };
 
-    const selectInstallment = (inst) => {
-        setSelectedInstallment(inst);
-        setPayAmount(Number(inst.remainingAmount || inst.amount || 0));
-        setEarlyDiscount(''); // Reset discount when switching installments for clarity
+    const toggleInstallment = (inst) => {
+        const id = inst.installmentId;
+        setSelectedInstallmentIds(prev => {
+            const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+
+            // Calculate total amount for all selected
+            const total = installments
+                .filter(i => next.includes(i.installmentId))
+                .reduce((acc, i) => acc + Number(i.remainingAmount), 0);
+
+            setPayAmount(total || '');
+            setEarlyDiscount('');
+            return next;
+        });
     };
 
     const pendingInstallments = installments.filter(i =>
@@ -149,6 +159,11 @@ const FeePayments = ({ setActiveTab }) => {
             alert('Please select a student and enter an amount');
             return;
         }
+
+        // If multiple selected, we send null to let backend distribute starting from oldest.
+        // If one selected, we send that specific ID.
+        const instId = selectedInstallmentIds.length === 1 ? selectedInstallmentIds[0] : null;
+
         const params = {
             allocationId: selectedAlloc.allocationId,
             amount: effectiveAmount,
@@ -158,7 +173,7 @@ const FeePayments = ({ setActiveTab }) => {
             studentName: selectedAlloc.studentName,
             studentEmail: selectedAlloc.studentEmail || '',
             manualDiscount: discount,
-            ...(selectedInstallment?.installmentId ? { installmentId: selectedInstallment.installmentId } : {})
+            ...(instId ? { installmentId: instId } : {})
         };
         try {
             await feeService.recordManualPayment(params);
@@ -176,7 +191,7 @@ const FeePayments = ({ setActiveTab }) => {
         setModalSearch('');
         setSelectedAlloc(null);
         setInstallments([]);
-        setSelectedInstallment(null);
+        setSelectedInstallmentIds([]);
         setPayAmount('');
         setEarlyDiscount('');
         setPayMode('CASH');
@@ -372,11 +387,11 @@ const FeePayments = ({ setActiveTab }) => {
                                                         </thead>
                                                         <tbody>
                                                             {pendingInstallments.map((inst, idx) => {
-                                                                const isSelected = selectedInstallment?.installmentId === inst.installmentId;
+                                                                const isSelected = selectedInstallmentIds.includes(inst.installmentId);
                                                                 const isOverdue = inst.dueDate && new Date(inst.dueDate) < new Date();
                                                                 return (
                                                                     <tr key={inst.installmentId || idx}
-                                                                        onClick={() => selectInstallment(inst)}
+                                                                        onClick={() => toggleInstallment(inst)}
                                                                         style={{
                                                                             cursor: 'pointer',
                                                                             background: isSelected ? '#eff6ff' : (idx % 2 === 0 ? '#fff' : '#fafafa'),
@@ -384,7 +399,7 @@ const FeePayments = ({ setActiveTab }) => {
                                                                         }}
                                                                     >
                                                                         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                                                            <input type="radio" name="installment_radio" readOnly checked={isSelected} />
+                                                                            <input type="checkbox" readOnly checked={isSelected} />
                                                                         </td>
                                                                         <td style={{ padding: '8px 10px', fontWeight: 600 }}>
                                                                             {inst.name || inst.installmentName || `Installment ${idx + 1}`}
@@ -412,7 +427,7 @@ const FeePayments = ({ setActiveTab }) => {
                                     )}
 
                                     {/* Payment fields — shown after installment selected */}
-                                    {selectedInstallment && (
+                                    {selectedInstallmentIds.length > 0 && (
                                         <>
                                             <div className="form-grid" style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                                                 <div className="form-group">
@@ -473,8 +488,8 @@ const FeePayments = ({ setActiveTab }) => {
                                     <button className="btn-icon" style={{ borderRadius: 8, width: 'auto', padding: '0 16px' }}
                                         onClick={closeModal}>Cancel</button>
                                     <button className="btn-primary" onClick={handleRecordPayment}
-                                        disabled={!selectedAlloc || !selectedInstallment || !payAmount}
-                                        style={{ opacity: (!selectedAlloc || !selectedInstallment || !payAmount) ? 0.5 : 1 }}>
+                                        disabled={!selectedAlloc || selectedInstallmentIds.length === 0 || !payAmount}
+                                        style={{ opacity: (!selectedAlloc || selectedInstallmentIds.length === 0 || !payAmount) ? 0.5 : 1 }}>
                                         Record Payment{effectiveAmount > 0 ? ` · ₹${effectiveAmount.toLocaleString()}` : ''}
                                     </button>
                                 </div>
