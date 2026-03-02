@@ -3,10 +3,9 @@ import { motion } from 'framer-motion';
 import { FiDollarSign, FiCalendar, FiCheckCircle, FiAlertCircle, FiClock, FiDownload, FiCreditCard } from 'react-icons/fi';
 import { useAuth } from '../../../pages/Library/context/AuthContext';
 import apiFetch, { getUrl } from '../../../services/api';
+import { load } from '@cashfreepayments/cashfree-js';
 
-// IMPORTANT: Mock razorpay integration or use existing service.
-// Assuming processOnlinePayment/initiatePayment are in feeService
-// For brevity, we will call apiFetch directly.
+// Assume backend generates the paymentSessionId via /payments/verify endpoint
 
 const ParentFeePage = () => {
     // Note: Parent might manage multiple students. For this demo, assuming 1-to-1 mapping or reading user.id
@@ -18,9 +17,18 @@ const ParentFeePage = () => {
     const [summary, setSummary] = useState({ total: 0, paid: 0, remaining: 0 });
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
+    const [cashfree, setCashfree] = useState(null);
 
-    // Mock fetching the child's ID. In reality, an API gets the Parent's Child ID.
-    const childId = user?.linkedStudentId || user?.id; // Fallback to user.id for testing
+    // Mock fetching the child's ID.
+    const childId = user?.linkedStudentId || user?.id;
+
+    useEffect(() => {
+        const initCashfree = async () => {
+            const cf = await load({ mode: "sandbox" });
+            setCashfree(cf);
+        };
+        initCashfree();
+    }, []);
 
     const fetchFeeData = async () => {
         if (!childId) return;
@@ -75,51 +83,36 @@ const ParentFeePage = () => {
         setProcessingId(installment.installmentId || installment.id);
 
         try {
-            // 1. Initiate Payment (Create Razorpay Order from Backend)
-            // Expecting endpoint /api/fee-management/payments/initiate to exist
-            const initRes = await apiFetch(getUrl(`/payments/initiate?allocationId=${installment.studentFeeAllocationId}&installmentIds=${installment.installmentId || installment.id}`), {
-                method: 'POST'
+            // 1. Initiate Payment Session from Backend
+            const initRes = await apiFetch(getUrl(`/payments/verify`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    allocationId: installment.studentFeeAllocationId,
+                    installmentPlanId: installment.installmentId || installment.id,
+                    amount: amountToPay
+                })
             });
 
-            // 2. Open Razorpay Widget (requires razorpay script loaded in index.html)
-            const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY || "YOUR_TEST_KEY", // Replace
-                amount: initRes.amount,
-                currency: "INR",
-                name: "LMS Academy",
-                description: `Payment for Installment ${installment.installmentNumber}`,
-                order_id: initRes.id, // Order ID from backend
-                handler: async function (response) {
-                    // 3. Verify Payment
-                    try {
-                        await apiFetch(getUrl(`/payments/verify`), {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                razorpay_payment_id: response.razorpay_payment_id,
-                                razorpay_order_id: response.razorpay_order_id,
-                                razorpay_signature: response.razorpay_signature,
-                                allocationId: installment.studentFeeAllocationId,
-                                installmentPlanId: installment.installmentId || installment.id,
-                                amount: amountToPay
-                            })
-                        });
-                        alert("Payment Successful!");
-                        fetchFeeData(); // Refresh Data
-                    } catch (err) {
-                        alert("Payment Verification Failed.");
-                    }
-                },
-                prefill: {
-                    name: user?.name || "Parent",
-                    email: user?.email || "parent@example.com",
-                    contact: user?.phone || "9999999999"
-                },
-                theme: { color: "#3B82F6" }
-            };
+            if (!initRes || !initRes.paymentSessionId) {
+                throw new Error("Failed to get payment session");
+            }
 
-            if (window.Razorpay) {
-                const rzp = new window.Razorpay(options);
-                rzp.open();
+            // 2. Open Cashfree Checkout Widget
+            if (cashfree) {
+                cashfree.checkout({
+                    paymentSessionId: initRes.paymentSessionId,
+                    redirectTarget: "_modal",
+                }).then((result) => {
+                    if (result.error) {
+                        console.error("Payment Error", result.error);
+                        alert("Payment cancelled or failed.");
+                    }
+                    if (result.paymentDetails) {
+                        alert("Payment successful! Wait a moment for the receipt.");
+                        fetchFeeData();
+                    }
+                });
             } else {
                 alert("Payment gateway not loaded.");
             }

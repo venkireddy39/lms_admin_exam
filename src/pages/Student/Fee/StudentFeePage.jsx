@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { FiDollarSign, FiCalendar, FiCheckCircle, FiAlertCircle, FiClock, FiDownload } from 'react-icons/fi';
+import { FiDollarSign, FiCalendar, FiCheckCircle, FiAlertCircle, FiClock, FiDownload, FiCreditCard } from 'react-icons/fi';
 import { useAuth } from '../../../pages/Library/context/AuthContext';
 import apiFetch, { getUrl } from '../../../services/api';
+import { load } from '@cashfreepayments/cashfree-js';
 
 const StudentFeePage = () => {
     const { user } = useAuth();
@@ -9,6 +10,18 @@ const StudentFeePage = () => {
     const [installments, setInstallments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [cashfree, setCashfree] = useState(null);
+    const [processingPaymentId, setProcessingPaymentId] = useState(null);
+
+    useEffect(() => {
+        const initializeCashfree = async () => {
+            const cf = await load({
+                mode: "sandbox",
+            });
+            setCashfree(cf);
+        };
+        initializeCashfree();
+    }, []);
 
     useEffect(() => {
         const fetchAllFeeData = async () => {
@@ -66,6 +79,60 @@ const StudentFeePage = () => {
 
         fetchAllFeeData();
     }, [user]);
+
+    const handlePayment = async (inst) => {
+        try {
+            setProcessingPaymentId(inst.id || inst.installmentId);
+            setError(null);
+
+            const amountToPay = Number(inst.amount || inst.installmentAmount) - Number(inst.paidAmount || 0);
+
+            // 1. Ask backend to create an order
+            const reqBody = {
+                allocationId: allocation.id,
+                installmentPlanId: inst.id || inst.installmentId,
+                amount: amountToPay
+            };
+
+            const response = await apiFetch(getUrl('/payments/verify'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reqBody)
+            });
+
+            if (!response || !response.paymentSessionId) {
+                throw new Error("Failed to generate payment session");
+            }
+
+            // 2. Open Cashfree Checkout
+            let checkoutOptions = {
+                paymentSessionId: response.paymentSessionId,
+                redirectTarget: "_modal",
+            };
+
+            cashfree.checkout(checkoutOptions).then((result) => {
+                if (result.error) {
+                    console.error("Payment failed", result.error);
+                    setError(result.error.message || "Payment cancelled or failed");
+                }
+                if (result.redirect) {
+                    console.log("Payment is redirecting");
+                }
+                if (result.paymentDetails) {
+                    console.log("Payment has been completed, Verify using webhook");
+                    // Assuming webhook flow handles the DB updates, we could simply reload the page details
+                    alert('Payment processing! Check back in a moment as your receipt is generated.');
+                    window.location.reload();
+                }
+            });
+
+        } catch (err) {
+            console.error("Payment error:", err);
+            setError(err.message || "Could not initiate payment");
+        } finally {
+            setProcessingPaymentId(null);
+        }
+    };
 
     const getStatusConfig = (status, dueDate) => {
         const today = new Date();
@@ -248,15 +315,31 @@ const StudentFeePage = () => {
                                                             </span>
                                                         </td>
                                                         <td className="pe-4 py-3 text-center">
-                                                            {(inst.status === 'PAID' || inst.status === 'PARTIALLY_PAID') ? (
+                                                            {(inst.status === 'PAID' || inst.status === 'PARTIALLY_PAID') && (
                                                                 <button
-                                                                    className="btn btn-sm btn-light text-primary rounded-circle"
+                                                                    className="btn btn-sm btn-light text-primary rounded-circle me-2"
                                                                     title="Download Receipt"
                                                                     onClick={() => alert('Receipt download feature coming soon!')}
                                                                 >
                                                                     <FiDownload />
                                                                 </button>
-                                                            ) : (
+                                                            )}
+
+                                                            {status.label !== 'Paid' && (
+                                                                <button
+                                                                    className="btn btn-sm btn-primary rounded-pill px-3"
+                                                                    onClick={() => handlePayment(inst)}
+                                                                    disabled={processingPaymentId === (inst.id || inst.installmentId) || !cashfree}
+                                                                >
+                                                                    {processingPaymentId === (inst.id || inst.installmentId) ? (
+                                                                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                                    ) : (
+                                                                        <><FiCreditCard className="me-1" /> Pay Now</>
+                                                                    )}
+                                                                </button>
+                                                            )}
+
+                                                            {status.label === 'Paid' && (
                                                                 <span className="text-muted">-</span>
                                                             )}
                                                         </td>
