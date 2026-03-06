@@ -5,8 +5,8 @@ const PendingCertificates = ({ pendingCertificates = [], onApprove, onReject }) 
     const [searchTerm, setSearchTerm] = useState("");
 
     const filteredList = (pendingCertificates || []).filter(cert => {
-        const recipient = cert?.data?.recipientName || "";
-        const course = cert?.data?.courseName || "";
+        const recipient = cert?.studentName || cert?.recipientName || cert?.data?.recipientName || "";
+        const course = cert?.eventTitle || cert?.courseName || cert?.data?.courseName || "";
         return recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
             course.toLowerCase().includes(searchTerm.toLowerCase());
     });
@@ -55,11 +55,11 @@ const PendingCertificates = ({ pendingCertificates = [], onApprove, onReject }) 
                                 filteredList.map((cert) => (
                                     <tr key={cert.id}>
                                         <td className="text-start ps-4 fw-medium">
-                                            {cert.data.recipientName}
+                                            {cert.studentName || cert.recipientName || cert?.data?.recipientName || 'Unknown'}
                                         </td>
-                                        <td className="text-muted">{cert.data.courseName}</td>
+                                        <td className="text-muted">{cert.eventTitle || cert.courseName || cert?.data?.courseName || 'Unknown'}</td>
                                         <td className="text-muted">
-                                            {new Date(cert.issuedAt).toLocaleDateString()}
+                                            {new Date(cert.issuedAt || cert.createdAt || new Date()).toLocaleDateString()}
                                         </td>
                                         <td>
                                             <div className="d-flex justify-content-center gap-2">

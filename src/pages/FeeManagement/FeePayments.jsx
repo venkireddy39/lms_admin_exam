@@ -3,10 +3,10 @@ import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiSearch, FiDownload, FiCheckCircle, FiAlertCircle, FiClock,
-    FiFileText, FiPlus, FiX, FiCalendar, FiDollarSign, FiTag
+    FiFileText, FiPlus, FiX, FiCalendar, FiDollarSign, FiTag, FiRefreshCcw
 } from 'react-icons/fi';
 import './FeeManagement.css';
-import feeService from '../../services/feeService';
+import * as feeService from '../../services/feeService';
 import { userService } from '../Users/services/userService';
 
 const ModalPortal = ({ children }) => ReactDOM.createPortal(children, document.body);
@@ -21,6 +21,7 @@ const FeePayments = ({ setActiveTab }) => {
     const [transactions, setTransactions] = useState([]);
     const [allocations, setAllocations] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [syncingId, setSyncingId] = useState(null);
 
     // Modal state
     const [modalSearch, setModalSearch] = useState('');
@@ -33,6 +34,8 @@ const FeePayments = ({ setActiveTab }) => {
     const [payMode, setPayMode] = useState('CASH');
     const [txnRef, setTxnRef] = useState('');
     const [remarks, setRemarks] = useState('');
+    const [screenshot, setScreenshot] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => { fetchData(); }, []);
 
@@ -164,6 +167,20 @@ const FeePayments = ({ setActiveTab }) => {
         // If one selected, we send that specific ID.
         const instId = selectedInstallmentIds.length === 1 ? selectedInstallmentIds[0] : null;
 
+        let screenshotUrl = '';
+        if (screenshot) {
+            setUploading(true);
+            try {
+                const uploadRes = await feeService.uploadScreenshot(screenshot);
+                screenshotUrl = uploadRes.url;
+            } catch (err) {
+                console.error('Upload failed', err);
+                alert('Screenshot upload failed, but proceeding with payment record...');
+            } finally {
+                setUploading(false);
+            }
+        }
+
         const params = {
             allocationId: selectedAlloc.allocationId,
             amount: effectiveAmount,
@@ -173,16 +190,33 @@ const FeePayments = ({ setActiveTab }) => {
             studentName: selectedAlloc.studentName,
             studentEmail: selectedAlloc.studentEmail || '',
             manualDiscount: discount,
+            remarks: remarks,
+            screenshotUrl: screenshotUrl,
             ...(instId ? { installmentId: instId } : {})
         };
         try {
             await feeService.recordManualPayment(params);
             await fetchData();
             closeModal();
-            alert('Payment recorded successfully!');
+            alert(`Payment recorded successfully! ${payMode === 'CASH' || payMode === 'UPI_MANUAL' ? 'Status: PAID' : ''}`);
         } catch (error) {
             console.error('Payment failed', error);
             alert('Failed to record payment: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
+    const handleSyncStatus = async (orderId) => {
+        if (!orderId) return;
+        setSyncingId(orderId);
+        try {
+            await feeService.syncPaymentStatus(orderId);
+            await fetchData();
+            alert('Status sync completed!');
+        } catch (e) {
+            console.error('Sync failed', e);
+            alert('Failed to sync status: ' + (e.response?.data?.message || e.message));
+        } finally {
+            setSyncingId(null);
         }
     };
 
@@ -197,6 +231,7 @@ const FeePayments = ({ setActiveTab }) => {
         setPayMode('CASH');
         setTxnRef('');
         setRemarks('');
+        setScreenshot(null);
     };
 
     const getStudentName = (allocationId) => {
@@ -269,12 +304,25 @@ const FeePayments = ({ setActiveTab }) => {
                                 <td>{txn.paymentMode}</td>
                                 <td>{getStatusBadge(txn.paymentStatus)}</td>
                                 <td>
-                                    {txn.paymentStatus === 'SUCCESS' && (
-                                        <button className="btn-icon" title="View Receipt" style={{ width: 32, height: 32 }}
-                                            onClick={() => { setSelectedTransaction(txn); setShowInvoiceModal(true); }}>
-                                            <FiFileText size={14} />
-                                        </button>
-                                    )}
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        {txn.paymentStatus === 'SUCCESS' && (
+                                            <button className="btn-icon" title="View Receipt" style={{ width: 32, height: 32 }}
+                                                onClick={() => { setSelectedTransaction(txn); setShowInvoiceModal(true); }}>
+                                                <FiFileText size={14} />
+                                            </button>
+                                        )}
+                                        {txn.paymentStatus === 'PENDING' && txn.paymentMode === 'CASHFREE' && (
+                                            <button
+                                                className={`btn-icon ${syncingId === txn.transactionReference ? 'spinning' : ''}`}
+                                                title="Sync Status"
+                                                style={{ width: 32, height: 32, color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
+                                                onClick={() => handleSyncStatus(txn.transactionReference)}
+                                                disabled={syncingId === txn.transactionReference}
+                                            >
+                                                <FiRefreshCcw size={14} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -315,30 +363,42 @@ const FeePayments = ({ setActiveTab }) => {
                                                 setInstallments([]);
                                             }}
                                         />
-                                        {filteredSearch.length > 0 && (
+                                        {modalSearch && !selectedAlloc && (
                                             <div className="dropdown-menu show" style={{
                                                 position: 'absolute', top: '100%', left: 0, right: 0,
                                                 zIndex: 100, maxHeight: 200, overflowY: 'auto',
-                                                background: 'white', border: '1px solid #e2e8f0', borderRadius: 8
+                                                background: 'white', border: '1px solid #e2e8f0', borderRadius: 8,
+                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                                             }}>
-                                                {filteredSearch.map(alloc => (
-                                                    <div
-                                                        key={alloc.allocationId}
-                                                        className="dropdown-item"
-                                                        style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}
-                                                        onClick={() => handleSelectAlloc(alloc)}
-                                                    >
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <div style={{ fontWeight: 600 }}>{alloc.studentName}</div>
-                                                            <div style={{ fontSize: 11, background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4 }}>
-                                                                Batch: {alloc.batchId || 'N/A'}
+                                                {filteredSearch.length > 0 ? (
+                                                    filteredSearch.map(alloc => (
+                                                        <div
+                                                            key={alloc.allocationId}
+                                                            className="dropdown-item"
+                                                            style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9' }}
+                                                            onClick={() => handleSelectAlloc(alloc)}
+                                                        >
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div style={{ fontWeight: 600, color: '#1e293b' }}>{alloc.studentName}</div>
+                                                                <div style={{ fontSize: 10, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>
+                                                                    ID: {alloc.allocationId}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                                                                {alloc.batchName || 'No Batch'} | {alloc.courseName || 'No Course'}
+                                                            </div>
+                                                            <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 700, marginTop: 2 }}>
+                                                                Pending: ₹{Number(alloc.remainingAmount || 0).toLocaleString()}
                                                             </div>
                                                         </div>
-                                                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                                                            {alloc.courseName || 'No Course'} | <span style={{ color: '#ef4444', fontWeight: 600 }}>Due: ₹{alloc.remainingAmount}</span>
-                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
+                                                        <FiSearch size={20} style={{ opacity: 0.3, marginBottom: 8 }} />
+                                                        <div style={{ fontSize: 13 }}>No students found matching "{modalSearch}"</div>
+                                                        <div style={{ fontSize: 11, marginTop: 4, color: '#94a3b8' }}>Try searching by name or ID</div>
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -472,6 +532,13 @@ const FeePayments = ({ setActiveTab }) => {
                                                 <input type="text" className="form-input"
                                                     placeholder="Optional (Auto-generated if empty)"
                                                     value={txnRef} onChange={e => setTxnRef(e.target.value)} />
+                                            </div>
+
+                                            <div style={{ marginBottom: 16 }}>
+                                                <label className="form-label">Upload Screenshot (UPI/Cash Receipt)</label>
+                                                <input type="file" className="form-input" accept="image/*"
+                                                    onChange={e => setScreenshot(e.target.files[0])}
+                                                    style={{ padding: '6px' }} />
                                             </div>
 
                                             <div className="form-group">

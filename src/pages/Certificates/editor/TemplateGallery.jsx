@@ -19,7 +19,20 @@ const TemplateGallery = ({ templates, onCreate, onEdit, onDelete }) => {
                 fontFamily: "'Inter', sans-serif",
                 textColor: "#1F2937"
               },
-              elements: []
+              elements: [
+                {
+                  id: Date.now().toString() + '1',
+                  type: "text",
+                  content: "{{studentName}}",
+                  x: 350, y: 350, w: 300, h: 50,
+                  style: { fontSize: "32px", textAlign: "center", fontWeight: "bold", color: "#000000" }
+                },
+                {
+                  id: Date.now().toString() + '2',
+                  type: "qr",
+                  x: 750, y: 500, w: 100, h: 100
+                }
+              ]
             })
           }
         >
@@ -91,7 +104,7 @@ const TemplateGallery = ({ templates, onCreate, onEdit, onDelete }) => {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };
 

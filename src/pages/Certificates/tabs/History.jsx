@@ -18,20 +18,6 @@ const History = ({ certificates, onView, onDelete, onEdit }) => {
         (cert.certificateId || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Helper to find student photo if it exists in elements (looking for image type with specific criteria or just first image)
-    const getStudentPhoto = (cert) => {
-        if (cert.template?.elements) {
-            // Logic: Assume an element with id containing 'photo' or 'recipient' is the photo, or just user avatar
-            // For now, let's look for a generic image as fallback if not explicitly tagged
-            const photo = cert.template.elements.find(el => el.type === 'image' && (el.content?.toLowerCase().includes('photo') || el.id.includes('photo')));
-            if (photo) return photo.src;
-        }
-        return "https://via.placeholder.com/50?text=User";
-    };
-
-    const getSignature = (cert) => {
-        return cert.signatureImage || "https://via.placeholder.com/80x40?text=Sign";
-    };
 
     return (
         <div className="card border-0 shadow-sm rounded-4 animate-fade-in bg-white">
@@ -74,18 +60,12 @@ const History = ({ certificates, onView, onDelete, onEdit }) => {
                     <table className="table table-hover align-middle mb-0 text-center" style={{ fontSize: '0.9rem' }}>
                         <thead className="bg-light text-dark fw-bold border-bottom">
                             <tr>
-                                <th className="py-3">Image</th>
-                                <th className="py-3">Sign</th>
-                                <th className="py-3 text-start">Name</th>
-                                <th className="py-3">Certificate No</th>
-                                <th className="py-3">Course/Dep</th>
-                                <th className="py-3">Duration</th>
-                                <th className="py-3">Grade</th>
-                                <th className="py-3">Year</th>
-                                <th className="py-3">Date</th>
-                                <th className="py-3">Print</th>
-                                <th className="py-3">Edit</th>
-                                <th className="py-3">Delete</th>
+                                <th className="py-3 text-start">Student Name</th>
+                                <th className="py-3">Course Name</th>
+                                <th className="py-3">Certificate Number</th>
+                                <th className="py-3">Issue Date</th>
+                                <th className="py-3">Status</th>
+                                <th className="py-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -96,55 +76,20 @@ const History = ({ certificates, onView, onDelete, onEdit }) => {
                             ) : (
                                 filteredCertificates.map((cert) => (
                                     <tr key={cert.id}>
-                                        {/* Image */}
-                                        <td className="p-2">
-                                            <img src={getStudentPhoto(cert)} alt="User" className="rounded border" style={{ width: '40px', height: '40px', objectFit: 'cover' }} />
-                                        </td>
-
-                                        {/* Sign */}
-                                        <td className="p-2">
-                                            <img src={getSignature(cert)} alt="Sign" style={{ width: '60px', height: '30px', objectFit: 'contain' }} />
-                                        </td>
-
-                                        {/* Name */}
-                                        <td className="text-start fw-bold text-dark">{cert.studentName}</td>
-
-                                        {/* Cert No */}
-                                        <td className="font-monospace text-primary">{cert.certificateId}</td>
-
-                                        {/* Course */}
+                                        <td className="text-start fw-bold text-dark">{cert.studentName || cert.recipientName || 'N/A'}</td>
+                                        <td><span className="small">{cert.eventTitle || cert.courseName || 'N/A'}</span></td>
+                                        <td className="font-monospace text-primary">{cert.certificateId || 'N/A'}</td>
+                                        <td className="small text-muted">{new Date(cert.issuedDate || cert.createdAt || new Date()).toLocaleDateString('en-GB')}</td>
+                                        <td><span className="badge bg-success">Issued</span></td>
                                         <td>
-                                            <span className="small">{cert.eventTitle}</span>
-                                        </td>
-
-                                        {/* Duration (Mocked) */}
-                                        <td>{cert.duration || "6 Months"}</td>
-
-                                        {/* Grade (Mocked) */}
-                                        <td><span className="fw-bold">{cert.score ? cert.score : "A+"}</span></td>
-
-                                        {/* Year */}
-                                        <td>{new Date(cert.issuedDate || cert.createdAt).getFullYear()}</td>
-
-                                        {/* Date */}
-                                        <td className="small text-muted">{new Date(cert.issuedDate || cert.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}<br /><span style={{ fontSize: '0.7rem' }}>{new Date(cert.issuedDate || cert.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></td>
-
-                                        {/* Print */}
-                                        <td>
-                                            <div className="d-flex flex-column align-items-center gap-1">
-                                                <button className="btn btn-sm btn-link text-primary p-0" title="View" onClick={() => onView(cert)}><FaEye /></button>
-                                                <button className="btn btn-sm btn-link text-secondary p-0" title="PDF" onClick={() => { onView(cert); setTimeout(() => window.print(), 500); }}><FaFilePdf /></button>
+                                            <div className="d-flex justify-content-center gap-2">
+                                                <button className="btn btn-sm btn-outline-primary" title="View & Download" onClick={() => onView(cert)}>
+                                                    <FaEye className="me-1" /> View / Download
+                                                </button>
+                                                <button className="btn btn-sm btn-outline-info" title="Share Link" onClick={() => handleShare(cert)}>
+                                                    <FaShareAlt />
+                                                </button>
                                             </div>
-                                        </td>
-
-                                        {/* Edit */}
-                                        <td>
-                                            <button className="btn btn-sm btn-link text-info p-0" title="Edit" onClick={() => onEdit && onEdit(cert)}><FaEdit /></button>
-                                        </td>
-
-                                        {/* Delete */}
-                                        <td>
-                                            <button className="btn btn-sm btn-link text-danger p-0" title="Delete" onClick={() => onDelete(cert.id)}><FaTrash /></button>
                                         </td>
                                     </tr>
                                 ))

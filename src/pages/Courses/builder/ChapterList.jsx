@@ -1,23 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import {
-    FiPlus,
-    FiMoreVertical,
-    FiCheck,
-    FiFolderPlus,
-    FiEdit2,
-    FiTrash2,
-    FiFileText,
-    FiChevronDown,
-    FiChevronRight,
-    FiVideo,
-    FiType,
-    FiLayout,
-    FiLock,
-    FiPlusCircle,
-    FiArrowUp,
-    FiArrowDown,
-} from "react-icons/fi";
 
 const ChapterList = ({
     chapters = [],
@@ -42,23 +24,15 @@ const ChapterList = ({
     const [menuOpenId, setMenuOpenId] = useState(null);
     const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
-    /* ---------------- outside click ---------------- */
-
     useEffect(() => {
         const closeMenu = () => setMenuOpenId(null);
-        // We use 'mousedown' on window to catch clicks anywhere, 
-        // but we must ensure blocking stopPropagation doesn't kill it.
-        // Actually, for Portals, clicking inside the portal might propagate to document.
-        // Use a ref for the dropdown to detect click outside is better, but global click is easier for now.
         window.addEventListener("click", closeMenu);
-        window.addEventListener("scroll", closeMenu, true); // Close on scroll
+        window.addEventListener("scroll", closeMenu, true);
         return () => {
             window.removeEventListener("click", closeMenu);
             window.removeEventListener("scroll", closeMenu, true);
         };
     }, []);
-
-    /* ---------------- auto expand active chapter ---------------- */
 
     useEffect(() => {
         if (activeChapterId) {
@@ -66,10 +40,7 @@ const ChapterList = ({
         }
     }, [activeChapterId]);
 
-    /* ---------------- helpers ---------------- */
-
-    const toggleExpand = (id) =>
-        setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+    const toggleExpand = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
     const startEdit = (chapter) => {
         setEditingId(chapter.id);
@@ -84,258 +55,166 @@ const ChapterList = ({
     };
 
     const confirmDelete = (id) => {
-        if (window.confirm("Delete this chapter and all its contents?")) {
+        if (window.confirm("Are you sure you want to delete this chapter?")) {
             onDelete(id);
         }
         setMenuOpenId(null);
     };
 
-    const getItemIcon = (type) => {
+    const getItemIconClass = (type) => {
         switch (type) {
-            case "video":
-                return <FiVideo size={14} />;
-            case "text":
-                return <FiType size={14} />;
-            case "heading":
-                return <FiLayout size={14} />;
-            case "pdf":
-            default:
-                return <FiFileText size={14} />;
+            case "video": return "bi-camera-video";
+            case "pdf": return "bi-file-earmark-pdf";
+            case "quiz": return "bi-question-circle";
+            case "assignment": return "bi-pencil-square";
+            case "heading": return "bi-layout-text-sidebar";
+            default: return "bi-file-text";
         }
     };
 
     const handleMenuOpen = (e, id) => {
         e.stopPropagation();
-        e.nativeEvent.stopImmediatePropagation(); // Prevent window click from closing immediately
         if (menuOpenId === id) {
             setMenuOpenId(null);
             return;
         }
-
         const rect = e.currentTarget.getBoundingClientRect();
-        const screenWidth = window.innerWidth;
-        const menuWidth = 200;
-
-        // Calculate position: align right of menu with right of button, but keep on screen
-        let left = rect.right - menuWidth + 10; // 10px buffer
-        if (left < 10) left = 10;
-
-        // If it goes off screen right?
-        if (left + menuWidth > screenWidth) left = screenWidth - menuWidth - 20;
-
-        setMenuPosition({
-            top: rect.bottom + 5,
-            left: left
-        });
+        setMenuPosition({ top: rect.bottom + 5, left: rect.left - 150 });
         setMenuOpenId(id);
     };
 
-    /* ---------------- render ---------------- */
-
     return (
-        <div className="chapter-list-sidebar">
-            <div className="cl-header">
-                <h3>Course Content</h3>
-                {!isFreeMode && (
-                    <button className="btn-icon-small" onClick={onAddChapter}>
-                        <FiPlus />
-                    </button>
+        <div className="d-flex flex-column h-100 bg-white border-end shadow-sm">
+            <div className="p-3 border-bottom bg-light">
+                <h6 className="mb-0 fw-bold text-dark text-uppercase small ls-1">Course Content</h6>
+            </div>
+
+            <div className="flex-grow-1 overflow-auto">
+                {chapters.length === 0 ? (
+                    <div className="text-center p-4 py-5 text-muted">
+                        <i className="bi bi-folder2-open display-6 opacity-25 d-block mb-3"></i>
+                        <p className="small mb-0 text-muted">No content found.</p>
+                    </div>
+                ) : (
+                    <div className="list-group list-group-flush">
+                        {chapters.map((chapter) => {
+                            const isExpanded = expanded[chapter.id];
+                            const isActive = activeChapterId === chapter.id;
+
+                            return (
+                                <div key={chapter.id} className="border-bottom-0">
+                                    <div
+                                        className={`list-group-item list-group-item-action d-flex align-items-center py-2 px-3 border-0 transition-all ${isActive ? 'bg-primary bg-opacity-10 text-primary fw-bold' : ''}`}
+                                        onClick={() => onSelect(chapter.id)}
+                                        style={{ borderLeft: isActive ? '4px solid #0d6efd' : '4px solid transparent', cursor: 'pointer' }}
+                                    >
+                                        <button
+                                            className="btn btn-link btn-sm p-0 me-2 text-muted text-decoration-none"
+                                            onClick={(e) => { e.stopPropagation(); toggleExpand(chapter.id); }}
+                                        >
+                                            <i className={`bi bi-chevron-${isExpanded ? 'down' : 'right'} small`}></i>
+                                        </button>
+
+                                        <div className="flex-grow-1 overflow-hidden">
+                                            {editingId === chapter.id ? (
+                                                <input
+                                                    autoFocus
+                                                    className="form-control form-control-sm"
+                                                    value={editValue}
+                                                    onChange={(e) => setEditValue(e.target.value)}
+                                                    onBlur={() => saveEdit(chapter.id)}
+                                                    onKeyDown={(e) => e.key === "Enter" && saveEdit(chapter.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            ) : (
+                                                <span className="small text-truncate d-block">{chapter.title}</span>
+                                            )}
+                                        </div>
+
+                                        {!isFreeMode && (
+                                            <button className="btn btn-sm text-muted p-0 ms-2" onClick={(e) => handleMenuOpen(e, chapter.id)}>
+                                                <i className="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="bg-light bg-opacity-25 pb-1">
+                                            {(chapter.contents || []).map((item) => {
+                                                const isItemActive = activeContentId === item.id;
+                                                return (
+                                                    <div
+                                                        key={item.id}
+                                                        className={`d-flex align-items-center py-1 px-4 ms-2 small transition-all cursor-pointer ${isItemActive ? 'text-primary fw-bold' : 'text-muted'}`}
+                                                        onClick={(e) => { e.stopPropagation(); onSelectContent?.(chapter.id, item); }}
+                                                    >
+                                                        <i className={`bi ${getItemIconClass(item.type)} me-2`}></i>
+                                                        <span className="text-truncate flex-grow-1">{item.title}</span>
+                                                        {!isFreeMode && (
+                                                            <button className="btn btn-sm text-muted p-0 ms-1 opacity-50" onClick={(e) => handleMenuOpen(e, item.id)}>
+                                                                <i className="bi bi-three-dots-vertical" style={{ fontSize: '10px' }}></i>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                            {!isFreeMode && (
+                                                <button
+                                                    className="btn btn-link btn-sm text-decoration-none ms-4 ps-3 py-1 text-primary small d-flex align-items-center gap-1 opacity-75 hover-opacity-100"
+                                                    onClick={(e) => { e.stopPropagation(); onAddItem(chapter.id); }}
+                                                >
+                                                    <i className="bi bi-plus-circle"></i> Add item
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
                 )}
             </div>
 
-            {chapters.length === 0 && (
-                <div className="empty-chapters text-center py-5">
-                    <div className="text-muted mb-2 opacity-50"><FiLayout size={40} /></div>
-                    <p className="text-muted mb-3 small">No chapters content yet.</p>
-                    {!isFreeMode && (
-                        <button className="btn btn-sm btn-outline-primary" onClick={onAddChapter}>
-                            <FiPlus className="me-1" /> Add First Chapter
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {chapters.map((chapter) => {
-                const isExpanded = expanded[chapter.id];
-                const isActive = activeChapterId === chapter.id;
-
-                return (
-                    <React.Fragment key={chapter.id}>
-                        <div className={`chapter-block ${isActive ? "active-block" : ""}`}>
-                            {/* ---------- chapter header ---------- */}
-                            <div
-                                className={`chapter-item ${isActive ? "active" : ""}`}
-                                onClick={() => onSelect(chapter.id)}
-                            >
-                                <button
-                                    className="btn-expand-icon"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleExpand(chapter.id);
-                                    }}
-                                >
-                                    <FiChevronRight className={`chevron-icon ${isExpanded ? 'rotate-90' : ''}`} />
-                                </button>
-
-                                <div className="ci-content">
-                                    {editingId === chapter.id ? (
-                                        <input
-                                            autoFocus
-                                            value={editValue}
-                                            onChange={(e) => setEditValue(e.target.value)}
-                                            onBlur={() => saveEdit(chapter.id)}
-                                            onKeyDown={(e) =>
-                                                e.key === "Enter" && saveEdit(chapter.id)
-                                            }
-                                        />
-                                    ) : (
-                                        <span className="ci-text">{chapter.title}</span>
-                                    )}
-                                </div>
-
-                                {!isFreeMode && (
-                                    <button
-                                        className="btn-icon-menu"
-                                        onClick={(e) => handleMenuOpen(e, chapter.id)}
-                                    >
-                                        <FiMoreVertical />
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* ---------- nested items ---------- */}
-                            {isExpanded && (
-                                <div className="chapter-nested-items">
-                                    {(chapter.contents || []).map((item) => {
-                                        const isLocked = isFreeMode && !item.data?.isPreview;
-
-                                        return (
-                                            <div
-                                                key={item.id}
-                                                className={`tree-item ${activeContentId === item.id ? "active" : ""} ${isLocked ? "locked-item" : ""}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (isLocked) return;
-                                                    onSelectContent?.(chapter.id, item);
-                                                }}
-                                            >
-                                                <div className="d-flex align-items-center flex-grow-1 overflow-hidden">
-                                                    <span className="tree-icon">
-                                                        {isLocked ? <FiLock size={12} /> : getItemIcon(item.type)}
-                                                    </span>
-                                                    <span className="tree-text text-truncate">
-                                                        {item.title}
-                                                        {item.data?.isPreview && (
-                                                            <span className="preview-tag">Preview</span>
-                                                        )}
-                                                    </span>
-                                                </div>
-
-                                                {!isFreeMode && !isLocked && (
-                                                    <button
-                                                        className="btn-icon-subtle small hidden-until-hover"
-                                                        onClick={(e) => handleMenuOpen(e, item.id)}
-                                                    >
-                                                        <FiMoreVertical size={12} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-
-                                    {!isFreeMode && (
-                                        <button
-                                            className="btn-tree-add"
-                                            onClick={() => onAddItem(chapter.id)}
-                                        >
-                                            <FiPlus size={12} /> Add chapter item
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </React.Fragment>
-                );
-            })}
-
             {!isFreeMode && (
-                <div className="cl-footer">
-                    <button className="btn-add-chapter-full" onClick={onAddChapter}>
-                        <FiPlus /> Add New Chapter
+                <div className="p-3 border-top mt-auto bg-light">
+                    <button className="btn btn-primary w-100 btn-sm shadow-sm font-weight-bold d-flex align-items-center justify-content-center gap-2" onClick={onAddChapter}>
+                        <i className="bi bi-plus-lg"></i> Add Chapter
                     </button>
                 </div>
             )}
 
-            {/* ---------------- DRAW PORTAL MENU ---------------- */}
             {menuOpenId && createPortal(
-                <div
-                    className="chapter-menu-dropdown"
-                    style={{
-                        position: 'fixed',
-                        top: menuPosition.top,
-                        left: menuPosition.left,
-                        right: 'auto',
-                        width: '200px', // Enforce width
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Check if open ID is a chapter or item */}
+                <div className="dropdown-menu show shadow border p-1" style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left, minWidth: '160px', zIndex: 2000 }}>
                     {chapters.find(c => c.id === menuOpenId) ? (
-                        /* CHAPTER MENU ITEMS */
                         <>
-                            <button className="cmd-item" onClick={() => { onAddItem(menuOpenId); setMenuOpenId(null); }}>
-                                <FiPlusCircle size={15} /> <span>Add chapter item</span>
+                            <button className="dropdown-item py-2 small d-flex align-items-center gap-2" onClick={() => { onAddItem(menuOpenId); setMenuOpenId(null); }}>
+                                <i className="bi bi-plus-circle text-primary"></i> Add Content
                             </button>
-                            <button className="cmd-item" onClick={() => {
-                                const ch = chapters.find(c => c.id === menuOpenId);
-                                if (ch) startEdit(ch);
-                            }}>
-                                <FiEdit2 size={15} /> <span>rename</span>
+                            <button className="dropdown-item py-2 small d-flex align-items-center gap-2" onClick={() => { const ch = chapters.find(c => c.id === menuOpenId); if (ch) startEdit(ch); }}>
+                                <i className="bi bi-pencil text-muted"></i> Rename
                             </button>
-                            <button className="cmd-item" onClick={() => { onMoveChapter?.(menuOpenId, 'up'); setMenuOpenId(null); }}>
-                                <FiArrowUp size={15} /> <span>Move up</span>
-                            </button>
-                            <button className="cmd-item" onClick={() => { onMoveChapter?.(menuOpenId, 'down'); setMenuOpenId(null); }}>
-                                <FiArrowDown size={15} /> <span>Move down</span>
-                            </button>
-                            <button className="cmd-item danger" onClick={() => confirmDelete(menuOpenId)}>
-                                <FiTrash2 size={15} /> <span>Remove</span>
+                            <div className="dropdown-divider"></div>
+                            <button className="dropdown-item py-2 small d-flex align-items-center gap-2 text-danger" onClick={() => confirmDelete(menuOpenId)}>
+                                <i className="bi bi-trash"></i> Delete
                             </button>
                         </>
                     ) : (
-                        /* CONTENT ITEM MENU ITEMS (Find the item) */
                         (() => {
-                            // Helper to find the chapter and item from ID
                             let foundChapter = null;
                             let foundItem = null;
                             for (const c of chapters) {
                                 const it = c.contents?.find(i => i.id === menuOpenId);
-                                if (it) {
-                                    foundChapter = c;
-                                    foundItem = it;
-                                    break;
-                                }
+                                if (it) { foundChapter = c; foundItem = it; break; }
                             }
-
                             if (!foundItem) return null;
-
                             return (
                                 <>
-                                    <button className="cmd-item" onClick={() => { onAddItem(foundChapter.id, foundItem.id); setMenuOpenId(null); }}>
-                                        <FiPlusCircle size={15} /> <span>Add chapter item</span>
+                                    <button className="dropdown-item py-2 small d-flex align-items-center gap-2" onClick={() => { onEditContent?.(foundChapter.id, foundItem); setMenuOpenId(null); }}>
+                                        <i className="bi bi-pencil text-muted"></i> Edit Item
                                     </button>
-                                    <button className="cmd-item" onClick={() => { onEditContent?.(foundChapter.id, foundItem); setMenuOpenId(null); }}>
-                                        <FiEdit2 size={14} /> <span>Edit</span>
-                                    </button>
-                                    <button className="cmd-item" onClick={() => { onMoveContent?.(foundChapter.id, foundItem.id, 'up'); setMenuOpenId(null); }}>
-                                        <FiArrowUp size={15} /> <span>Move up</span>
-                                    </button>
-                                    <button className="cmd-item" onClick={() => { onMoveContent?.(foundChapter.id, foundItem.id, 'down'); setMenuOpenId(null); }}>
-                                        <FiArrowDown size={15} /> <span>Move down</span>
-                                    </button>
-                                    <div className="divider-h" />
-                                    <button className="cmd-item danger" onClick={() => { onDeleteContent?.(foundChapter.id, foundItem.id); setMenuOpenId(null); }}>
-                                        <FiTrash2 size={14} /> <span>Remove</span>
+                                    <div className="dropdown-divider"></div>
+                                    <button className="dropdown-item py-2 small d-flex align-items-center gap-2 text-danger" onClick={() => { onDeleteContent?.(foundChapter.id, foundItem.id); setMenuOpenId(null); }}>
+                                        <i className="bi bi-trash"></i> Remove
                                     </button>
                                 </>
                             );

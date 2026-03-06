@@ -16,6 +16,7 @@ export const INITIAL_BATCH_FORM = {
     maxStudents: "",
     fee: "",
     freeBatch: false,
+    feeType: "Free",
     contentAccess: false,
     status: "Upcoming"
 };

@@ -11,14 +11,19 @@ export default function PayPage() {
 
     useEffect(() => {
         if (!orderId) return;
-        fetch(`${FEE_API_BASE}/api/student/payment/${orderId}`)
+        fetch(`${FEE_API_BASE}/api/v1/payments/${orderId}`)
             .then(r => r.json())
-            .then(data => {
-                setInfo(data);
-                setLoading(false);
-                if (data.paymentSessionId) {
-                    initCashfree(data.paymentSessionId);
+            .then(res => {
+                if (res.success && res.data) {
+                    const data = res.data;
+                    setInfo(data);
+                    if (data.paymentSessionId) {
+                        initCashfree(data.paymentSessionId);
+                    }
+                } else {
+                    setError(res.message || 'Failed to load payment info.');
                 }
+                setLoading(false);
             })
             .catch(() => {
                 setError('Failed to load payment info. Please try again or contact admin.');
@@ -81,7 +86,7 @@ export default function PayPage() {
                             <h4 className="mb-3">💳 Fee Payment</h4>
                             {info && (
                                 <>
-                                    <p className="text-muted">Installment #{info.installmentNumber}</p>
+                                    <p className="text-muted">{info.label}</p>
                                     <h2 className="text-primary fw-bold">₹{info.amount}</h2>
                                     <p className="text-muted small">
                                         Link valid until: {info.linkExpiry ? new Date(info.linkExpiry).toLocaleString() : '—'}

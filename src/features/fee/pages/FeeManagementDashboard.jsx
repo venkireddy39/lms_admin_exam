@@ -7,11 +7,16 @@ import PaymentForm from '../components/PaymentForm';
 import FeePayments from '../../../pages/FeeManagement/FeePayments';
 import FeeAuditLogs from '../../../pages/FeeManagement/FeeAuditLogs';
 import FeeSettingsPage from './FeeSettingsPage';
+import EarlyPaymentModal from '../components/EarlyPaymentModal';
+import EarlyPaymentLinkManager from '../components/EarlyPaymentLinkManager';
 import { feeApi } from '../api/feeApi';
+import { courseService } from '../../../pages/Courses/services/courseService';
+import { batchService } from '../../../pages/Batches/services/batchService';
 import {
     Settings, Users, CreditCard, Activity, Search,
     RefreshCw, ChevronRight, Tag, Layers, Eye,
-    IndianRupee, TrendingUp, ArrowUpRight, FileText, SlidersHorizontal
+    IndianRupee, TrendingUp, ArrowUpRight, FileText, SlidersHorizontal,
+    Link
 } from 'lucide-react';
 
 /* ══════════════════════════════════════════════════════════
@@ -215,6 +220,7 @@ const CSS = `
 const TABS = [
     { id: 'config', label: 'Fee Configuration', icon: Settings },
     { id: 'ledger', label: 'Student Ledgers', icon: Users },
+    { id: 'early-pay', label: 'Early Payment', icon: FileText },
     { id: 'payments', label: 'Payment History', icon: CreditCard },
     { id: 'audit', label: 'Audit Log', icon: Activity },
     { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
@@ -233,21 +239,51 @@ export default function FeeManagementDashboard() {
     const [allStructures, setAllStructures] = useState([]);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+    // Filter state
+    const [courses, setCourses] = useState([]);
+    const [batches, setBatches] = useState([]);
+    const [selectedCourseId, setSelectedCourseId] = useState('');
+    const [selectedBatchId, setSelectedBatchId] = useState('');
+
+    // Multi-installment selection for Early Payment
+    const [selectedInstallmentIds, setSelectedInstallmentIds] = useState([]);
+    const [showEarlyPaymentModal, setShowEarlyPaymentModal] = useState(false);
+
     useEffect(() => {
         const fetchBaseData = async () => {
             try {
-                const [allocs, structs] = await Promise.all([
+                const [allocs, structs, coursedata] = await Promise.all([
                     feeApi.getAllFeeAllocations(),
-                    feeApi.getAllFeeStructures()
+                    feeApi.getAllFeeStructures(),
+                    courseService.getCourses().catch(() => [])
                 ]);
                 setAllAllocations(allocs || []);
                 setAllStructures(structs || []);
+                setCourses(Array.isArray(coursedata) ? coursedata : (coursedata?.data || []));
             } catch (err) {
                 console.error('Dashboard initial load err:', err);
             }
         };
         fetchBaseData();
     }, []);
+
+    useEffect(() => {
+        const fetchBatches = async () => {
+            if (!selectedCourseId) {
+                setBatches([]);
+                setSelectedBatchId('');
+                return;
+            }
+            try {
+                const data = await batchService.getBatchesByCourseId(selectedCourseId);
+                setBatches(Array.isArray(data) ? data : (data?.data || []));
+            } catch (err) {
+                console.error("Failed to load batches", err);
+                setBatches([]);
+            }
+        };
+        fetchBatches();
+    }, [selectedCourseId]);
 
     const loadLedger = async (id) => {
         if (!id) return;
@@ -268,20 +304,35 @@ export default function FeeManagementDashboard() {
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();
-        if (!isNaN(allocationIdInput) && allocationIdInput.trim() !== '') {
-            loadLedger(allocationIdInput);
+        const term = allocationIdInput.trim();
+        if (!term) return;
+
+        if (!isNaN(term)) {
+            loadLedger(term);
         } else {
             const found = allAllocations.find(a =>
-                a.studentName?.toLowerCase().includes(allocationIdInput.toLowerCase()) ||
-                a.studentEmail?.toLowerCase().includes(allocationIdInput.toLowerCase())
+                a.studentName?.toLowerCase().includes(term.toLowerCase()) ||
+                a.studentEmail?.toLowerCase().includes(term.toLowerCase())
             );
-            if (found) loadLedger(found.allocationId);
-            else alert('Student not found in fee records.');
+            if (found) {
+                loadLedger(found.allocationId);
+            } else {
+                // Instead of alert, we let the "No matching students" UI handle it
+                setAllocationData(null);
+                setInstallmentsData([]);
+            }
         }
     };
 
     const refreshLedger = () => {
         if (allocationData?.id) loadLedger(allocationData.id);
+        setSelectedInstallmentIds([]);
+    };
+
+    const toggleInstallmentSelection = (id) => {
+        setSelectedInstallmentIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
     };
 
     return (
@@ -402,7 +453,36 @@ export default function FeeManagementDashboard() {
                         <div className="fmd-anim">
                             <div className="fmd-ledger-search-card">
                                 <div className="fmd-ledger-search-title">Student Fee Ledger</div>
-                                <div className="fmd-ledger-search-sub">Search by student name, email or allocation ID to view their complete fee ledger</div>
+                                <div className="fmd-ledger-search-sub">Search by student name, email or filter by course and batch</div>
+                                <div className="row g-3 mb-3">
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-bold text-muted text-uppercase">Course</label>
+                                        <select
+                                            className="form-select bg-light border-0 py-2"
+                                            value={selectedCourseId}
+                                            onChange={e => setSelectedCourseId(e.target.value)}
+                                        >
+                                            <option value="">All Courses</option>
+                                            {courses.map(c => (
+                                                <option key={c.id || c.courseId} value={c.id || c.courseId}>{c.courseName || c.name || c.title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label className="form-label small fw-bold text-muted text-uppercase">Batch</label>
+                                        <select
+                                            className="form-select bg-light border-0 py-2"
+                                            value={selectedBatchId}
+                                            onChange={e => setSelectedBatchId(e.target.value)}
+                                            disabled={!selectedCourseId}
+                                        >
+                                            <option value="">All Batches</option>
+                                            {batches.map(b => (
+                                                <option key={b.id || b.batchId} value={b.id || b.batchId}>{b.batchName || b.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
                                 <form onSubmit={handleSearchSubmit} className="fmd-search-row">
                                     <div className="fmd-search-inp-wrap">
                                         <Search className="fmd-search-ico" size={15} />
@@ -420,6 +500,77 @@ export default function FeeManagementDashboard() {
                                             : <><Search size={14} /> Find Ledger</>}
                                     </button>
                                 </form>
+
+                                {/* Matching Students List */}
+                                {(selectedCourseId || selectedBatchId || (allocationIdInput.trim().length >= 2)) && !allocationData && (
+                                    <div className="mt-4 border-top pt-3 fmd-anim">
+                                        <div className="d-flex justify-content-between align-items-center mb-2">
+                                            <div className="small fw-bold text-muted text-uppercase">Matching Students</div>
+                                            <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                                                {allAllocations.filter(a => {
+                                                    const matchCourse = !selectedCourseId || String(a.courseId) === String(selectedCourseId);
+                                                    const matchBatch = !selectedBatchId || String(a.batchId) === String(selectedBatchId);
+                                                    const matchName = !allocationIdInput ||
+                                                        a.studentName?.toLowerCase().includes(allocationIdInput.toLowerCase()) ||
+                                                        a.studentEmail?.toLowerCase().includes(allocationIdInput.toLowerCase()) ||
+                                                        String(a.allocationId).includes(allocationIdInput);
+                                                    return matchCourse && matchBatch && matchName;
+                                                }).length} Results
+                                            </div>
+                                        </div>
+                                        <div className="list-group list-group-flush border rounded-3 overflow-hidden shadow-sm">
+                                            {allAllocations
+                                                .filter(a => {
+                                                    const matchCourse = !selectedCourseId || String(a.courseId) === String(selectedCourseId);
+                                                    const matchBatch = !selectedBatchId || String(a.batchId) === String(selectedBatchId);
+                                                    const matchName = !allocationIdInput ||
+                                                        a.studentName?.toLowerCase().includes(allocationIdInput.toLowerCase()) ||
+                                                        a.studentEmail?.toLowerCase().includes(allocationIdInput.toLowerCase()) ||
+                                                        String(a.allocationId).includes(allocationIdInput);
+                                                    return matchCourse && matchBatch && matchName;
+                                                })
+                                                .slice(0, 10)
+                                                .map(a => (
+                                                    <button
+                                                        key={a.allocationId}
+                                                        className="list-group-item list-group-item-action border-0 px-3 py-2 d-flex justify-content-between align-items-center"
+                                                        onClick={() => {
+                                                            setAllocationIdInput(String(a.allocationId));
+                                                            loadLedger(a.allocationId);
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <div className="fw-bold small text-dark">{a.studentName}</div>
+                                                            <div className="text-muted smaller" style={{ fontSize: 11 }}>
+                                                                {a.studentEmail} • <span className="text-primary">{a.batchName}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="d-flex align-items-center gap-2">
+                                                            <div style={{ fontSize: 10, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '2px 6px', borderRadius: 4 }}>
+                                                                ID: {a.allocationId}
+                                                            </div>
+                                                            <ChevronRight size={14} className="text-muted" />
+                                                        </div>
+                                                    </button>
+                                                ))
+                                            }
+                                            {allAllocations.filter(a => {
+                                                const matchCourse = !selectedCourseId || String(a.courseId) === String(selectedCourseId);
+                                                const matchBatch = !selectedBatchId || String(a.batchId) === String(selectedBatchId);
+                                                const matchName = !allocationIdInput ||
+                                                    a.studentName?.toLowerCase().includes(allocationIdInput.toLowerCase()) ||
+                                                    a.studentEmail?.toLowerCase().includes(allocationIdInput.toLowerCase());
+                                                return matchCourse && matchBatch && matchName;
+                                            }).length === 0 && (
+                                                    <div key="no-match" className="p-4 text-center text-muted border-0 glass-card">
+                                                        <Search size={24} style={{ opacity: 0.2, marginBottom: 8 }} />
+                                                        <div style={{ fontSize: 13, fontWeight: 600 }}>No students found matching your criteria</div>
+                                                        <div style={{ fontSize: 12, opacity: 0.7 }}>Try adjusting the filters or search term</div>
+                                                    </div>
+                                                )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {allocationData ? (
@@ -434,11 +585,30 @@ export default function FeeManagementDashboard() {
                                         onPaymentClick={() => setShowPaymentModal(true)}
                                     />
                                     <div className="fmd-struct-card" style={{ marginTop: 20 }}>
-                                        <div className="fmd-struct-hdr">
+                                        <div className="fmd-struct-hdr d-flex justify-content-between align-items-center">
                                             <div className="fmd-struct-title">Installment Schedule</div>
+                                            {selectedInstallmentIds.length >= 2 && (
+                                                <button
+                                                    className="fmd-search-btn btn-sm py-1 px-3 d-flex align-items-center gap-2"
+                                                    onClick={() => setShowEarlyPaymentModal(true)}
+                                                >
+                                                    <Link size={14} /> Generate Early Payment Link (₹{
+                                                        installmentsData
+                                                            .filter(i => selectedInstallmentIds.includes(i.id))
+                                                            .reduce((s, i) => s + ((i.amount || i.installmentAmount || 0) - (i.paidAmount || 0)), 0)
+                                                            .toLocaleString()
+                                                    })
+                                                </button>
+                                            )}
                                         </div>
                                         <div style={{ padding: 0 }}>
-                                            <InstallmentTable isEditMode={false} installments={installmentsData} actions={{}} />
+                                            <InstallmentTable
+                                                isEditMode={false}
+                                                installments={installmentsData}
+                                                actions={{}}
+                                                selectedIds={selectedInstallmentIds}
+                                                onToggleSelect={toggleInstallmentSelection}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -451,6 +621,13 @@ export default function FeeManagementDashboard() {
                                     <p>Search for a student above to view and manage their fee records, installments, and payment history.</p>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Early Payment Tab */}
+                    {activeTab === 'early-pay' && (
+                        <div className="fmd-anim">
+                            <EarlyPaymentLinkManager />
                         </div>
                     )}
 
@@ -483,6 +660,22 @@ export default function FeeManagementDashboard() {
                         rmi={Math.max(0, (allocationData.originalTotalAmount - allocationData.totalDiscount + allocationData.totalPenaltyApplied) - allocationData.paidAmount)}
                         onClose={() => setShowPaymentModal(false)}
                         onSuccess={() => { refreshLedger(); }}
+                    />
+                )}
+
+                {/* Early Payment Modal */}
+                {showEarlyPaymentModal && allocationData && (
+                    <EarlyPaymentModal
+                        isOpen={showEarlyPaymentModal}
+                        onClose={() => setShowEarlyPaymentModal(false)}
+                        onSuccess={(data) => {
+                            console.log('Early Payment Link Generated:', data);
+                            refreshLedger();
+                        }}
+                        studentId={allocationData.userId || allocationData.studentId}
+                        selectedInstallments={installmentsData.filter(i =>
+                            selectedInstallmentIds.some(sid => String(sid) === String(i.id))
+                        )}
                     />
                 )}
             </div>

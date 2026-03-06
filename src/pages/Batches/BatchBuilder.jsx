@@ -94,17 +94,21 @@ const BatchBuilder = () => {
                 return status === 'ACTIVE' || status === 'ENROLLED';
             });
 
-            // Enrich enrolled students
-            const enrichedStudents = activeStudentsData.map(s => {
-                const userProfile = normalizedUsers.find(u => String(u.studentId || u.userId) === String(s.studentId || s.userId));
-                return {
-                    ...s,
-                    displayId: s.studentId || s.student?.studentId || s.student?.userId || s.userId || 'N/A',
-                    userId: userProfile?.userId || s.student?.userId || s.userId
-                };
+            // Enrich enrolled students and deduplicate
+            const studentMap = new Map();
+            activeStudentsData.forEach(s => {
+                const effectiveId = String(s.studentId || s.userId);
+                if (!studentMap.has(effectiveId)) {
+                    const userProfile = normalizedUsers.find(u => String(u.studentId || u.userId) === effectiveId);
+                    studentMap.set(effectiveId, {
+                        ...s,
+                        displayId: s.studentId || s.student?.studentId || s.student?.userId || s.userId || "N/A",
+                        userId: userProfile?.userId || s.student?.userId || s.userId
+                    });
+                }
             });
 
-            setEnrolledStudents(enrichedStudents);
+            setEnrolledStudents(Array.from(studentMap.values()));
             setBatchDetails(batch);
 
             // Filter for Students - Allow ROLE_STUDENT or STUDENT
@@ -210,70 +214,123 @@ const BatchBuilder = () => {
 
     const handleAssignFeeToExistingStudent = async (student, feeConfig) => {
         try {
-            const studentId = student.studentId || student.userId || student.id;
-            const userId = student.userId || student.id;
+
+            // safer ID extraction
+            const studentId = student?.studentId || student?.id || student?.userId;
+            const userId = student?.userId || student?.studentId || student?.id;
+
+            // guard clause
+            if (!userId) {
+                console.error("User ID missing for student:", student);
+                alert("User ID missing. Cannot assign fee.");
+                return;
+            }
 
             const allocationPayload = {
                 userId: Number(userId),
                 studentId: Number(studentId),
-                studentName: student?.firstName ? `${student.firstName} ${student.lastName || ''}`.trim() : (student?.name || 'Unknown'),
+
+                studentName: student?.firstName
+                    ? `${student.firstName} ${student.lastName || ""}`.trim()
+                    : (student?.name || "Unknown"),
+
                 studentEmail: student?.email,
+
                 feeStructureId: editFeeData.structure.id,
                 batchId: Number(id),
                 courseId: editFeeData.structure.courseId,
+
                 originalAmount: feeConfig.baseAmount,
                 gstRate: feeConfig.gstRate,
                 adminDiscount: feeConfig.discountOverride || 0,
-                // Make sure to add this so backend doesn't complain about nulls if configured that way
                 additionalDiscount: 0,
+
                 payableAmount: feeConfig.finalTotal,
                 remainingAmount: feeConfig.finalTotal,
                 paidAmount: 0,
-                status: 'ACTIVE',
-                currency: 'INR'
+
+                status: "ACTIVE",
+                currency: "INR",
+                installmentCount: feeConfig.installments || 1
             };
+
+            // debug log
+            console.log("Fee Allocation Payload:", allocationPayload);
 
             const newAlloc = await createFeeAllocation(allocationPayload);
             const allocId = newAlloc?.id || newAlloc?.allocationId;
 
-            if (allocId) {
-                let schedulePayload = (feeConfig.schedule || []).map(s => ({
-                    ...s,
-                    amount: Number(Number(s.installmentAmount || s.amount || (feeConfig.finalTotal / (feeConfig.installments || 1))).toFixed(2)),
-                    installmentAmount: Number(Number(s.installmentAmount || s.amount || (feeConfig.finalTotal / (feeConfig.installments || 1))).toFixed(2)),
-                    status: s.status || 'PENDING'
-                }));
-
-                // Fallback calculation if schedule is missing
-                if (schedulePayload.length === 0) {
-                    const count = feeConfig.installments || 1;
-                    const installmentAmt = Number((feeConfig.finalTotal / count).toFixed(2));
-                    let remaining = feeConfig.finalTotal;
-                    const startDate = new Date();
-                    for (let i = 1; i <= count; i++) {
-                        const dueDate = new Date(startDate);
-                        if (feeConfig.paymentMode !== 'ONE_TIME') dueDate.setMonth(dueDate.getMonth() + i);
-
-                        let currentAmt = (i === count) ? Number(remaining.toFixed(2)) : installmentAmt;
-                        remaining -= currentAmt;
-
-                        schedulePayload.push({
-                            installmentNumber: i,
-                            amount: currentAmt,
-                            installmentAmount: currentAmt,
-                            dueDate: dueDate.toISOString().split('T')[0],
-                            status: 'PENDING'
-                        });
-                    }
-                }
-
-                await createInstallmentPlan(allocId, schedulePayload);
-                alert(`✅ Fee structure assigned successfully to ${student.studentName}!`);
-                loadData(); // Refresh list to reflect changes
+            if (!allocId) {
+                throw new Error("Allocation ID missing from response");
             }
+
+            let schedulePayload = (feeConfig.schedule || []).map(s => ({
+                ...s,
+                amount: Number(
+                    Number(
+                        s.installmentAmount ||
+                        s.amount ||
+                        (feeConfig.finalTotal / (feeConfig.installments || 1))
+                    ).toFixed(2)
+                ),
+                installmentAmount: Number(
+                    Number(
+                        s.installmentAmount ||
+                        s.amount ||
+                        (feeConfig.finalTotal / (feeConfig.installments || 1))
+                    ).toFixed(2)
+                ),
+                status: s.status || "PENDING"
+            }));
+
+            // fallback schedule
+            if (schedulePayload.length === 0) {
+
+                const count = feeConfig.installments || 1;
+                const installmentAmt = Number((feeConfig.finalTotal / count).toFixed(2));
+
+                let remaining = feeConfig.finalTotal;
+                const startDate = new Date();
+
+                for (let i = 1; i <= count; i++) {
+
+                    const dueDate = new Date(startDate);
+
+                    if (feeConfig.paymentMode !== "ONE_TIME") {
+                        dueDate.setMonth(dueDate.getMonth() + i);
+                    }
+
+                    const currentAmt =
+                        i === count
+                            ? Number(remaining.toFixed(2))
+                            : installmentAmt;
+
+                    remaining -= currentAmt;
+
+                    schedulePayload.push({
+                        installmentNumber: i,
+                        amount: currentAmt,
+                        installmentAmount: currentAmt,
+                        dueDate: dueDate.toISOString().split("T")[0],
+                        status: "PENDING"
+                    });
+                }
+            }
+
+            await createInstallmentPlan(allocId, schedulePayload);
+
+            alert(`Fee structure assigned successfully to ${student.studentName || student.name}`);
+
+            loadData();
+
         } catch (error) {
+
             console.error("Failed to assign fee", error);
-            alert("Error: " + (error.message || "Failed to assign fee to student."));
+
+            alert(
+                "Error: " +
+                (error?.message || "Failed to assign fee to student.")
+            );
         }
     };
 
@@ -284,7 +341,8 @@ const BatchBuilder = () => {
                 originalAmount: feeConfig.baseAmount,
                 adminDiscount: feeConfig.discountOverride,
                 payableAmount: feeConfig.finalTotal,
-                remainingAmount: feeConfig.finalTotal // Assuming we reset it for now or backend handles it
+                remainingAmount: feeConfig.finalTotal,
+                installmentCount: feeConfig.installments || 1
             });
 
             // Override the installment schedule
@@ -392,55 +450,37 @@ const BatchBuilder = () => {
                         remainingAmount: feeConfig.finalTotal,
                         paidAmount: 0,
                         status: 'ACTIVE',
-                        currency: 'INR'
+                        currency: 'INR',
+                        installmentCount: feeConfig.installments || 1
                     };
 
                     try {
                         const newAlloc = await createFeeAllocation(allocationPayload);
                         const allocId = newAlloc?.id || newAlloc?.allocationId;
 
-                        if (allocId) {
-                            // Use the custom schedule from the modal if available
-                            const installments = (feeConfig.schedule || []).map(s => ({
-                                ...s,
-                                amount: Number(Number(s.installmentAmount || s.amount || (totalAmount / (feeConfig.installments || 1))).toFixed(2)),
-                                installmentAmount: Number(Number(s.installmentAmount || s.amount || (totalAmount / (feeConfig.installments || 1))).toFixed(2)),
-                                status: s.status || 'PENDING'
-                            }));
+                        // Since backend auto-generates installments, we OVERRIDE them with custom ones if needed
+                        const installments = (feeConfig.schedule || []).map(s => ({
+                            ...s,
+                            amount: Number(Number(s.installmentAmount || s.amount || (totalAmount / (feeConfig.installments || 1))).toFixed(2)),
+                            installmentAmount: Number(Number(s.installmentAmount || s.amount || (totalAmount / (feeConfig.installments || 1))).toFixed(2)),
+                            status: s.status || 'PENDING'
+                        }));
 
-                            // Fallback calculation if schedule is missing
-                            if (installments.length === 0) {
-                                const count = feeConfig.installments || 1;
-                                const installmentAmt = Number((totalAmount / count).toFixed(2));
-                                let remaining = totalAmount;
-                                const startDate = new Date();
-                                for (let i = 1; i <= count; i++) {
-                                    const dueDate = new Date(startDate);
-                                    if (feeConfig.paymentMode !== 'ONE_TIME') dueDate.setMonth(dueDate.getMonth() + i);
-
-                                    let currentAmt = (i === count) ? Number(remaining.toFixed(2)) : installmentAmt;
-                                    remaining -= currentAmt;
-
-                                    installments.push({
-                                        installmentNumber: i,
-                                        installmentAmount: currentAmt,
-                                        amount: currentAmt,
-                                        dueDate: dueDate.toISOString().split('T')[0],
-                                        status: 'PENDING'
-                                    });
-                                }
-                            }
-
-                            console.log("📅 Saving Installment Plan for AllocID:", allocId, installments);
-                            await createInstallmentPlan(allocId, installments);
+                        if (installments.length > 0) {
+                            await overrideInstallmentPlan(allocId, installments);
                         }
                     } catch (e) {
                         console.error("Fee/Installment Creation Failed for " + userId, e);
                     }
                 });
 
-                await Promise.all(feePromises);
-                alert("Enrollment Successful! \n\n✅ Students added.\n💰 Fee Plan Applied: " + (feeConfig.paymentMode === 'ONE_TIME' ? 'Single Payment' : 'Standard Installments'));
+                try {
+                    await Promise.all(feePromises);
+                    alert("Enrollment Successful! \n\n✅ Students added.\n💰 Fee Plan Applied: " + (feeConfig.paymentMode === 'ONE_TIME' ? 'Single Payment' : 'Standard Installments'));
+                } catch (feeErr) {
+                    console.error("Fee creation part of enrollment failed:", feeErr);
+                    alert("Enrollment Successful! \n\n✅ Students added to batch.\n⚠️ BUT Fee Assignment FAILED: " + (feeErr.message || "Unknown error"));
+                }
             } else {
                 alert("Enrollment Successful (No Fee Created).");
             }
@@ -465,8 +505,9 @@ const BatchBuilder = () => {
     const openFeeDetails = async (student) => {
         setFeeDetailsModal({ isOpen: true, student, fees: [], installments: [], loading: true });
         try {
-            const studentId = student.studentId || student.userId || student.id;
-            const fees = await getStudentFee(studentId).catch(() => []);
+            const feeLookupId = student.userId || student.studentId || student.id;
+            console.log("🔍 Fetching fees for student ID:", feeLookupId);
+            const fees = await getStudentFee(feeLookupId).catch(() => []);
             const allFeeRecords = Array.isArray(fees) ? fees : (fees ? [fees] : []);
 
             // Filter fees to only show the fee allocation for the current batch
@@ -679,135 +720,150 @@ const BatchBuilder = () => {
         }
     };
 
-    if (loading) return <div className="p-5">Loading Batch Builder...</div>;
+    if (loading) return <div className="d-flex align-items-center justify-content-center" style={{ minHeight: 200 }}><div className="spinner-border text-primary" role="status" /><span className="ms-3 text-muted">Loading Batch Builder...</span></div>;
 
     return (
-        <div className="batch-builder-layout">
-            <header className="bb-header">
-                <div className="bb-header-left">
-                    <button onClick={() => navigate('/batches')} className="btn-back">
-                        <FiArrowLeft /> Back
+        <div className="container-fluid px-3 px-md-4 py-3">
+
+            {/* ─── Header ─────────────────────────────────── */}
+            <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 mb-4">
+                <div className="d-flex align-items-center gap-3">
+                    <button
+                        onClick={() => navigate('/batches')}
+                        className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                    >
+                        <FiArrowLeft size={14} /> Back
                     </button>
-                    <div className="bb-title">
-                        <h2>Batch Management</h2>
-                        <span className="badge-id">ID: {id}</span>
+                    <div>
+                        <h4 className="mb-0 fw-bold">Batch Management</h4>
+                        <small className="text-muted">ID: {id}</small>
                     </div>
                 </div>
-                <div className="bb-header-right">
-                    <div className="bb-tabs">
-                        <button className={`tab-item ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Classes</button>
-                        <button className={`tab-item ${activeTab === 'students' ? 'active' : ''}`} onClick={() => setActiveTab('students')}>Students</button>
-                        <button className={`tab-item ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>Attendance</button>
-                    </div>
-                </div>
-            </header>
 
-            <main className="bb-main">
-                {activeTab === 'overview' ? (
-                    <ClassesTab
-                        batchId={id}
-                        courseId={batchDetails?.courseId}
-                        instructorName={batchDetails?.trainerName}
-                    />
-                ) : activeTab === 'students' ? (
-                    <div className="students-manager">
-                        <div className="sm-header">
-                            <div>
-                                <h3>Member Management</h3>
-                                <p className="text-muted">Manage students, faculty, and staff access</p>
-                                {batchDetails?.maxStudents && (
-                                    <p className="text-sm mt-1">
-                                        <span className={enrolledStudents.length >= batchDetails.maxStudents ? 'text-danger fw-bold' : 'text-secondary'}>
-                                            Enrollment: {enrolledStudents.length} / {batchDetails.maxStudents}
-                                        </span>
-                                        {enrolledStudents.length >= batchDetails.maxStudents && (
-                                            <span className="badge bg-danger ms-2">FULL</span>
-                                        )}
-                                    </p>
-                                )}
-                            </div>
+                <ul className="nav nav-pills gap-1">
+                    {[
+                        { key: 'overview', label: 'Classes' },
+                        { key: 'students', label: 'Students' },
+                        { key: 'attendance', label: 'Attendance' }
+                    ].map(tab => (
+                        <li className="nav-item" key={tab.key}>
                             <button
-                                className="btn-primary-add"
-                                onClick={() => {
-                                    if (batchDetails?.maxStudents && enrolledStudents.length >= batchDetails.maxStudents) {
-                                        alert("Batch limit exceeded! Please create a new batch.");
-                                        return;
-                                    }
-                                    setIsAddModalOpen(true);
-                                }}
-                                title="Add new members"
+                                className={`nav-link py-1 px-3 ${activeTab === tab.key ? 'active' : 'text-secondary'}`}
+                                onClick={() => setActiveTab(tab.key)}
                             >
-                                <FiPlus /> Add Member
+                                {tab.label}
                             </button>
-                        </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
 
-                        <div className="students-list">
-                            {enrolledStudents.length > 0 ? (
-                                <table className="w-100 table-custom">
-                                    <thead>
+            {/* ─── Tab Content ─────────────────────────────── */}
+            {activeTab === 'overview' ? (
+                <ClassesTab
+                    batchId={id}
+                    courseId={batchDetails?.courseId}
+                    instructorName={batchDetails?.trainerName}
+                />
+            ) : activeTab === 'students' ? (
+                <div className="card border-0 shadow-sm">
+                    {/* Card Header */}
+                    <div className="card-header bg-white d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 py-3">
+                        <div>
+                            <h5 className="mb-1 fw-bold">Member Management</h5>
+                            <small className="text-muted">Manage students, faculty, and staff access</small>
+                            {batchDetails?.maxStudents && (
+                                <div className="mt-1">
+                                    <span className={`small ${enrolledStudents.length >= batchDetails.maxStudents ? 'text-danger fw-bold' : 'text-secondary'}`}>
+                                        Enrollment: {enrolledStudents.length} / {batchDetails.maxStudents}
+                                    </span>
+                                    {enrolledStudents.length >= batchDetails.maxStudents && (
+                                        <span className="badge bg-danger ms-2">FULL</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            className="btn btn-dark btn-sm d-flex align-items-center gap-1"
+                            onClick={() => {
+                                if (batchDetails?.maxStudents && enrolledStudents.length >= batchDetails.maxStudents) {
+                                    alert("Batch limit exceeded! Please create a new batch.");
+                                    return;
+                                }
+                                setIsAddModalOpen(true);
+                            }}
+                        >
+                            <FiPlus size={14} /> Add Member
+                        </button>
+                    </div>
+
+                    {/* Student Table / Empty State */}
+                    <div className="card-body p-0">
+                        {enrolledStudents.length > 0 ? (
+                            <div className="table-responsive">
+                                <table className="table table-hover align-middle mb-0">
+                                    <thead className="table-light small text-uppercase text-muted">
                                         <tr>
-                                            <th>MEMBER PROFILE</th>
+                                            <th className="ps-4">Member Profile</th>
                                             <th>ID</th>
-                                            <th>STATUS</th>
-                                            <th className="text-end">ACTIONS</th>
+                                            <th>Status</th>
+                                            <th className="text-end pe-4">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {enrolledStudents.map(item => (
                                             <tr key={item.studentBatchId}>
-                                                <td>
+                                                <td className="ps-4">
                                                     <div className="d-flex align-items-center gap-3">
-                                                        <div className="avatar-square" style={{ width: 40, height: 40, borderRadius: 8, background: '#0ea5e9', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                                                        <div
+                                                            className="rounded-2 text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0"
+                                                            style={{ width: 38, height: 38, background: '#0ea5e9', fontSize: 13 }}
+                                                        >
                                                             {item.studentName?.substring(0, 2).toUpperCase()}
                                                         </div>
-                                                        <div>
-                                                            <div className="fw-bold text-dark">{item.studentName}</div>
-                                                        </div>
+                                                        <div className="fw-semibold text-dark">{item.studentName}</div>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <span className="text-muted small">ID: #{item.displayId}</span>
+                                                    <span className="text-muted small">#{item.displayId}</span>
                                                 </td>
                                                 <td>
-                                                    <div className="d-flex align-items-center gap-2 text-dark">
-                                                        <div className="rounded-circle bg-success p-1" style={{ width: 6, height: 6 }}></div>
-                                                        Enrolled
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <span className="badge bg-success-subtle text-success border border-success-subtle">Enrolled</span>
+                                                        {item.joinedAt && (
+                                                            <small className="text-muted">{new Date(item.joinedAt).toLocaleDateString()}</small>
+                                                        )}
                                                     </div>
-                                                    {item.joinedAt && (
-                                                        <div className="text-muted" style={{ fontSize: '0.75rem', marginLeft: '14px' }}>
-                                                            {new Date(item.joinedAt).toLocaleDateString()}
-                                                        </div>
-                                                    )}
                                                 </td>
-                                                <td className="text-end">
-                                                    <div className="d-flex justify-content-end gap-2">
+                                                <td className="text-end pe-4">
+                                                    <div className="d-flex justify-content-end gap-1">
                                                         <button
-                                                            className="btn-icon-plain text-secondary hover-success"
+                                                            className="btn btn-sm btn-outline-secondary"
                                                             onClick={() => openFeeDetails(item)}
                                                             title="View Fees"
                                                         >
-                                                            <FiDollarSign size={18} />
+                                                            <FiDollarSign size={14} />
                                                         </button>
                                                         <button
-                                                            className="btn-icon-plain text-secondary hover-primary"
+                                                            className="btn btn-sm btn-outline-primary"
                                                             onClick={() => openEditFeeModal(item)}
                                                             title="Edit Fees"
                                                         >
-                                                            <FiEdit size={16} />
+                                                            <FiEdit size={14} />
                                                         </button>
                                                         <button
-                                                            className="btn-icon-plain text-secondary hover-primary"
+                                                            className="btn btn-sm btn-outline-secondary"
                                                             onClick={() => openTransferModal(item)}
                                                             title="Transfer"
                                                         >
-                                                            <FiRefreshCw size={18} />
+                                                            <FiRefreshCw size={14} />
                                                         </button>
                                                         <button
-                                                            className="btn-icon-plain text-secondary hover-danger"
+                                                            className="btn btn-sm btn-outline-danger"
                                                             onClick={() => removeStudent(item.studentBatchId)}
-                                                            title="Delete"
+                                                            title="Remove"
                                                         >
-                                                            <FiTrash2 size={18} />
+                                                            <FiTrash2 size={14} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -815,90 +871,88 @@ const BatchBuilder = () => {
                                         ))}
                                     </tbody>
                                 </table>
-                            ) : (
-                                <div className="empty-state-small">
-                                    <FiUsers size={40} className="text-muted mb-2" />
-                                    <p>No students enrolled yet.</p>
-                                </div>
-                            )}
-                        </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-5 text-muted">
+                                <FiUsers size={40} className="mb-3 opacity-25" />
+                                <p className="mb-0 small">No students enrolled yet.</p>
+                            </div>
+                        )}
                     </div>
-                ) : activeTab === 'attendance' ? (
-                    <AttendanceTab batchId={id} />
-                ) : (
-                    <div className="empty-content-state">
-                        <div className="ecs-icon"><FiSettings /></div>
-                        <h3>Module Not Found</h3>
-                    </div>
-                )}
-            </main>
+                </div>
+            ) : activeTab === 'attendance' ? (
+                <AttendanceTab batchId={id} />
+            ) : (
+                <div className="text-center py-5 text-muted">
+                    <FiSettings size={40} className="mb-3 opacity-25" />
+                    <h6>Module Not Found</h6>
+                </div>
+            )}
+
+
 
             {/* Add Student Modal */}
             {isAddModalOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content-large">
-                        <div className="modal-header">
-                            <h3>Add Students to Batch</h3>
-                            {batchDetails?.maxStudents && (
-                                <span className="badge bg-info ms-2">
-                                    Available Spots: {Math.max(0, batchDetails.maxStudents - enrolledStudents.length)}
-                                </span>
-                            )}
-                            <button className="btn-close" onClick={() => setIsAddModalOpen(false)}><FiX /></button>
-                        </div>
-                        <div className="modal-body">
-
-
-
-                            <div className="search-bar mb-3">
-                                <FiSearch className="search-icon" />
-                                <input
-                                    type="text"
-                                    placeholder="Search by Name, Email or Student ID..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="list-selection">
-                                {availableStudents.length > 0 ? availableStudents.map(user => (
-                                    <div
-                                        key={user.userId || user.id}
-                                        className={`list-item-select ${selectedPotentialStudents.includes(user.userId || user.id) ? 'selected' : ''}`}
-                                        onClick={() => toggleSelection(user.userId || user.id)}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedPotentialStudents.includes(user.userId || user.id)}
-                                            readOnly
-                                        />
-                                        <div className="ms-3">
-                                            <div className="fw-bold">{user.name || user.username}</div>
-                                            <div className="d-flex flex-column">
-                                                <small className="text-muted">{user.email}</small>
-                                                <small className="text-secondary" style={{ fontSize: '0.75rem' }}>
-                                                    ID: {user.studentId || user.userId || user.id}
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <div className="text-center p-4 text-muted">No available students found matching "{searchQuery}".</div>
+                <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header border-bottom">
+                                <h5 className="modal-title fw-bold">Add Students to Batch</h5>
+                                {batchDetails?.maxStudents && (
+                                    <span className="badge bg-info ms-2 fw-normal">
+                                        {Math.max(0, batchDetails.maxStudents - enrolledStudents.length)} spots left
+                                    </span>
                                 )}
+                                <button className="btn-close ms-auto" onClick={() => setIsAddModalOpen(false)}></button>
                             </div>
-                        </div>
-                        <div className="modal-footer">
-                            <div className="text-muted small me-auto">
-                                {selectedPotentialStudents.length} selected
+                            <div className="modal-body">
+                                <div className="input-group mb-3">
+                                    <span className="input-group-text bg-white"><FiSearch className="text-muted" /></span>
+                                    <input
+                                        type="text"
+                                        className="form-control border-start-0 ps-0"
+                                        placeholder="Search by Name, Email or Student ID..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
+                                </div>
+                                <div className="list-group list-group-flush border rounded-3" style={{ maxHeight: 350, overflowY: 'auto' }}>
+                                    {availableStudents.length > 0 ? availableStudents.map(user => (
+                                        <label
+                                            key={user.userId || user.id}
+                                            className={`list-group-item list-group-item-action d-flex align-items-center gap-3 py-2 px-3 ${selectedPotentialStudents.includes(user.userId || user.id) ? 'active' : ''}`}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input flex-shrink-0 mt-0"
+                                                checked={selectedPotentialStudents.includes(user.userId || user.id)}
+                                                onChange={() => toggleSelection(user.userId || user.id)}
+                                            />
+                                            <div>
+                                                <div className="fw-semibold">{user.name || user.username}</div>
+                                                <small className="text-muted d-block">{user.email}</small>
+                                                <small className="text-secondary" style={{ fontSize: '0.72rem' }}>ID: {user.studentId || user.userId || user.id}</small>
+                                            </div>
+                                        </label>
+                                    )) : (
+                                        <div className="text-center py-4 text-muted small">
+                                            No available students found{searchQuery ? ` matching "${searchQuery}"` : ''}.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <button className="btn-secondary me-2" onClick={() => setIsAddModalOpen(false)}>Cancel</button>
-                            <button
-                                className="btn-primary"
-                                onClick={handleAddStudents}
-                                disabled={selectedPotentialStudents.length === 0}
-                            >
-                                Add Selected
-                            </button>
+                            <div className="modal-footer">
+                                <span className="text-muted small me-auto">{selectedPotentialStudents.length} selected</span>
+                                <button className="btn btn-outline-secondary btn-sm" onClick={() => setIsAddModalOpen(false)}>Cancel</button>
+                                <button
+                                    className="btn btn-dark btn-sm"
+                                    onClick={handleAddStudents}
+                                    disabled={selectedPotentialStudents.length === 0}
+                                >
+                                    Add Selected
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -906,53 +960,55 @@ const BatchBuilder = () => {
 
             {/* Transfer Modal */}
             {transferModal.isOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content-large" style={{ maxWidth: '500px' }}>
-                        <div className="modal-header">
-                            <h3>Transfer Student</h3>
-                            <button className="btn-close" onClick={() => setTransferModal({ isOpen: false, student: null })}><FiX /></button>
-                        </div>
-                        <div className="modal-body">
-                            <p className="mb-4 text-muted">
-                                Move <strong>{transferModal.student?.studentName}</strong> to another batch.
-                            </p>
+                <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+                    <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 500 }}>
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header border-bottom">
+                                <h5 className="modal-title fw-bold">Transfer Student</h5>
+                                <button className="btn-close" onClick={() => setTransferModal({ isOpen: false, student: null })}></button>
+                            </div>
+                            <div className="modal-body">
+                                <p className="text-muted mb-3">
+                                    Move <strong>{transferModal.student?.studentName}</strong> to another batch.
+                                </p>
 
-                            <div className="form-group mb-3">
-                                <label className="mb-2 d-block fw-bold text-sm">Select Target Batch</label>
-                                <select
-                                    className="w-100 p-2 border rounded form-select"
-                                    value={selectedTransferBatch}
-                                    onChange={(e) => setSelectedTransferBatch(e.target.value)}
+                                <div className="mb-3">
+                                    <label className="form-label fw-semibold small">Select Target Batch</label>
+                                    <select
+                                        className="form-select form-select-sm"
+                                        value={selectedTransferBatch}
+                                        onChange={(e) => setSelectedTransferBatch(e.target.value)}
+                                    >
+                                        <option value="">-- Select Batch --</option>
+                                        {otherBatches.map(batch => (
+                                            <option key={batch.batchId} value={batch.batchId}>
+                                                {batch.batchName} ({batch.startDate})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="mb-3">
+                                    <label className="form-label fw-semibold small">Transfer Reason (Optional)</label>
+                                    <textarea
+                                        className="form-control form-control-sm"
+                                        rows="3"
+                                        placeholder="Enter reason for transfer..."
+                                        value={transferReason}
+                                        onChange={(e) => setTransferReason(e.target.value)}
+                                    ></textarea>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-outline-secondary btn-sm" onClick={() => setTransferModal({ isOpen: false, student: null })}>Cancel</button>
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={confirmTransfer}
+                                    disabled={!selectedTransferBatch}
                                 >
-                                    <option value="">-- Select Batch --</option>
-                                    {otherBatches.map(batch => (
-                                        <option key={batch.batchId} value={batch.batchId}>
-                                            {batch.batchName} ({batch.startDate})
-                                        </option>
-                                    ))}
-                                </select>
+                                    Confirm Transfer
+                                </button>
                             </div>
-
-                            <div className="form-group mb-3">
-                                <label className="mb-2 d-block fw-bold text-sm">Transfer Reason / Description</label>
-                                <textarea
-                                    className="w-100 p-2 border rounded form-control"
-                                    rows="3"
-                                    placeholder="Enter reason for transfer (optional)..."
-                                    value={transferReason}
-                                    onChange={(e) => setTransferReason(e.target.value)}
-                                ></textarea>
-                            </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn-secondary" onClick={() => setTransferModal({ isOpen: false, student: null })}>Cancel</button>
-                            <button
-                                className="btn-primary"
-                                onClick={confirmTransfer}
-                                disabled={!selectedTransferBatch}
-                            >
-                                Confirm Transfer
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -960,88 +1016,113 @@ const BatchBuilder = () => {
 
             {/* Fee Details Modal */}
             {feeDetailsModal.isOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content-large" style={{ maxWidth: '700px' }}>
-                        <div className="modal-header">
-                            <h3>Fee Details: {feeDetailsModal.student?.studentName}</h3>
-                            <button className="btn-close" onClick={() => setFeeDetailsModal({ isOpen: false, student: null, fees: [], installments: [], loading: false })}><FiX /></button>
-                        </div>
-                        <div className="modal-body">
-                            {feeDetailsModal.loading ? (
-                                <div className="text-center p-4">Loading fee details...</div>
-                            ) : (
-                                <>
-                                    {feeDetailsModal.fees.length === 0 ? (
-                                        <div className="text-center p-4 text-muted">
-                                            <FiAlertCircle size={32} className="mb-2" />
-                                            <p>No fee records found for this student.</p>
-                                            <button
-                                                className="btn-primary mt-3"
-                                                onClick={() => {
-                                                    setFeeDetailsModal(prev => ({ ...prev, isOpen: false }));
-                                                    openEditFeeModal(feeDetailsModal.student);
-                                                }}
-                                            >
-                                                Assign Fee Now
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            {/* Summary Cards */}
-                                            <div className="d-flex gap-3 mb-4">
-                                                <div className="glass-card p-3 flex-fill text-center bg-light">
-                                                    <div className="text-muted small fw-bold">TOTAL FEE</div>
-                                                    <div className="fs-4 fw-bold text-dark">₹{feeDetailsModal.fees[0].payableAmount?.toLocaleString()}</div>
-                                                </div>
-                                                <div className="glass-card p-3 flex-fill text-center bg-light">
-                                                    <div className="text-muted small fw-bold">PAID</div>
-                                                    <div className="fs-4 fw-bold text-success">₹{(feeDetailsModal.fees[0].payableAmount - feeDetailsModal.fees[0].remainingAmount)?.toLocaleString()}</div>
-                                                </div>
-                                                <div className="glass-card p-3 flex-fill text-center bg-light">
-                                                    <div className="text-muted small fw-bold">PENDING</div>
-                                                    <div className="fs-4 fw-bold text-danger">₹{feeDetailsModal.fees[0].remainingAmount?.toLocaleString()}</div>
-                                                </div>
+                <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+                    <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+                        <div className="modal-content border-0 shadow">
+                            <div className="modal-header border-bottom">
+                                <h5 className="modal-title fw-bold">Fee Details: {feeDetailsModal.student?.studentName}</h5>
+                                <button className="btn-close" onClick={() => setFeeDetailsModal({ isOpen: false, student: null, fees: [], installments: [], loading: false })}></button>
+                            </div>
+                            <div className="modal-body">
+                                {feeDetailsModal.loading ? (
+                                    <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                                ) : (
+                                    <>
+                                        {feeDetailsModal.fees.length === 0 ? (
+                                            <div className="text-center py-5 text-muted">
+                                                <FiAlertCircle size={36} className="mb-3 text-warning" />
+                                                <h6 className="fw-semibold">No fee records found</h6>
+                                                <p className="small mb-3">This student does not have any fee allocations yet.</p>
+                                                <button
+                                                    className="btn btn-primary btn-sm px-4"
+                                                    onClick={() => {
+                                                        setFeeDetailsModal(prev => ({ ...prev, isOpen: false }));
+                                                        openEditFeeModal(feeDetailsModal.student);
+                                                    }}
+                                                >
+                                                    Assign Fee Now
+                                                </button>
                                             </div>
+                                        ) : (
+                                            <>
+                                                {/* Summary Cards */}
+                                                <div className="row g-2 mb-4">
+                                                    <div className="col">
+                                                        <div className="border rounded-3 p-3 text-center bg-light">
+                                                            <div className="text-muted small fw-bold">TOTAL FEE</div>
+                                                            <div className="fs-5 fw-bold text-dark">₹{feeDetailsModal.fees[0].payableAmount?.toLocaleString()}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col">
+                                                        <div className="border rounded-3 p-3 text-center bg-light">
+                                                            <div className="text-muted small fw-bold">ONE-TIME</div>
+                                                            <div className="fs-5 fw-bold text-primary">₹{feeDetailsModal.fees[0].oneTimeAmount?.toLocaleString() || 0}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col">
+                                                        <div className="border rounded-3 p-3 text-center bg-light">
+                                                            <div className="text-muted small fw-bold">TARGET</div>
+                                                            <div className="fs-5 fw-bold text-info">₹{Number(feeDetailsModal.fees[0].installmentAmount || feeDetailsModal.fees[0].payableAmount || 0).toLocaleString()}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col">
+                                                        <div className="border rounded-3 p-3 text-center bg-light">
+                                                            <div className="text-muted small fw-bold">PAID</div>
+                                                            <div className="fs-5 fw-bold text-success">₹{(feeDetailsModal.fees[0].payableAmount - feeDetailsModal.fees[0].remainingAmount)?.toLocaleString()}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col">
+                                                        <div className="border rounded-3 p-3 text-center bg-light border-danger">
+                                                            <div className="text-danger small fw-bold">PENDING</div>
+                                                            <div className="fs-5 fw-bold text-danger">₹{feeDetailsModal.fees[0].remainingAmount?.toLocaleString()}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
 
-                                            {/* Installments Table */}
-                                            <h4 className="mb-3 fs-6 text-secondary text-uppercase fw-bold">Installment Schedule</h4>
-                                            {feeDetailsModal.installments.length > 0 ? (
-                                                <table className="table table-bordered table-hover">
-                                                    <thead className="table-light">
-                                                        <tr>
-                                                            <th>Installment</th>
-                                                            <th>Due Date</th>
-                                                            <th>Amount</th>
-                                                            <th>Status</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {feeDetailsModal.installments.map((inst, idx) => (
-                                                            <tr key={idx}>
-                                                                <td>{inst.installmentPlanName || `Installment ${idx + 1}`}</td>
-                                                                <td>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : 'N/A'}</td>
-                                                                <td className="fw-bold">₹{Number(inst.amount || inst.installmentAmount).toLocaleString()}</td>
-                                                                <td>
-                                                                    <span className={`badge ${(inst.status === 'PAID' || inst.status === 'Paid') ? 'bg-success' :
-                                                                        (inst.status === 'OVERDUE') ? 'bg-danger' : 'bg-warning text-dark'
-                                                                        }`}>
-                                                                        {inst.status}
-                                                                    </span>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            ) : (
-                                                <p className="text-muted fst-italic">No installment plan found (One-time payment or pending configuration).</p>
-                                            )}
-                                        </>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn-secondary" onClick={() => setFeeDetailsModal({ isOpen: false, student: null, fees: [], installments: [], loading: false })}>Close</button>
+                                                {/* Installments Table */}
+                                                <h6 className="mb-3 text-secondary text-uppercase fw-bold small">Installment Schedule</h6>
+                                                {feeDetailsModal.installments.length > 0 ? (
+                                                    <div className="table-responsive">
+                                                        <table className="table table-sm table-bordered align-middle">
+                                                            <thead className="table-light">
+                                                                <tr>
+                                                                    <th className="small">Installment</th>
+                                                                    <th className="small">Due Date</th>
+                                                                    <th className="small">Amount</th>
+                                                                    <th className="small">Status</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {feeDetailsModal.installments.map((inst, idx) => (
+                                                                    <tr key={idx}>
+                                                                        <td>{inst.label || inst.installmentPlanName || `Installment ${idx + 1}`}</td>
+                                                                        <td>{inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : 'N/A'}</td>
+                                                                        <td className="fw-semibold">₹{Number(inst.amount || inst.installmentAmount).toLocaleString()}</td>
+                                                                        <td>
+                                                                            <span className={`badge ${(inst.status === 'PAID' || inst.status === 'Paid') ? 'bg-success' :
+                                                                                (inst.status === 'OVERDUE') ? 'bg-danger' : 'bg-warning text-dark'
+                                                                                }`}>
+                                                                                {inst.status}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-muted fst-italic small text-center p-3 border rounded">
+                                                        No installment plan found (One-time payment or pending configuration).
+                                                    </p>
+                                                )}
+                                            </>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-outline-secondary btn-sm" onClick={() => setFeeDetailsModal({ isOpen: false, student: null, fees: [], installments: [], loading: false })}>Close</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1059,7 +1140,7 @@ const BatchBuilder = () => {
                 studentCount={editFeeData ? 1 : pendingEnrollmentStudents.length}
                 initialData={editFeeData ? editFeeData.initialData : null}
             />
-        </div>
+        </div >
     );
 };
 

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../Library/context/AuthContext';
 import { useToast } from '../../Library/context/ToastContext';
-import { studentService } from '../../../services/studentService';
 import apiFetch, { getUrl } from '../../../services/api';
 import {
     StatCard,
@@ -59,12 +58,8 @@ const StudentDashboard = () => {
         const fetchAllData = async () => {
             setLoading(true);
             try {
-                // 1. Fetch academic data
-                const [myCourses, myBatches, myAttendance] = await Promise.all([
-                    studentService.getMyCourses() || [],
-                    studentService.getMyBatches() || [],
-                    studentService.getMyAttendance() || []
-                ]);
+                // 1. Fetch academic data (removed as part of unused service cleanup)
+                const [myCourses, myBatches, myAttendance] = [[], [], []];
 
                 // Calculate Attendance %
                 const attArray = Array.isArray(myAttendance) ? myAttendance : [];
@@ -117,9 +112,26 @@ const StudentDashboard = () => {
                         allocation: allocationObj,
                         installments: installmentsArr,
                         hasOverdue,
-                        nextInstallment
+                        nextInstallment,
+                        activeEarlyPayments: []
                     }
                 });
+
+                // 3. Fetch active early payments separately (to keep it clean)
+                try {
+                    const earlyPayments = await apiFetch(getUrl('/early-payment/me'));
+                    if (Array.isArray(earlyPayments)) {
+                        setDashboardData(prev => ({
+                            ...prev,
+                            fee: {
+                                ...prev.fee,
+                                activeEarlyPayments: earlyPayments
+                            }
+                        }));
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch early payments", err);
+                }
             } catch (e) {
                 console.error("Dashboard Load Error:", e);
                 toast.error("Failed to load dashboard data");
@@ -164,6 +176,26 @@ const StudentDashboard = () => {
 
     return (
         <div className="student-dashboard-page container-fluid px-0 text-body">
+            {/* Early Payment Link Alert */}
+            {dashboardData.fee.activeEarlyPayments?.length > 0 && (
+                <div className="alert alert-primary d-flex align-items-center mb-4 border-0 shadow-sm rounded-4" role="alert" style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #eef2ff 100%)' }}>
+                    <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-circle me-3"><DollarSign size={20} /></div>
+                    <div>
+                        <h6 className="alert-heading fw-bold mb-1 text-primary">Special Discounted Link Available!</h6>
+                        <p className="mb-0 small text-dark opacity-75">You have a special payment link for multiple installments with a discount applied.</p>
+                    </div>
+                    <button
+                        className="btn btn-sm btn-primary ms-auto fw-bold px-4 rounded-pill shadow-sm"
+                        onClick={() => {
+                            const link = dashboardData.fee.activeEarlyPayments[0];
+                            window.open(`${window.location.origin}/pay/${link.cashfreeOrderId}`, '_blank');
+                        }}
+                    >
+                        View & Pay (₹{dashboardData.fee.activeEarlyPayments[0].finalAmount?.toLocaleString()})
+                    </button>
+                </div>
+            )}
+
             {/* Top-level Overdue Alert */}
             {dashboardData.fee.hasOverdue && (
                 <div className="alert alert-danger d-flex align-items-center mb-4 border-0 shadow-sm rounded-4" role="alert">

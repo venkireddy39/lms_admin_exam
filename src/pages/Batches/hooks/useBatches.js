@@ -168,6 +168,7 @@ export const useBatches = (courses, instructors = []) => {
                 maxStudents: batch.maxStudents,
                 fee: batch.fee,
                 freeBatch: batch.freeBatch || false,
+                feeType: batch.freeBatch ? 'Free' : 'Paid',
                 contentAccess: batch.contentAccess || false,
                 status: batch.status
             });
@@ -197,10 +198,13 @@ export const useBatches = (courses, instructors = []) => {
             return;
         }
 
+        const isFree = formData.feeType === 'Free';
+
         const batchPayload = {
             ...formData,
             maxStudents: formData.maxStudents ? Number(formData.maxStudents) : 0,
-            fee: formData.fee ? Number(formData.fee) : 0,
+            fee: isFree ? 0 : (formData.fee ? Number(formData.fee) : 0),
+            freeBatch: isFree,
             courseId: courseIdNum,
             trainerId: formData.trainerId ? Number(formData.trainerId) : null
         };

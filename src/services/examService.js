@@ -1,4 +1,4 @@
-import apiClient from "./apiClient";
+import api from "./api";
 
 // Matches Java Controller @RequestMapping("/api/exams")
 const BASE_URL = "/api/exams";
@@ -29,19 +29,19 @@ export const examService = {
 
     // Matches @GetMapping("/batch/{batchId}")
     getExamsByBatchId: async (batchId) => {
-        const response = await apiClient.get(`${BASE_URL}/batch/${batchId}`);
+        const response = await api.get(`${BASE_URL}/batch/${batchId}`);
         return response.data;
     },
 
     // Matches @PostMapping("")
     createExam: async (examData) => {
-        const response = await apiClient.post(BASE_URL, examData);
+        const response = await api.post(BASE_URL, examData);
         return response.data;
     },
 
     // Matches @PutMapping("/{examId}/publish")
     publishExam: async (id) => {
-        const response = await apiClient.put(`${BASE_URL}/${id}/publish`);
+        const response = await api.put(`${BASE_URL}/${id}/publish`);
         return response.data;
     },
 

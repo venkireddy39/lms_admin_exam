@@ -170,13 +170,14 @@ const Batches = () => {
             {/* Stats */}
             <BatchStats stats={stats} />
 
-            {/* Tabs + Search */}
-            <div className="batches-controls-bar">
-                <div className="tabs-container">
+            {/* Tabs + Filters + Search */}
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                {/* Tabs */}
+                <div className="d-flex flex-wrap gap-1">
                     {Object.values(BATCH_TABS).map(tab => (
                         <button
                             key={tab}
-                            className={`tab-btn ${currentTab === tab ? 'active' : ''}`}
+                            className={`btn btn-sm ${currentTab === tab ? 'btn-dark' : 'btn-outline-secondary'}`}
                             onClick={() => setCurrentTab(tab)}
                         >
                             {tab}
@@ -184,35 +185,33 @@ const Batches = () => {
                     ))}
                 </div>
 
-                <div className="search-filter-group">
-                    {/* Course Filter */}
-                    <div className="filter-select-wrapper">
-                        <select
-                            className="filter-select"
-                            value={courseFilter}
-                            onChange={(e) => setCourseFilter(e.target.value)}
-                        >
-                            <option value="All">All Courses</option>
-                            {courses.map(c => <option key={c.courseId} value={c.courseId}>{c.courseName}</option>)}
-                        </select>
-                    </div>
+                {/* Filters + Search */}
+                <div className="d-flex flex-wrap gap-2 align-items-center">
+                    <select
+                        className="form-select form-select-sm"
+                        style={{ width: 150 }}
+                        value={courseFilter}
+                        onChange={(e) => setCourseFilter(e.target.value)}
+                    >
+                        <option value="All">All Courses</option>
+                        {courses.map(c => <option key={c.courseId} value={c.courseId}>{c.courseName}</option>)}
+                    </select>
 
-                    {/* Instructor Filter - using Trainer Name for filtering as per new hook? */}
-                    <div className="filter-select-wrapper">
-                        <select
-                            className="filter-select"
-                            value={instructorFilter}
-                            onChange={(e) => setInstructorFilter(e.target.value)}
-                        >
-                            <option value="All">All Instructors</option>
-                            {instructors.map(i => <option key={i.id || i.userId} value={i.name}>{i.name}</option>)}
-                        </select>
-                    </div>
+                    <select
+                        className="form-select form-select-sm"
+                        style={{ width: 150 }}
+                        value={instructorFilter}
+                        onChange={(e) => setInstructorFilter(e.target.value)}
+                    >
+                        <option value="All">All Instructors</option>
+                        {instructors.map(i => <option key={i.id || i.userId} value={i.name}>{i.name}</option>)}
+                    </select>
 
-                    <div className="search-box-wrapper">
-                        <FiSearch className="search-icon" />
+                    <div className="input-group input-group-sm" style={{ width: 200 }}>
+                        <span className="input-group-text bg-white"><FiSearch size={13} /></span>
                         <input
                             type="text"
+                            className="form-control border-start-0 ps-0"
                             placeholder="Search batches..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -223,18 +222,19 @@ const Batches = () => {
 
             {/* Grid */}
             {enrichedBatches.length > 0 ? (
-                <div className="batches-grid-layout">
+                <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
                     {enrichedBatches.map(batch => (
-                        <BatchCard
-                            key={batch.id}
-                            batch={batch}
-                            courses={courses}
-                            onEdit={openModal}
-                            onDelete={handleDelete}
-                            onManageContent={(id) =>
-                                navigate(`/admin/batches/builder/${id}`)
-                            }
-                        />
+                        <div className="col" key={batch.id}>
+                            <BatchCard
+                                batch={batch}
+                                courses={courses}
+                                onEdit={openModal}
+                                onDelete={handleDelete}
+                                onManageContent={(id) =>
+                                    navigate(`/admin/batches/builder/${id}`)
+                                }
+                            />
+                        </div>
                     ))}
                 </div>
             ) : (

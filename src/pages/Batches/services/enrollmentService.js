@@ -62,14 +62,13 @@ export const enrollmentService = {
         };
 
         // Fetch from multiple sources to be absolutely sure we get everyone
-        const [identityUsers, adminUsers, adminStudents] = await Promise.all([
-            fetchResource('/api-identity/users').catch(() => []),
+        const [adminUsers, adminStudents] = await Promise.all([
             fetchResource('/admin/users').catch(() => []),
             fetchResource('/admin/getstudents', 'STUDENT').catch(() => [])
         ]);
 
         // Merge and deduplicate
-        const allFetched = [...identityUsers, ...adminUsers, ...adminStudents];
+        const allFetched = [...adminUsers, ...adminStudents];
         const uniqueMap = new Map();
 
         allFetched.forEach(u => {

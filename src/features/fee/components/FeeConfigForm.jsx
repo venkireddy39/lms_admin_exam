@@ -21,6 +21,7 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
     // --- Detailed Fee State ---
     const [tuitionFee, setTuitionFee] = useState('');
     const [admissionFee, setAdmissionFee] = useState('');
+    const [hasAdmissionFee, setHasAdmissionFee] = useState(false);
     const [discountType, setDiscountType] = useState('FIXED');
     const [discountValue, setDiscountValue] = useState('');
     const [gstPercentage, setGstPercentage] = useState('');
@@ -62,6 +63,7 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
         setAcademicYear('2025-2026');
         setTuitionFee('');
         setAdmissionFee('');
+        setHasAdmissionFee(false);
         setDiscountType('FIXED');
         setDiscountValue('');
         setGstPercentage('');
@@ -151,6 +153,7 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
             setAcademicYear(structure.academicYear || '2025-2026');
             setTuitionFee(structure.baseAmount || structure.totalAmount || 0);
             setAdmissionFee(structure.admissionFeeAmount || 0);
+            setHasAdmissionFee(Number(structure.admissionFeeAmount || 0) > 0);
             setDiscountType(structure.discountType || 'FIXED');
             setDiscountValue(structure.discountValue || 0);
             setGstPercentage(structure.gstPercent || 0);
@@ -260,6 +263,10 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
 
     // --- Calculate Final Batch Fee ---
     useEffect(() => {
+        // According to user requirements: 
+        // If YES (Included): Total Base = batchFee.
+        // If NO (Separate): Total Base = batchFee + admissionFee.
+        // `base` ALWAYS acts as the primary batch fee for discount and GST calculation.
         const base = Number(tuitionFee) || 0;
         const adm = Number(admissionFee) || 0;
         const disc = Number(discountValue) || 0;
@@ -275,11 +282,15 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
         if (discountedTuition < 0) discountedTuition = 0;
 
         const gstAmount = discountedTuition * (gst / 100);
-        const extraFees = additionalComponents.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-        const finalBatchFee = discountedTuition + gstAmount + adm + extraFees;
 
-        setTotalFee(Math.round(finalBatchFee * 100) / 100);
-    }, [tuitionFee, admissionFee, discountType, discountValue, gstPercentage, additionalComponents, setTotalFee]);
+        // The installment target should reflect the fees that are split into installments.
+        // These are: Tuition (after discount) + GST + Admission Fee (only if NOT included).
+        // Additional components (optional) are treated as ONE-TIME fees in the backend
+        // and should NOT be part of this target to avoid "Remaining to Allocate" errors.
+        const installmentTarget = discountedTuition + gstAmount + (hasAdmissionFee ? 0 : adm);
+
+        setTotalFee(Math.round(installmentTarget * 100) / 100);
+    }, [tuitionFee, admissionFee, discountType, discountValue, gstPercentage, hasAdmissionFee, setTotalFee]);
 
 
     // --- Submit Handler ---
@@ -290,6 +301,13 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
         // Validations
         if (!name || !courseId) {
             setMessage({ type: 'error', text: 'Structure Name and Course are required.' });
+            return;
+        }
+
+        const baseVal = Number(tuitionFee) || 0;
+        const admVal = Number(admissionFee) || 0;
+        if (hasAdmissionFee && admVal > baseVal) {
+            setMessage({ type: 'error', text: 'Admission Fee cannot be greater than the Tuition Base when it is included.' });
             return;
         }
 
@@ -321,13 +339,17 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
                 academicYear,
 
                 baseAmount: Number(tuitionFee),
-                admissionFeeAmount: 0,
+                admissionFeeAmount: Number(admissionFee),
                 discountType,
                 discountValue: Number(discountValue),
                 gstPercent: Number(gstPercentage),
-                totalAmount: Number(totalFee),
+                gstApplicable: Number(gstPercentage) > 0,
+                // Make sure to find the batch object to prevent undefined reference errors
+                durationMonths: (batchId && batches.find(b => String(b.id) === String(batchId))?.durationMonths) || 1,
+                gstIncludedInFee: true, // IMPORTANT: Installments already include GST in this setup
+                totalAmount: (Number(totalFee) + additionalComponents.reduce((s, c) => s + Number(c.amount), 0)),
 
-                // Additional fee components (exam, library, etc.) — each has their own feeTypeId
+                // Additional fee components (exam, library, etc.) — one-time
                 additionalFeeComponents: additionalComponents.map(c => ({
                     feeTypeId: Number(c.feeTypeId),
                     name: c.name,
@@ -398,13 +420,24 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
     };
 
     // --- Render Locals ---
-    const calcBase = Number(tuitionFee) || 0;
+    const extraFeesTotal = additionalComponents.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+    const rawBase = Number(tuitionFee) || 0;
     const calcAdm = Number(admissionFee) || 0;
+
+    // The display base calculates the split just for UI rendering.
+    // YES means Admission is separate visually but total remains same.
+    const calcBase = rawBase; // We don't subtract it anymore based on user feedback.
+
     const calcDisc = Number(discountValue) || 0;
     const calcGstPer = Number(gstPercentage) || 0;
-    let discValAmount = discountType === 'PERCENTAGE' ? (calcBase * calcDisc / 100) : calcDisc;
-    const discountedBase = Math.max(0, calcBase - discValAmount);
+    // Discount and GST are applied to the full raw batch fee!
+    let discValAmount = discountType === 'PERCENTAGE' ? (rawBase * calcDisc / 100) : calcDisc;
+    const discountedBase = Math.max(0, rawBase - discValAmount);
     const gstValAmount = discountedBase * (calcGstPer / 100);
+
+    // grandTotal = installment target + one-time additional components
+    const grandTotal = totalFee + extraFeesTotal;
 
     return (
         <div className="container-fluid py-4">
@@ -574,7 +607,43 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
                                                 />
                                             </div>
                                         </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-medium text-secondary small text-uppercase">Is Admission Fee Included In Batch Fee?</label>
+                                            <div className="d-flex gap-4 mt-2 mb-1 ps-2">
+                                                <div className="form-check" style={{ cursor: 'pointer' }}>
+                                                    <input className="form-check-input" type="radio" name="admRadio" id="admY"
+                                                        checked={hasAdmissionFee}
+                                                        onChange={() => setHasAdmissionFee(true)} style={{ cursor: 'pointer' }} />
+                                                    <label className="form-check-label fw-bold opacity-75" htmlFor="admY" style={{ cursor: 'pointer' }}>Yes</label>
+                                                </div>
+                                                <div className="form-check" style={{ cursor: 'pointer' }}>
+                                                    <input className="form-check-input" type="radio" name="admRadio" id="admN"
+                                                        checked={!hasAdmissionFee}
+                                                        onChange={() => { setHasAdmissionFee(false); setAdmissionFee(''); }} style={{ cursor: 'pointer' }} />
+                                                    <label className="form-check-label fw-bold opacity-75" htmlFor="admN" style={{ cursor: 'pointer' }}>No</label>
+                                                </div>
+                                            </div>
+                                            <div className="form-text mt-2 text-primary" style={{ fontSize: '0.8rem' }}>
+                                                {hasAdmissionFee ?
+                                                    "Admission fee is non-refundable and part of the Batch Fee. It appears on the invoice but DOES NOT increase the total." :
+                                                    "Admission fee will be added as a separate component and increase the total payable."}
+                                            </div>
+                                        </div>
 
+                                        <div className="col-md-6 animate-in fade-in">
+                                            <label className="form-label fw-medium text-secondary small text-uppercase">Admission Fee Amount</label>
+                                            <div className="input-group">
+                                                <span className="input-group-text bg-light border-0">{currency === 'INR' ? '₹' : '$'}</span>
+                                                <input
+                                                    type="number" min="0" step="0.01"
+                                                    value={admissionFee}
+                                                    onChange={e => setAdmissionFee(e.target.value)}
+                                                    className="form-control bg-light border-0 py-2 ps-0 fw-bold"
+                                                    placeholder="0.00"
+                                                    required={true}
+                                                />
+                                            </div>
+                                        </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-medium text-secondary small text-uppercase">Batch-level Discount</label>
                                             <div className="input-group">
@@ -822,13 +891,19 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
 
                                 <div className="d-flex flex-column gap-3">
                                     <div className="d-flex justify-content-between align-items-center">
-                                        <span className="opacity-75 small fw-medium">Tuition Fee</span>
-                                        <span className="fw-medium">₹ {calcBase.toLocaleString()}</span>
+                                        <span className="opacity-75 small fw-medium">Tuition Base</span>
+                                        <span className="fw-medium">₹ {rawBase.toLocaleString()}</span>
                                     </div>
                                     {discValAmount > 0 && (
                                         <div className="d-flex justify-content-between align-items-center text-success">
                                             <span className="opacity-75 small fw-medium">Batch Discount</span>
                                             <span className="fw-bold">-₹ {discValAmount.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {calcAdm > 0 && (
+                                        <div className="d-flex justify-content-between align-items-center">
+                                            <span className="opacity-75 small fw-medium">Admission Fee {hasAdmissionFee ? "(Inc.)" : ""}</span>
+                                            <span className="fw-medium">+₹ {calcAdm.toLocaleString()}</span>
                                         </div>
                                     )}
                                     <div className="d-flex justify-content-between align-items-center">
@@ -841,9 +916,9 @@ export default function FeeConfigForm({ structureId, viewOnly = false }) {
                                             <span className="fw-medium">+₹ {Number(comp.amount).toLocaleString()}</span>
                                         </div>
                                     ))}
-                                    <div className="d-flex justify-content-between align-items-center border-top border-white border-opacity-25 pt-2 mt-2">
-                                        <span className="fw-bold">Final Batch Fee</span>
-                                        <span className="fs-4 fw-black">₹ {totalFee.toLocaleString()}</span>
+                                    <div className="d-flex justify-content-between align-items-center py-3 border-top border-white border-opacity-20 mt-3">
+                                        <h4 className="fw-black mb-0" style={{ fontSize: 22 }}>Final Batch Fee</h4>
+                                        <h4 className="fw-black mb-0" style={{ fontSize: 22 }}>₹ {Math.round(grandTotal * 100) / 100}</h4>
                                     </div>
                                     <div className="d-flex justify-content-between align-items-center">
                                         <span className="opacity-75 small fw-medium">Allocated to Installments</span>

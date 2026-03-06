@@ -17,6 +17,7 @@ api.interceptors.request.use(
         const token = localStorage.getItem(AUTH_TOKEN_KEY);
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log(`[api] Request: ${config.method?.toUpperCase()} ${config.url}`);
         }
 
         const savedUser = localStorage.getItem('auth_user');
@@ -117,7 +118,7 @@ export function getUrl(path) {
         return `/api${cleanPath}`;
     }
 
-    return `/api/fee-management${cleanPath}`;
+    return `/api/v1/fee-management${cleanPath}`;
 }
 
 export default api;

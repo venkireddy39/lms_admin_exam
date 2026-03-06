@@ -7,7 +7,9 @@ export default function InstallmentTable({
     actions,
     isEditMode = false,
     remainingToAllocate = 0,
-    totalFee = 0
+    totalFee = 0,
+    selectedIds = [],
+    onToggleSelect = null
 }) {
 
     // Auto Split defaults to 1 installment (no popup)
@@ -47,6 +49,27 @@ export default function InstallmentTable({
                 <table className="table table-hover align-middle mb-0">
                     <thead className="table-light text-muted small text-uppercase">
                         <tr>
+                            {!isEditMode && onToggleSelect && (
+                                <th className="px-4 py-3" style={{ width: '40px' }}>
+                                    <input
+                                        type="checkbox"
+                                        className="form-check-input shadow-none"
+                                        checked={installments.length > 0 && selectedIds.length === installments.filter(i => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL').length}
+                                        onChange={(e) => {
+                                            const selectable = installments.filter(i => i.status === 'PENDING' || i.status === 'OVERDUE' || i.status === 'PARTIAL');
+                                            if (e.target.checked) {
+                                                selectable.forEach(i => {
+                                                    if (!selectedIds.includes(i.id)) onToggleSelect(i.id);
+                                                });
+                                            } else {
+                                                selectable.forEach(i => {
+                                                    if (selectedIds.includes(i.id)) onToggleSelect(i.id);
+                                                });
+                                            }
+                                        }}
+                                    />
+                                </th>
+                            )}
                             <th className="px-4 py-3">Installment No</th>
                             <th className="px-4 py-3">Due Date</th>
                             <th className="px-4 py-3">Amount</th>
@@ -67,7 +90,18 @@ export default function InstallmentTable({
                             </tr>
                         ) : (
                             installments.map((inst, index) => (
-                                <tr key={inst.id || index}>
+                                <tr key={inst.id || index} className={selectedIds.includes(inst.id) ? 'table-primary bg-opacity-10' : ''}>
+                                    {!isEditMode && onToggleSelect && (
+                                        <td className="px-4 py-3">
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input shadow-none"
+                                                checked={selectedIds.includes(inst.id)}
+                                                disabled={inst.status !== 'PENDING' && inst.status !== 'OVERDUE' && inst.status !== 'PARTIAL'}
+                                                onChange={() => onToggleSelect(inst.id)}
+                                            />
+                                        </td>
+                                    )}
                                     <td className="px-4 py-3" style={{ minWidth: "150px" }}>
                                         {isEditMode ? (
                                             <input
@@ -107,25 +141,25 @@ export default function InstallmentTable({
                                                     type="number"
                                                     min="0"
                                                     step="0.01"
-                                                    value={inst.amount || ''}
+                                                    value={inst.amount || inst.installmentAmount || ''}
                                                     onChange={(e) => actions.updateInstallment(inst.id, 'amount', e.target.value)}
                                                     className="form-control"
                                                     required
                                                 />
                                             </div>
                                         ) : (
-                                            <span className="fw-bold text-dark">₹{inst.amount}</span>
+                                            <span className="fw-bold text-dark">₹{Number(inst.amount || inst.installmentAmount || 0).toLocaleString()}</span>
                                         )}
                                     </td>
 
                                     {/* Only in View Mode (Student Ledger View) */}
                                     {!isEditMode && (
                                         <>
-                                            <td className="px-4 py-3 text-success fw-medium">₹{inst.paidAmount || 0}</td>
-                                            <td className="px-4 py-3 text-danger small">₹{inst.penaltyApplied || 0}</td>
-                                            <td className="px-4 py-3 fw-bold text-dark">₹{inst.remainingAmount || (inst.amount - (inst.paidAmount || 0))}</td>
+                                            <td className="px-4 py-3 text-success fw-medium">₹{Number(inst.paidAmount || 0).toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-danger small">₹{Number(inst.penaltyApplied || 0).toLocaleString()}</td>
+                                            <td className="px-4 py-3 fw-bold text-dark">₹{Number(inst.remainingAmount !== undefined ? inst.remainingAmount : ((inst.amount || inst.installmentAmount || 0) - (inst.paidAmount || 0))).toLocaleString()}</td>
                                             <td className="px-4 py-3">
-                                                <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} remainingAmount={inst.remainingAmount || (inst.amount - (inst.paidAmount || 0))} />
+                                                <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} remainingAmount={Number(inst.remainingAmount !== undefined ? inst.remainingAmount : ((inst.amount || inst.installmentAmount || 0) - (inst.paidAmount || 0)))} />
                                             </td>
                                             <td className="px-4 py-3">
                                                 <GenerateLinkButton installmentId={inst.id} status={inst.status} />
@@ -161,7 +195,8 @@ function GenerateLinkButton({ installmentId, status }) {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState(null); // { type: 'success'|'error', text }
 
-    const canGenerate = status === 'PENDING' || status === 'LOCKED_FOR_EARLY_PAYMENT';
+    // UPDATED: Allow OVERDUE and PARTIAL
+    const canGenerate = status === 'PENDING' || status === 'OVERDUE' || status === 'PARTIAL' || status === 'LOCKED_FOR_EARLY_PAYMENT';
 
     if (!canGenerate) return null;
     if (status === 'LOCKED_FOR_EARLY_PAYMENT') {
@@ -172,14 +207,17 @@ function GenerateLinkButton({ installmentId, status }) {
         setLoading(true);
         setMsg(null);
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/installment/${installmentId}/generate-link`, {
+            const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+            const res = await fetch(`/api/v1/admin/installment/${installmentId}/generate-link`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Failed');
-            setMsg({ type: 'success', text: '✅ Link sent to student via email!' });
+            setMsg({ type: 'success', text: '✅ Link sent!' });
         } catch (e) {
             setMsg({ type: 'error', text: '❌ ' + e.message });
         } finally {
@@ -188,7 +226,7 @@ function GenerateLinkButton({ installmentId, status }) {
     };
 
     return (
-        <div>
+        <div style={{ minWidth: "120px" }}>
             <button
                 className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
                 onClick={handleGenerate}
@@ -200,7 +238,7 @@ function GenerateLinkButton({ installmentId, status }) {
                 {loading ? 'Sending...' : 'Send Link'}
             </button>
             {msg && (
-                <small className={`d-block mt-1 ${msg.type === 'success' ? 'text-success' : 'text-danger'}`}>
+                <small className={`d-block mt-1 ${msg.type === 'success' ? 'text-success' : 'text-danger'} animate-fade-in`}>
                     {msg.text}
                 </small>
             )}

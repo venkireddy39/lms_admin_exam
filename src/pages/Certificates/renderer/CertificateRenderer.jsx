@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import Draggable from "./Draggable";
 import Ruler from "./Ruler";
+import { QRCodeCanvas } from "qrcode.react";
 
 const PAGE_SIZE = {
   A4: {
@@ -75,12 +76,12 @@ const CertificateRenderer = ({
       let code = template.customHtml;
 
       const replacements = {
-        "{{recipientName}}": data.recipientName ?? "Student Name",
+        "{{studentName}}": data.recipientName ?? "Student Name",
         "{{courseName}}": data.courseName ?? "Course Name",
-        "{{date}}": data.date
+        "{{issueDate}}": data.date
           ? new Date(data.date).toLocaleDateString()
           : new Date().toLocaleDateString(),
-        "{{instructorName}}": data.instructorName ?? "Instructor",
+        "{{instituteName}}": data.instituteName ?? "LMS Institute",
         "{{certificateId}}": data.certificateId ?? "CERT-SAMPLE"
       };
 
@@ -128,9 +129,10 @@ const CertificateRenderer = ({
           transform: `scale(${scale})`,
           transformOrigin: "top left",
           position: "relative",
-          background: theme.backgroundImage
+          backgroundColor: theme.backgroundImage ? "transparent" : "#fff",
+          backgroundImage: theme.backgroundImage
             ? `url(${theme.backgroundImage})`
-            : "#fff",
+            : "none",
           backgroundSize: "cover",
           fontFamily: theme.fontFamily,
           color: theme.textColor,
@@ -258,9 +260,14 @@ const CertificateRenderer = ({
           >
             {el.type === "text" && (
               <div style={el.style}>
-                {(el.content || "").replace(
+                {String(el.content || "").replace(
                   /{{(.*?)}}/g,
-                  (_, k) => data[k] ?? ""
+                  (_, k) => {
+                    const mappedKey = k === "studentName" ? "recipientName"
+                      : k === "issueDate" ? "date"
+                        : k;
+                    return data[mappedKey] ?? `{{${k}}}`;
+                  }
                 )}
               </div>
             )}
@@ -276,6 +283,16 @@ const CertificateRenderer = ({
                   opacity: el.style?.opacity ?? 1
                 }}
               />
+            )}
+
+            {el.type === "qr" && (
+              <div style={{ width: "100%", height: "100%" }}>
+                <QRCodeCanvas
+                  value={`https://lms.com/verify/${data.certificateId || 'CERT-SAMPLE'}`}
+                  size={Math.min(el.w, el.h)}
+                  style={{ width: "100%", height: "100%" }}
+                />
+              </div>
             )}
           </Draggable>
         ))}

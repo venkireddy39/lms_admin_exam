@@ -9,6 +9,7 @@ import './FeeManagement.css';
 import { getFeeSettings, saveFeeSettings } from '../../services/feeService';
 import FeeTypesSettings from './FeeTypesSettings';
 import FeeStructureSettings from './FeeStructureSettings';
+import RefundRuleSettings from './RefundRuleSettings';
 
 // --- Extracted Component to prevent re-renders ---
 const NotificationCard = ({ notifType, data, onToggle, onConfigChange, onTest }) => (
@@ -660,6 +661,11 @@ const FeeSettings = () => {
                     {/* Fee Structure Section */}
                     <section className="form-section">
                         <FeeStructureSettings />
+                    </section>
+
+                    {/* Refund Rule Section */}
+                    <section className="form-section">
+                        <RefundRuleSettings />
                     </section>
 
                     {/* Notification Section */}

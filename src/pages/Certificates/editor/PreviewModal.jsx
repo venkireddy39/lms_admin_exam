@@ -1,15 +1,50 @@
-import React from "react";
-import { FaDownload } from "react-icons/fa";
+import React, { useRef, useState } from "react";
+import { FaDownload, FaSpinner } from "react-icons/fa";
 import CertificateRenderer from "../renderer/CertificateRenderer";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 
-const PreviewModal = ({ previewCert, onClose, onExport, settings }) => {
+const PreviewModal = ({ previewCert, onClose, settings }) => {
+    const certRef = useRef(null);
+    const [isExporting, setIsExporting] = useState(false);
+
     if (!previewCert) return null;
 
     // The backend certificate has top level properties, but the UI renderer expects a `data` object
     // Also `template` might be null depending on how manual generation stores it right now.
     const { template } = previewCert;
     const data = previewCert.data || previewCert; // Fallback if data is not nested
+
+    const handleDownload = async () => {
+        if (!certRef.current) return;
+        setIsExporting(true);
+        try {
+            const element = document.getElementById("certificate-preview");
+
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false
+            });
+
+            const imgData = canvas.toDataURL("image/png");
+
+            const pdf = new jsPDF({
+                orientation: "landscape",
+                unit: "px",
+                format: [canvas.width, canvas.height]
+            });
+
+            pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+            pdf.save(`Certificate_${data?.certificateId || 'Download'}.pdf`);
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            alert("Failed to export PDF.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     return (
         <div
@@ -44,10 +79,13 @@ const PreviewModal = ({ previewCert, onClose, onExport, settings }) => {
                 {/* ---------- Content ---------- */}
                 <div className="p-4 bg-light overflow-auto d-flex justify-content-center flex-grow-1">
                     <div
+                        ref={certRef}
+                        id="certificate-preview"
                         style={{
-                            width: "100%",
-                            maxWidth: "800px",
-                            background: "#fff"
+                            width: "1000px",
+                            height: "707px",
+                            padding: "40px",
+                            background: "#ffffff"
                         }}
                     >
                         <CertificateRenderer
@@ -60,15 +98,16 @@ const PreviewModal = ({ previewCert, onClose, onExport, settings }) => {
 
                 {/* ---------- Footer ---------- */}
                 <div className="p-3 border-top d-flex justify-content-end gap-2">
-                    <button className="btn btn-light" onClick={onClose}>
+                    <button className="btn btn-light" onClick={onClose} disabled={isExporting}>
                         Close
                     </button>
                     <button
-                        className="btn btn-primary"
-                        onClick={() => onExport?.(previewCert)}
+                        className="btn btn-primary d-flex align-items-center"
+                        onClick={handleDownload}
+                        disabled={isExporting}
                     >
-                        <FaDownload className="me-2" />
-                        Export
+                        {isExporting ? <FaSpinner className="me-2 fa-spin" /> : <FaDownload className="me-2" />}
+                        {isExporting ? "Exporting..." : "Download PDF"}
                     </button>
                 </div>
             </div>

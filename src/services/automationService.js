@@ -1,8 +1,7 @@
 import { apiFetch } from './apiFetch';
 
 // Base URL for the Automation / AI Sidecar Service
-// In production, this would be an environment variable
-const AUTOMATION_API_URL = "http://localhost:8082/api";
+const AUTOMATION_API_URL = import.meta.env.VITE_AUTOMATION_API_URL || "http://localhost:8082/api";
 
 const automationService = {
     // Check if the automation system is online

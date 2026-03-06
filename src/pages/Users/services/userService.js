@@ -72,5 +72,5 @@ export const userService = {
     },
 
     // Updated to point to Management Service (5151)
-    getAuditLogs: () => apiFetch(`/api/audit-logs`)
+    getAuditLogs: () => apiFetch(`/api/v1/audit-logs`)
 };

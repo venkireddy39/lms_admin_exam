@@ -143,13 +143,13 @@ const CertificateDashboard = ({ certificates = [], templates = [], onNavigate })
                                                 <td className="ps-4 fw-medium">
                                                     <div className="d-flex align-items-center">
                                                         <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: 32, height: 32, fontSize: 12 }}>
-                                                            {cert.studentName ? cert.studentName.charAt(0) : '?'}
+                                                            {(cert.studentName || cert.recipientName || '?').charAt(0)}
                                                         </div>
-                                                        {cert.studentName}
+                                                        {cert.studentName || cert.recipientName || 'Unknown'}
                                                     </div>
                                                 </td>
-                                                <td className="small text-muted">{cert.eventTitle}</td>
-                                                <td className="small text-muted">{new Date(cert.issuedDate || cert.createdAt).toLocaleDateString()}</td>
+                                                <td className="small text-muted">{cert.eventTitle || cert.courseName || 'Unknown'}</td>
+                                                <td className="small text-muted">{new Date(cert.issuedDate || cert.createdAt || new Date()).toLocaleDateString()}</td>
                                                 <td><span className="badge bg-success bg-opacity-10 text-success rounded-pill px-3">{cert.status || 'Issued'}</span></td>
                                             </tr>
                                         ))}
@@ -172,8 +172,8 @@ const CertificateDashboard = ({ certificates = [], templates = [], onNavigate })
                             <div className="card-header bg-white border-0 pt-4 px-4">
                                 <h6 className="fw-bold mb-0">Data Distribution</h6>
                             </div>
-                            <div className="card-body p-2" style={{ height: '300px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="card-body p-2">
+                                <ResponsiveContainer width="100%" height={300}>
                                     <PieChart>
                                         <Pie
                                             data={pieData}

@@ -9,14 +9,16 @@ const CourseFilters = ({
     setStatusFilter
 }) => {
     return (
-        <div className="courses-actions-bar">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
 
             {/* Search */}
-            <div className="course-search-wrapper">
-                <FiSearch className="search-icon-abs" />
+            <div className="input-group" style={{ width: "220px" }}>
+                <span className="input-group-text bg-white border-end-0">
+                    <FiSearch size={14} className="text-muted" />
+                </span>
                 <input
                     type="text"
-                    className="course-search-input"
+                    className="form-control border-start-0 ps-0"
                     placeholder="Search courses..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -25,20 +27,10 @@ const CourseFilters = ({
 
             {/* Status Filter */}
             <select
-                className="course-filter-select"
+                className="form-select"
+                style={{ width: "130px" }}
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={{
-                    padding: "10px 16px",
-                    borderRadius: "12px",
-                    border: "1px solid #e2e8f0",
-                    outline: "none",
-                    fontSize: "14px",
-                    color: "#64748b",
-                    cursor: "pointer",
-                    height: "46px",
-                    backgroundColor: "white"
-                }}
             >
                 <option value="ALL">All Status</option>
                 <option value={COURSE_STATUS.ACTIVE}>Active</option>

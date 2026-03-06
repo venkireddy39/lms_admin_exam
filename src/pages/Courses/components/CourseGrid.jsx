@@ -6,7 +6,7 @@ const CourseGrid = ({
     courses = [],
     onEdit,
     onDelete,
-    onToggleStatus,   // ✅ NEW: enable / disable
+    onToggleStatus,
     onOpenModal,
     onManageContent,
     onShowDetails,
@@ -19,21 +19,22 @@ const CourseGrid = ({
     }
 
     return (
-        <div className="courses-grid-layout">
+        <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
             {courses.map((course, idx) => (
-                <CourseCard
-                    key={course.courseId || course.id}
-                    index={idx}
-                    course={course}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    onToggleStatus={onToggleStatus}
-                    onManageContent={onManageContent}
-                    onShowDetails={onShowDetails}
-                    onShare={onShare}
-                    onBookmark={onBookmark}
-                    onCreateBatch={onCreateBatch}
-                />
+                <div className="col" key={course.courseId || course.id}>
+                    <CourseCard
+                        index={idx}
+                        course={course}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onToggleStatus={onToggleStatus}
+                        onManageContent={onManageContent}
+                        onShowDetails={onShowDetails}
+                        onShare={onShare}
+                        onBookmark={onBookmark}
+                        onCreateBatch={onCreateBatch}
+                    />
+                </div>
             ))}
         </div>
     );

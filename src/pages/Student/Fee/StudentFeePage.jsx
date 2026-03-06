@@ -31,15 +31,14 @@ const StudentFeePage = () => {
                 setLoading(true);
                 setError(null);
 
-                // Step 1: Fetch allocation
-                let currentAllocation = null;
+                // Step 1: Fetch latest allocation
                 try {
-                    const res = await apiFetch(getUrl('/fee-allocations/me'));
+                    const res = await apiFetch(getUrl('/fee-allocations/me/latest'));
                     if (res && res.id) {
                         currentAllocation = res;
                         setAllocation(currentAllocation);
                     } else {
-                        // Empty response
+                        // Not found or empty
                         setAllocation(null);
                         setInstallments([]);
                         return;

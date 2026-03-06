@@ -141,15 +141,43 @@ const BatchModal = ({
                         {/* Batch Fee */}
                         <div className="form-field full-width">
                             <label>Batch Fee <span className="req">*</span></label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                className="form-input"
-                                name="fee"
-                                value={formData.fee || ''}
-                                onChange={handleInputChange}
-                                placeholder="e.g. 500.00"
-                            />
+                            <div className="d-flex gap-2 mb-2">
+                                {['Free', 'Paid'].map((option) => {
+                                    const isFree = option === 'Free';
+                                    const isSelected = formData.feeType === option;
+                                    return (
+                                        <button
+                                            key={option}
+                                            type="button"
+                                            className={`btn btn-sm flex-fill ${isSelected
+                                                ? isFree ? 'btn-success' : 'btn-primary'
+                                                : 'btn-outline-secondary'}`}
+                                            onClick={() =>
+                                                handleInputChange({ target: { name: 'feeType', value: option } })
+                                            }
+                                        >
+                                            {isFree ? '🆓 Free' : '💳 Paid'}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {formData.feeType === 'Paid' && (
+                                <div className="input-group">
+                                    <span className="input-group-text">₹</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="form-control"
+                                        name="fee"
+                                        value={formData.fee || ''}
+                                        onChange={handleInputChange}
+                                        placeholder="Enter fee amount"
+                                        min="1"
+                                        autoFocus
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* Content Access */}

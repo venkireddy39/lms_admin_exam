@@ -70,7 +70,7 @@ const DesignStudio = ({
       src: "",
       style: {
         fontSize: "20px",
-        color: "#000",
+        color: "#000000",
         textAlign: "left",
         fontWeight: "normal",
         opacity: 1
@@ -227,7 +227,7 @@ const DesignStudio = ({
               ...prev,
               theme: {
                 ...prev.theme,
-                watermark: { type: e.target.value, opacity: 0.1, isRepeated: true, text: "DRAFT", color: "rgba(0,0,0,0.1)" }
+                watermark: { type: e.target.value, opacity: 0.1, isRepeated: true, text: "DRAFT", color: "#000000" }
               }
             }))}
           >

@@ -28,7 +28,7 @@ import AutomationRules from "./tabs/AutomationRules";
 import PendingCertificates from "./tabs/PendingCertificates";
 
 // editor
-import DesignStudio from "./editor/DesignStudio";
+import CanvasEditor from "./editor/CanvasEditor";
 import TemplateGallery from "./editor/TemplateGallery";
 import PreviewModal from "./editor/PreviewModal";
 
@@ -51,12 +51,35 @@ const CertificateModule = () => {
   const [certificates, setCertificates] = useState([]);
   const [pendingCertificates, setPendingCertificates] = useState([]);
   const [adminSettings, setAdminSettings] = useState({
+    // Organization Details
     instituteName: "",
     subTitle: "",
-    defaultFooterText: "",
+    instituteAddress: "",
+    website: "",
+    email: "",
     logo: null,
-    sealImage: null,
+
+    // Signatures & Stamps
     directorSignature: null,
+    instructorSignature: null,
+    sealImage: null,
+
+    // Certificate ID Configuration
+    certIdPrefix: "LMS",
+    certIdIncludeYear: true,
+    certIdAutoIncrement: true,
+
+    // Eligibility Rules
+    eligibilityCompletion: true,
+    eligibilityExamPassed: false,
+    eligibilityMinScore: 0,
+    requireFeePaid: true,
+
+    // System Options
+    enableVerification: true,
+    allowPdfDownload: true,
+    allowSharing: true,
+    allowReissue: false
   });
   const [automationRules, setAutomationRules] = useState([]);
 
@@ -64,16 +87,30 @@ const CertificateModule = () => {
 
   // Fetch initial data
   useEffect(() => {
-    const fetchCertificates = async () => {
+    const fetchInitialData = async () => {
       try {
-        const certs = await certificateService.getAllCertificates();
-        setCertificates(certs || []);
+        // Fetch Certificates
+        const certsRes = await certificateService.getAllCertificates();
+        // Defensive check: in case API returns { data: [...] } instead of directly an array
+        const certsArray = Array.isArray(certsRes) ? certsRes : (certsRes?.data || []);
+        setCertificates(certsArray);
+
+        // Fetch Templates (Assuming you will add this to certificateService)
+        // const tempRes = await certificateService.getAllTemplates();
+        // const tempArray = Array.isArray(tempRes) ? tempRes : (tempRes?.data || []);
+        // setTemplates(tempArray);
+
+        // Fetch Pending (Assuming you will add this to certificateService)
+        // const pendingRes = await certificateService.getPendingCertificates();
+        // const pendingArray = Array.isArray(pendingRes) ? pendingRes : (pendingRes?.data || []);
+        // setPendingCertificates(pendingArray);
+
       } catch (error) {
-        console.error("Error fetching certificates:", error);
-        toast.error("Failed to fetch certificates");
+        console.error("Error fetching initial data:", error);
+        toast.error("Failed to load certificate data");
       }
     };
-    fetchCertificates();
+    fetchInitialData();
   }, []);
 
   // editor state
@@ -85,24 +122,33 @@ const CertificateModule = () => {
 
   // manual issue state
   const [issueData, setIssueData] = useState({
-    recipientName: "",
+    studentName: "",
     courseName: "",
     date: new Date().toISOString().split("T")[0],
+    instituteName: adminSettings.instituteName || "",
     selectedTemplateId: "",
+    certificateId: `LMS-${Math.floor(Math.random() * 100000)}`,
   });
 
-  // ------------------ HELPERS ------------------
+  // Keep manual issue institute name synced if admin changes it but hasn't typed in manual issue
+  useEffect(() => {
+    setIssueData(prev => ({
+      ...prev,
+      instituteName: adminSettings.instituteName || prev.instituteName
+    }));
+  }, [adminSettings.instituteName]);// ------------------ HELPERS ------------------
   const generateCertificateId = (courseName, date) => {
-    const year = new Date(date).getFullYear();
-    const code = courseName
-      ? courseName.slice(0, 3).toUpperCase()
-      : "GEN";
-    return `CERT-${year}-${code}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const { certIdPrefix, certIdIncludeYear, certIdAutoIncrement } = adminSettings;
+    const yearStr = certIdIncludeYear ? `-${new Date(date).getFullYear()}` : "";
+    const randStr = certIdAutoIncrement ? `-${Math.floor(1000 + Math.random() * 9000)}` : `-${Math.floor(1000 + Math.random() * 9000)}`;
+    // In a real backend, auto increment would fetch the next ID. Here we just mock it with random for now.
+
+    return `${certIdPrefix}${yearStr}${randStr}`;
   };
 
   const handleIssueCertificate = async (data) => {
-    if (!data.recipientName) {
-      toast.error("Recipient name is required");
+    if (!data.studentName) {
+      toast.error("Student name is required");
       return;
     }
 
@@ -136,24 +182,36 @@ const CertificateModule = () => {
     }
   };
 
-  const handleApprove = (cert) => {
-    // TODO: API INTEGRATION - POST /api/certificates/approve
-    setCertificates((prev) => [
-      {
-        ...cert,
-        id: Date.now(),
-        issuedAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-    setPendingCertificates((prev) => prev.filter((c) => c.id !== cert.id));
-    toast.success("Certificate approved");
+  const handleApprove = async (cert) => {
+    try {
+      // TODO: API INTEGRATION - POST /api/certificates/approve
+      // await certificateService.approveCertificate(cert.id);
+
+      setCertificates((prev) => [
+        {
+          ...cert,
+          id: Date.now(),
+          issuedAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      setPendingCertificates((prev) => prev.filter((c) => c.id !== cert.id));
+      toast.success("Certificate approved");
+    } catch (error) {
+      toast.error("Error approving certificate");
+    }
   };
 
-  const handleReject = (id) => {
-    // TODO: API INTEGRATION - DELETE /api/certificates/pending/:id
-    setPendingCertificates((prev) => prev.filter((c) => c.id !== id));
-    toast.info("Certificate request rejected");
+  const handleReject = async (id) => {
+    try {
+      // TODO: API INTEGRATION - DELETE /api/certificates/pending/:id
+      // await certificateService.rejectCertificate(id);
+
+      setPendingCertificates((prev) => prev.filter((c) => c.id !== id));
+      toast.info("Certificate request rejected");
+    } catch (error) {
+      toast.error("Error rejecting certificate");
+    }
   };
 
   // ------------------ RENDER CONTENT ------------------
@@ -200,18 +258,22 @@ const CertificateModule = () => {
         }
 
         return (
-          <DesignStudio
+          <CanvasEditor
             editingTemplate={editingTemplate}
             setEditingTemplate={setEditingTemplate}
             settings={adminSettings}
             setIsEditorOpen={setIsEditorOpen}
             handleTemplateSave={() => {
               // TODO: API INTEGRATION - PUT /api/templates/:id
-              setTemplates((prev) =>
-                prev.map((t) =>
-                  t.id === editingTemplate.id ? editingTemplate : t
-                )
-              );
+              setTemplates((prev) => {
+                const exists = prev.find((t) => t.id === editingTemplate.id);
+                if (exists) {
+                  return prev.map((t) =>
+                    t.id === editingTemplate.id ? editingTemplate : t
+                  );
+                }
+                return [...prev, editingTemplate];
+              });
               setIsEditorOpen(false);
               toast.success("Template saved");
             }}
@@ -244,19 +306,15 @@ const CertificateModule = () => {
             autoRules={automationRules}
             setAutoRules={setAutomationRules}
             templates={templates}
-            handleAutoRuleSave={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target);
+            handleAutoRuleSave={(ruleData) => {
               const newRule = {
                 id: Date.now(),
-                course: formData.get("course"),
-                templateId: formData.get("templateId"),
-                trigger: "Progress = 100%"
+                ...ruleData,
+                status: 'Active'
               };
               // TODO: API INTEGRATION - POST /api/automation/rules
               setAutomationRules([...automationRules, newRule]);
-              toast.success("Automation rule created");
-              e.target.reset();
+              toast.success("Automation rule created successfully");
             }}
           />
         );
@@ -264,11 +322,8 @@ const CertificateModule = () => {
       case "settings":
         return (
           <CertificateSettings
-            settings={adminSettings}
-            onUpdateSettings={(newSettings) => {
-              // TODO: API INTEGRATION - PUT /api/settings
-              setAdminSettings(newSettings);
-            }}
+            adminSettings={adminSettings}
+            setAdminSettings={setAdminSettings}
           />
         );
 

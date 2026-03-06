@@ -2,16 +2,11 @@ import React from "react";
 import {
     FiImage, FiInfo, FiUsers, FiLayers, FiMoreVertical,
     FiEdit2, FiTrash2, FiShare2, FiBookmark, FiPlus,
-    FiCalendar, FiClock, FiArrowRight
+    FiClock
 } from "react-icons/fi";
 
 const PALETTE = [
-    { bg: 'linear-gradient(135deg,#6366f1,#8b5cf6)', light: '#eef2ff' },
-    { bg: 'linear-gradient(135deg,#0ea5e9,#6366f1)', light: '#e0f2fe' },
-    { bg: 'linear-gradient(135deg,#10b981,#0ea5e9)', light: '#ecfdf5' },
-    { bg: 'linear-gradient(135deg,#f59e0b,#ef4444)', light: '#fef3c7' },
-    { bg: 'linear-gradient(135deg,#ec4899,#8b5cf6)', light: '#fdf2f8' },
-    { bg: 'linear-gradient(135deg,#14b8a6,#6366f1)', light: '#f0fdfa' },
+    'primary', 'info', 'success', 'warning', 'danger', 'secondary'
 ];
 
 const CourseCard = ({
@@ -33,14 +28,15 @@ const CourseCard = ({
     const imageUrl = course?.courseImageUrl || course?.imageUrl || course?.img || course?.image;
     const displayImage = imgError || !imageUrl?.trim() ? DEFAULT_IMAGE : imageUrl;
 
-    const palette = PALETTE[(Number(index) || 0) % PALETTE.length];
+    const accentColor = PALETTE[(Number(index) || 0) % PALETTE.length];
     const statusActive = course?.status === 'ACTIVE' || course?.active !== false;
 
     return (
-        <div className="cc-card">
+        <div className="card h-100 shadow-sm border-0 course-card">
             {/* Image */}
             <div
-                className="cc-img-wrap"
+                className="position-relative overflow-hidden"
+                style={{ height: 190, cursor: "pointer" }}
                 onClick={() => onCreateBatch?.(course.courseId || course.id, course.courseName || course.name)}
                 title="Click to Create Batch"
             >
@@ -48,113 +44,133 @@ const CourseCard = ({
                     src={displayImage}
                     alt={course?.courseName || course?.name || "Course"}
                     onError={() => setImgError(true)}
-                    className="cc-img"
+                    className="w-100 h-100 course-card-img"
+                    style={{ objectFit: "cover" }}
                 />
-                {/* Gradient overlay always visible at bottom */}
-                <div className="cc-img-gradient" />
+
+                {/* Gradient overlay */}
+                <div
+                    className="position-absolute bottom-0 start-0 end-0"
+                    style={{ height: "60%", background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)", pointerEvents: "none" }}
+                />
 
                 {/* Status badge */}
-                <div className={`cc-status-badge ${statusActive ? 'cc-status-active' : 'cc-status-inactive'}`}>
-                    <span className="cc-status-dot" />
+                <span className={`badge position-absolute bottom-0 start-0 m-2 bg-${statusActive ? 'success' : 'secondary'}`}>
                     {statusActive ? 'Active' : 'Inactive'}
-                </div>
-
+                </span>
 
                 {/* Hover overlay */}
-                <div className="cc-hover-overlay">
-                    <div className="cc-hover-cta">
-                        <FiPlus size={20} />
-                        <span>Create Batch</span>
+                <div className="course-hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center">
+                    <div className="text-white text-center fw-bold">
+                        <FiPlus size={22} />
+                        <div className="small mt-1">Create Batch</div>
                     </div>
                 </div>
             </div>
 
-            {/* Top-right action buttons */}
-            <div className="cc-badge-row">
+            {/* Accent bar */}
+            <div className={`bg-${accentColor}`} style={{ height: 3 }} />
+
+            {/* Top-right action buttons (absolutely positioned over card) */}
+            <div className="position-absolute top-0 end-0 d-flex gap-1 p-2" style={{ zIndex: 10 }}>
                 <button
-                    className="cc-icon-btn"
+                    className="btn btn-sm btn-light p-1 lh-1 rounded-2 shadow-sm"
                     onClick={e => { e.stopPropagation(); onBookmark?.(course.courseId || course.id); }}
                     title={course.isBookmarked ? "Remove Bookmark" : "Bookmark"}
                 >
                     <FiBookmark
-                        size={15}
+                        size={14}
                         fill={course.isBookmarked ? "#f59e0b" : "none"}
-                        color={course.isBookmarked ? "#f59e0b" : "#64748b"}
+                        color={course.isBookmarked ? "#f59e0b" : "#6c757d"}
                     />
                 </button>
-                <div className="cc-menu-wrap">
+
+                {/* Dropdown menu */}
+                <div className="dropdown">
                     <button
-                        className="cc-icon-btn"
+                        className="btn btn-sm btn-light p-1 lh-1 rounded-2 shadow-sm"
                         onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
                     >
-                        <FiMoreVertical size={15} />
+                        <FiMoreVertical size={14} />
                     </button>
                     {menuOpen && (
-                        <div className="cc-dropdown">
-                            <button className="cc-dd-item" onClick={() => { onShowDetails?.(course); setMenuOpen(false); }}>
-                                <FiInfo size={13} className="cc-dd-icon blue" /> View Details
-                            </button>
-                            <button className="cc-dd-item" onClick={() => { onShare?.(course); setMenuOpen(false); }}>
-                                <FiShare2 size={13} className="cc-dd-icon teal" /> Share
-                            </button>
-                            <button className="cc-dd-item" onClick={() => { onEdit?.(course.courseId || course.id); setMenuOpen(false); }}>
-                                <FiEdit2 size={13} className="cc-dd-icon slate" /> Edit
-                            </button>
-                            <div className="cc-dd-divider" />
-                            <button className="cc-dd-item danger" onClick={() => { onDelete?.(course.courseId || course.id); setMenuOpen(false); }}>
-                                <FiTrash2 size={13} /> Delete
-                            </button>
-                        </div>
+                        <ul className="dropdown-menu dropdown-menu-end show shadow border-0 rounded-3" style={{ minWidth: 160 }}>
+                            <li>
+                                <button className="dropdown-item d-flex align-items-center gap-2 small" onClick={() => { onShowDetails?.(course); setMenuOpen(false); }}>
+                                    <FiInfo size={13} className="text-primary" /> View Details
+                                </button>
+                            </li>
+                            <li>
+                                <button className="dropdown-item d-flex align-items-center gap-2 small" onClick={() => { onShare?.(course); setMenuOpen(false); }}>
+                                    <FiShare2 size={13} className="text-info" /> Share
+                                </button>
+                            </li>
+                            <li>
+                                <button className="dropdown-item d-flex align-items-center gap-2 small" onClick={() => { onEdit?.(course.courseId || course.id); setMenuOpen(false); }}>
+                                    <FiEdit2 size={13} className="text-secondary" /> Edit
+                                </button>
+                            </li>
+                            <li><hr className="dropdown-divider" /></li>
+                            <li>
+                                <button className="dropdown-item d-flex align-items-center gap-2 small text-danger" onClick={() => { onDelete?.(course.courseId || course.id); setMenuOpen(false); }}>
+                                    <FiTrash2 size={13} /> Delete
+                                </button>
+                            </li>
+                        </ul>
                     )}
                 </div>
             </div>
 
-            {/* Body */}
-            <div className="cc-body">
-                {/* Color accent bar */}
-                <div className="cc-accent-bar" style={{ background: palette.bg }} />
-
-                {/* Title + learners */}
-                <div className="cc-title-row">
-                    <h3 className="cc-title">{course?.courseName || course?.name || "Untitled Course"}</h3>
+            {/* Card body */}
+            <div className="card-body d-flex flex-column pt-2 pb-2">
+                <div className="d-flex justify-content-between align-items-start mb-1">
+                    <h6 className="card-title fw-bold mb-0 text-truncate flex-grow-1 me-2" style={{ fontSize: 15 }}>
+                        {course?.courseName || course?.name || "Untitled Course"}
+                    </h6>
                     <button
-                        className="cc-learners-chip"
+                        className="btn btn-sm py-0 px-2 rounded-pill"
+                        style={{ background: "#eef2ff", color: "#4f46e5", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}
                         onClick={() => onViewLearners?.(course.courseId || course.id)}
                         title="View Learners"
                     >
-                        <FiUsers size={12} />
-                        <span>{course?.learnersCount || 0} Learners</span>
+                        <FiUsers size={11} className="me-1" />
+                        {course?.learnersCount || 0} Learners
                     </button>
                 </div>
 
-                {/* Meta row */}
-                <div className="cc-meta-row">
+                {/* Meta chips */}
+                <div className="d-flex gap-1 flex-wrap mb-2">
                     {course?.duration && (
-                        <span className="cc-meta-chip">
-                            <FiClock size={11} /> {course.duration}
+                        <span className="badge bg-light text-secondary border d-flex align-items-center gap-1">
+                            <FiClock size={10} /> {course.duration}
                         </span>
                     )}
                     {course?.courseFee && (
-                        <span className="cc-meta-chip green">
+                        <span className="badge bg-success-subtle text-success border border-success-subtle">
                             ₹{Number(course.courseFee).toLocaleString()}
                         </span>
                     )}
                 </div>
 
-                {/* Description */}
-                <p className="cc-desc">
-                    {course?.description || course?.desc || "No description provided for this course."}
+                <p className="card-text text-muted small flex-grow-1 mb-0 course-desc">
+                    {course?.description || course?.desc || "No description provided."}
                 </p>
+            </div>
 
-                {/* Footer */}
-                <div className="cc-footer">
-                    <button className="cc-btn ghost" onClick={() => onManageContent?.(course.courseId || course.id)}>
-                        <FiLayers size={13} /> Course Builder
-                    </button>
-                    <button className="cc-btn primary" onClick={() => onCreateBatch?.(course.courseId || course.id, course.courseName || course.name)}>
-                        <FiPlus size={13} /> Create Batch
-                    </button>
-                </div>
+            {/* Card footer */}
+            <div className="card-footer bg-white border-top d-flex gap-2 pt-2 pb-3">
+                <button
+                    className="btn btn-outline-secondary btn-sm flex-fill d-flex align-items-center justify-content-center gap-1"
+                    onClick={() => onManageContent?.(course.courseId || course.id)}
+                >
+                    <FiLayers size={13} /> Course Builder
+                </button>
+                <button
+                    className="btn btn-primary btn-sm flex-fill d-flex align-items-center justify-content-center gap-1"
+                    onClick={() => onCreateBatch?.(course.courseId || course.id, course.courseName || course.name)}
+                >
+                    <FiPlus size={13} /> Create Batch
+                </button>
             </div>
         </div>
     );

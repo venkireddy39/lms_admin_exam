@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../../../services/authService';
 import { AUTH_TOKEN_KEY } from '../../../services/auth.constants';
-import { studentService } from '../../../services/studentService';
 
 const AuthContext = createContext(null);
 
@@ -26,15 +25,6 @@ const decodeJWT = (token) => {
     } catch (e) {
         return null;
     }
-};
-
-const DEFAULT_STUDENT = {
-    email: "student@gmail.com",
-    role: "STUDENT",
-    firstName: "Student",
-    lastName: "User",
-    userId: 2,
-    name: "Student User"
 };
 
 /* =========================
@@ -78,19 +68,6 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         localStorage.setItem('auth_user', JSON.stringify(userData));
 
-        // If student, fetch full profile
-        if (derivedRole === 'STUDENT') {
-            try {
-                const profile = await studentService.getProfile();
-                if (profile) {
-                    const updatedUser = { ...userData, ...profile, role: 'STUDENT' };
-                    setUser(updatedUser);
-                    localStorage.setItem('auth_user', JSON.stringify(updatedUser));
-                }
-            } catch (e) {
-                console.warn("Profile fetch failed, using token data only");
-            }
-        }
         return userData;
     };
 

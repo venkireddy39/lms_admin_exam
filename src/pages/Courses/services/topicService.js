@@ -43,6 +43,8 @@ export const topicService = {
         let contentType = "VIDEO";
         if (data.type === "pdf") contentType = "PDF";
         if (data.type === "heading") contentType = "TEXT";
+        if (data.type === "quiz") contentType = "QUIZ";
+        if (data.type === "assignment") contentType = "ASSIGNMENT";
 
         return apiFetch(`${API_BASE_URL}/topic-contents/topic/${topicId}`, {
             method: "POST",

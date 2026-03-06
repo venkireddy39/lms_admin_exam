@@ -1,5 +1,5 @@
 import React from "react";
-import { FiPlus, FiLayers, FiGrid } from "react-icons/fi";
+import { FiPlus, FiGrid } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
 import CourseFilters from "./components/CourseFilters";
@@ -54,13 +54,13 @@ const CoursesPage = () => {
   return (
     <div className="courses-container">
       {/* Header */}
-      <header className="courses-header">
+      <header className="courses-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div className="header-content">
           <h1>Course Management</h1>
           <p>Create, manage and assign courses.</p>
         </div>
 
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+        <div className="d-flex flex-wrap align-items-center gap-2">
           <CourseFilters
             search={search}
             setSearch={setSearch}
@@ -69,23 +69,16 @@ const CoursesPage = () => {
           />
 
           <button
+            className="btn btn-outline-primary d-flex align-items-center gap-2"
             onClick={() => navigate('/admin/batches')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '10px 18px', borderRadius: '11px',
-              fontSize: '13.5px', fontWeight: '700',
-              border: '1px solid #c7d2fe',
-              background: 'linear-gradient(135deg,#eef2ff,#e0e7ff)',
-              color: '#4338ca', cursor: 'pointer', transition: 'all 0.2s',
-              boxShadow: '0 1px 4px rgba(99,102,241,0.10)'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(99,102,241,0.25)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(99,102,241,0.10)'; e.currentTarget.style.transform = 'none'; }}
           >
             <FiGrid size={15} /> All Batches
           </button>
 
-          <button className="btn-primary-add" onClick={() => openModal()}>
+          <button
+            className="btn btn-dark d-flex align-items-center gap-2"
+            onClick={() => openModal()}
+          >
             <FiPlus size={18} /> Add New Course
           </button>
         </div>

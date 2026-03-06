@@ -45,7 +45,13 @@ const FeeRefunds = () => {
                 getAllFeeAllocations()
             ]);
 
-            setRefundsData(refunds || []);
+            setRefundsData((refunds || []).map(r => {
+                const alloc = (allocations || []).find(a => a.allocationId === r.studentFeeAllocationId);
+                return {
+                    ...r,
+                    studentName: alloc ? alloc.studentName : `Alloc #${r.studentFeeAllocationId}`
+                };
+            }));
 
             // Map allocations to searchable students
             const formattedStudents = (allocations || []).map(a => ({
@@ -53,7 +59,7 @@ const FeeRefunds = () => {
                 studentId: a.userId,
                 name: a.studentName || `Student #${a.userId}`,
                 email: a.studentEmail,
-                paidAmount: a.paidAmount || 0, // Assuming backend sends this or we calculate
+                paidAmount: (a.payableAmount || 0) - (a.remainingAmount || 0),
                 totalFee: a.payableAmount || 0,
                 remainingAmount: a.remainingAmount || 0,
                 batchName: a.batchName || 'N/A'
@@ -303,7 +309,12 @@ const FeeRefunds = () => {
                                                             <div style={{ fontWeight: 600 }}>{s.name}</div>
                                                             <div style={{ fontSize: 12, color: '#64748b' }}>Alloc ID: {s.id} • Paid: <span style={{ color: '#16a34a' }}>₹{s.paidAmount}</span></div>
                                                         </div>
-                                                    )) : <div style={{ padding: 12, textAlign: 'center', color: '#94a3b8' }}>No results</div>}
+                                                    )) : (
+                                                        <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
+                                                            <FiSearch size={20} style={{ opacity: 0.3, marginBottom: 8 }} />
+                                                            <div style={{ fontSize: 13 }}>No students found matching "{searchTerm}"</div>
+                                                        </div>
+                                                    )}
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
