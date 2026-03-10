@@ -42,13 +42,16 @@ const FeeAllocationDetailPage = lazy(() => import('../features/feeAllocation/pag
 const LibraryApp = lazy(() => import('../pages/Library/App'));
 const AffiliateRegister = lazy(() => import('../pages/Affiliates/AffiliateRegister'));
 const AffiliatePortal = lazy(() => import('../pages/Affiliates/AffiliatePortal'));
-const StudentDashboard = lazy(() => import('../pages/Student/Dashboard/StudentDashboard'));
+const WalletSettings = lazy(() => import('../pages/Affiliates/WalletSettings'));
 const LoginPage = lazy(() => import('../pages/Login/LoginPage'));
 const StudentLayout = lazy(() => import('../components/layout/StudentLayout'));
 const AutomationDashboard = lazy(() => import('../pages/Automation/AutomationDashboard'));
 const StudentFeePage = lazy(() => import('../pages/Student/Fee/StudentFeePage'));
 const ParentFeePage = lazy(() => import('../pages/Parent/Fee/ParentFeePage'));
 const PayPage = lazy(() => import('../pages/Pay/PayPage'));
+const Apply = lazy(() => import('../pages/Apply/Apply'));
+const ExternalEnrollmentForm = lazy(() => import('../pages/Affiliates/components/ExternalEnrollmentForm'));
+
 
 const RootRedirect = () => {
   const { user, loading } = useAuth();
@@ -58,10 +61,13 @@ const RootRedirect = () => {
   const role = user?.role?.toUpperCase();
 
   if (role === 'STUDENT') {
-    return <Navigate to="/student/dashboard" replace />;
+    return <Navigate to="/student/fee" replace />;
   }
   if (role === 'PARENT') {
     return <Navigate to="/parent/dashboard" replace />;
+  }
+  if (role === 'AFFILIATE') {
+    return <Navigate to="/admin/affiliate/portal" replace />;
   }
   if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'LIBRARIAN' || role === 'MARKETING_MANAGER' || role === 'INSTRUCTOR' || role === 'DRIVER' || role === 'CONDUCTOR') {
     return <Navigate to="/admin/dashboard" replace />;
@@ -82,13 +88,13 @@ const AppRoutes = () => {
         <Route path="/share/:shareCode" element={<CourseOverview />} />
         <Route path="/affiliate/join" element={<AffiliateRegister />} />
         <Route path="/verify/:id" element={<PublicVerificationPage />} />
+        <Route path="/enroll" element={<ExternalEnrollmentForm />} />
+        <Route path="/apply" element={<Apply />} />
 
         {/* ================= STUDENT PORTAL ================= */}
         <Route element={<StudentLayout />}>
           <Route path="/student">
-            <Route index element={<Navigate to="/student/dashboard" replace />} />
-            <Route path="dashboard" element={<StudentDashboard />} />
-
+            <Route index element={<Navigate to="/student/fee" replace />} />
 
             {/* New Student Fee View */}
             <Route path="fee" element={<StudentFeePage />} />
@@ -135,10 +141,10 @@ const AppRoutes = () => {
           <Route path="marketing" element={<Marketing />} />
           <Route path="affiliates" element={<Affiliates />} />
           <Route path="affiliate/portal" element={<AffiliatePortal />} />
+          <Route path="affiliate/settings" element={<WalletSettings />} />
           <Route path="certificates" element={<Certificates />} />
           <Route path="settings" element={<Settings />} />
           <Route path="webinar" element={<Webinar />} />
-          <Route path="profile" element={<AdminProfile />} />
           <Route path="automation" element={<AutomationDashboard />} />
 
           <Route path="academics">

@@ -56,6 +56,25 @@ const CourseBuilder = () => {
         }
     };
 
+    const handleView = (item) => {
+        const rawUrl = item.data?.url;
+        if (!rawUrl) {
+            alert("No URL or file associated with this item.");
+            return;
+        }
+
+        let finalUrl = rawUrl;
+        if (!rawUrl.startsWith('http')) {
+            // Match proxy or production API base
+            const apiBase = import.meta.env.MODE === 'development' ? '' : (import.meta.env.VITE_APP_API_URL || '');
+            const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+            const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+            finalUrl = `${cleanBase}${cleanPath}`;
+        }
+
+        window.open(finalUrl, '_blank');
+    };
+
     return (
         <div className="container-fluid bg-light min-vh-100 p-0 overflow-hidden d-flex flex-column">
             {/* Header / Navbar */}
@@ -70,8 +89,13 @@ const CourseBuilder = () => {
                         </span>
                     </div>
                     <div className="ms-auto d-flex gap-2">
-                        <button className="btn btn-outline-light btn-sm px-3 rounded-pill fw-medium">Preview</button>
-                        <button className="btn btn-primary btn-sm px-4 rounded-pill fw-bold shadow-sm">Publish</button>
+                        <button 
+                            className="btn btn-outline-light btn-sm px-3 rounded-pill fw-medium transition-all"
+                            onClick={() => window.open(`/course-overview/${id}`, '_blank')}
+                        >
+                            <i className="bi bi-eye me-1"></i> Preview
+                        </button>
+                        <button className="btn btn-primary btn-sm px-4 rounded-pill fw-bold shadow-sm transition-all" onClick={() => alert("Course changes are saved automatically!")}>Publish</button>
                     </div>
                 </div>
             </nav>
@@ -141,11 +165,19 @@ const CourseBuilder = () => {
                                     </div>
                                 ) : (
                                     activeChapter.contents.map((item) => (
-                                        <div key={item.id} className="card border-0 shadow-sm rounded-3 transition-all hover-bg-light border-start border-4"
-                                            style={{ borderLeftColor: item.type === 'video' ? '#0d6efd' : '#6c757d' }}>
+                                        <div 
+                                            key={item.id} 
+                                            className={`card border-0 shadow-sm rounded-3 transition-all hover-bg-light border-start border-4 ${item.type !== 'heading' ? 'cursor-pointer' : ''}`}
+                                            style={{ borderLeftColor: item.type === 'video' ? '#0d6efd' : item.type === 'pdf' ? '#dc3545' : '#6c757d' }}
+                                            onClick={(e) => {
+                                                // Prevent click if clicking the dropdown/actions
+                                                if (e.target.closest('.dropdown')) return;
+                                                if (item.type !== 'heading') handleView(item);
+                                            }}
+                                        >
                                             <div className="card-body p-3">
                                                 <div className="d-flex align-items-center gap-3">
-                                                    <div className={`rounded-3 p-3 bg-opacity-10 d-flex align-items-center justify-content-center ${item.type === 'video' ? 'bg-primary text-primary' : 'bg-secondary text-secondary'}`} style={{ width: '52px', height: '52px' }}>
+                                                    <div className={`rounded-3 p-3 bg-opacity-10 d-flex align-items-center justify-content-center ${item.type === 'video' ? 'bg-primary text-primary' : item.type === 'pdf' ? 'bg-danger text-danger' : 'bg-secondary text-secondary'}`} style={{ width: '52px', height: '52px' }}>
                                                         <i className={`bi ${getItemIconClass(item.type)} fs-4`}></i>
                                                     </div>
                                                     <div className="flex-grow-1 overflow-hidden">
@@ -160,6 +192,13 @@ const CourseBuilder = () => {
                                                             <i className="bi bi-three-dots"></i>
                                                         </button>
                                                         <ul className="dropdown-menu dropdown-menu-end shadow border-0 p-2">
+                                                            {item.type !== 'heading' && (
+                                                                <li>
+                                                                    <button className="dropdown-item rounded d-flex align-items-center gap-2 py-2" onClick={() => handleView(item)}>
+                                                                        <i className="bi bi-eye small text-muted"></i> View Content
+                                                                    </button>
+                                                                </li>
+                                                            )}
                                                             <li>
                                                                 <button className="dropdown-item rounded d-flex align-items-center gap-2 py-2" onClick={() => { setEditingItem(item); setActiveForm('content'); }}>
                                                                     <i className="bi bi-pencil small text-muted"></i> Edit Item

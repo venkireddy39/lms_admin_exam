@@ -27,8 +27,6 @@ export const useAttendance = () => {
     const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
     const [isLoading, setIsLoading] = useState(false);
 
-    const saveTimerRef = useRef(null);
-
     /* ---------------- FETCH DATA ---------------- */
 
     // Fetch Courses
@@ -186,7 +184,7 @@ export const useAttendance = () => {
         setSaveStatus('idle');
     };
 
-    const saveAttendance = async () => {
+    const saveAttendance = useCallback(async () => {
         if (!selectedSessionId || draftRecords.length === 0) return;
 
         setSaveStatus('saving');
@@ -205,17 +203,10 @@ export const useAttendance = () => {
             console.error("Failed to save attendance", error);
             setSaveStatus('error');
         }
-    };
+    }, [selectedSessionId, draftRecords]);
 
     /* ---------------- CLEANUP ---------------- */
 
-    useEffect(() => {
-        return () => {
-            if (saveTimerRef.current) {
-                clearTimeout(saveTimerRef.current);
-            }
-        };
-    }, []);
 
     /* ---------------- STATS ---------------- */
 

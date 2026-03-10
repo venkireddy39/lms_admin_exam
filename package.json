@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node --max-http-header-size=16384 node_modules/vite/bin/vite.js",
     "generate-token": "node generate_token.cjs",
     "build": "vite build",
     "lint": "eslint .",
@@ -20,6 +20,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.26",
     "html2canvas": "^1.4.1",
+    "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.562.0",

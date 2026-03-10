@@ -20,6 +20,13 @@ const TREND = {
     DOWN: 'down'
 };
 
+const THEME_COLORS = {
+    success: { stroke: '#22c55e', fill: '#dcfce7' },
+    danger: { stroke: '#ef4444', fill: '#fee2e2' },
+    warning: { stroke: '#f59e0b', fill: '#fef3c7' },
+    info: { stroke: '#3b82f6', fill: '#dbeafe' }
+};
+
 /* ---------------- INSIGHT CARD ---------------- */
 
 const InsightCard = ({
@@ -33,16 +40,9 @@ const InsightCard = ({
     icon: Icon
 }) => {
     const gradientId = useId();
-
-    const COLORS = {
-        success: { stroke: '#22c55e', fill: '#dcfce7' },
-        danger: { stroke: '#ef4444', fill: '#fee2e2' },
-        warning: { stroke: '#f59e0b', fill: '#fef3c7' },
-        info: { stroke: '#3b82f6', fill: '#dbeafe' }
-    };
-
-    const theme = COLORS[color] || COLORS.info;
+    const theme = THEME_COLORS[color] || THEME_COLORS.info;
     const chartData = Array.isArray(data) && data.length ? data : DEFAULT_TREND_DATA;
+    const isTrendUp = trend === TREND.UP;
 
     return (
         <div className="col-md-3">
@@ -65,9 +65,7 @@ const InsightCard = ({
                         </div>
 
                         {Icon && (
-                            <div
-                                className={`p-2 rounded-circle bg-${color} bg-opacity-10 text-${color}`}
-                            >
+                            <div className={`p-2 rounded-circle bg-${color} bg-opacity-10 text-${color}`}>
                                 <Icon size={18} />
                             </div>
                         )}
@@ -103,12 +101,8 @@ const InsightCard = ({
 
                     {/* Trend */}
                     <div style={{ fontSize: 11 }} className="mt-2 fw-bold">
-                        <span
-                            className={
-                                trend === TREND.UP ? 'text-success' : 'text-danger'
-                            }
-                        >
-                            {trend === TREND.UP ? '↑' : '↓'} {trendValue}
+                        <span className={isTrendUp ? 'text-success' : 'text-danger'}>
+                            {isTrendUp ? '↑' : '↓'} {trendValue}
                         </span>
                         <span className="text-muted ms-1">Compared to last period</span>
                     </div>
@@ -121,12 +115,10 @@ const InsightCard = ({
 /* ---------------- MAIN COMPONENT ---------------- */
 
 const AttendanceInsights = ({ stats = {} }) => {
-    const safeStats = {
-        onTimePct: stats.onTimePct ?? 0,
-        latePct: stats.latePct ?? 0,
-        totalBreak: stats.totalBreak ?? '00 Hrs',
-        totalWorking: stats.totalWorking ?? '00 Hrs'
-    };
+    const onTimePct = stats.onTimePct ?? 0;
+    const latePct = stats.latePct ?? 0;
+    const totalBreak = stats.totalBreak ?? '00 Hrs';
+    const totalWorking = stats.totalWorking ?? '00 Hrs';
 
     return (
         <div className="mb-4">
@@ -140,7 +132,7 @@ const AttendanceInsights = ({ stats = {} }) => {
             <div className="row g-3">
                 <InsightCard
                     title="On Time Percentage"
-                    value={`${safeStats.onTimePct}%`}
+                    value={`${onTimePct}%`}
                     trend={TREND.DOWN}
                     trendValue="2%"
                     color="success"
@@ -148,7 +140,7 @@ const AttendanceInsights = ({ stats = {} }) => {
 
                 <InsightCard
                     title="Late Percentage"
-                    value={`${safeStats.latePct}%`}
+                    value={`${latePct}%`}
                     trend={TREND.UP}
                     trendValue="5%"
                     color="danger"
@@ -156,7 +148,7 @@ const AttendanceInsights = ({ stats = {} }) => {
 
                 <InsightCard
                     title="Total Break Hours"
-                    value={safeStats.totalBreak}
+                    value={totalBreak}
                     subValue="Avg 40m / Day"
                     trend={TREND.DOWN}
                     trendValue="13%"
@@ -165,7 +157,7 @@ const AttendanceInsights = ({ stats = {} }) => {
 
                 <InsightCard
                     title="Total Working Hours"
-                    value={safeStats.totalWorking}
+                    value={totalWorking}
                     subValue="Target: 160 Hrs"
                     trend={TREND.UP}
                     trendValue="12%"

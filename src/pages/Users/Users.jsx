@@ -79,6 +79,7 @@ const Users = () => {
             'ROLE_STUDENT': 'Student',
             'ROLE_INSTRUCTOR': 'Instructor',
             'ROLE_PARENT': 'Parent',
+            'ROLE_AFFILIATE': 'Affiliate',
             'ROLE_ADMIN': 'Admin',
             'ROLE_SUPER_ADMIN': 'Super Admin'
           };
@@ -198,6 +199,12 @@ const Users = () => {
             (u.role === 'Conductor' || u.roleName === 'ROLE_CONDUCTOR')
           ).length}</span>
         </button>
+        <button className={`u-tab ${activeTab === 'affiliates' ? 'active' : ''}`} onClick={() => setActiveTab('affiliates')}>
+          Affiliates <span className="u-badge">{users.filter(u =>
+            String(u.role || '').toLowerCase() === 'affiliate' ||
+            String(u.roleName || '').toLowerCase() === 'role_affiliate'
+          ).length}</span>
+        </button>
         <button className={`u-tab ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
           Activity Logs
         </button>
@@ -251,6 +258,20 @@ const Users = () => {
         {activeTab === 'conductors' && (
           <UserList
             users={users.filter(u => u.role === 'Conductor' || u.roleName === 'ROLE_CONDUCTOR')}
+            setUsers={setUsers}
+            onDelete={handleDeleteUser}
+            onToggleStatus={handleToggleStatus}
+            onEdit={handleEditUser}
+            hideRoleFilter={true}
+            batches={allBatchesList}
+          />
+        )}
+        {activeTab === 'affiliates' && (
+          <UserList
+            users={users.filter(u =>
+              String(u.role || '').toLowerCase() === 'affiliate' ||
+              String(u.roleName || '').toLowerCase() === 'role_affiliate'
+            )}
             setUsers={setUsers}
             onDelete={handleDeleteUser}
             onToggleStatus={handleToggleStatus}

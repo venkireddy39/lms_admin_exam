@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import StudentSidebar from './StudentSidebar';
 import StudentNavbar from './StudentNavbar';
-import AiChatWidget from '../common/AiChatWidget';
 import { useAuth } from '../../pages/Library/context/AuthContext';
 
 const StudentLayout = () => {
@@ -40,8 +39,6 @@ const StudentLayout = () => {
                     <Outlet />
                 </main>
 
-                {/* AI AUTOMATION SIDEKICK (DEMO MODE) */}
-                <AiChatWidget userRole="STUDENT" userName={user?.name || 'Student'} />
             </div>
         </div>
     );

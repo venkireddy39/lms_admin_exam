@@ -9,13 +9,30 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+    const isValid = (val) => val && val !== 'null' && val !== 'undefined';
+
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (token) {
+    const url = config.url || '';
+    const isAffiliateRequest = url.includes('/api/affiliate') ||
+        url.includes('/api/admin/affiliate') ||
+        url.includes('/api/admin/leads') ||
+        url.includes('/api/admin/sales');
+
+    if (isValid(token) && !isAffiliateRequest) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(`[apiClient] Sending request to ${config.url} with token (first 20 chars): ${token.substring(0, 20)}...`);
-    } else {
-        console.warn(`[apiClient] No token found in localStorage under key: ${AUTH_TOKEN_KEY}`);
     }
+
+    const savedUser = localStorage.getItem('auth_user');
+    if (isValid(savedUser)) {
+        try {
+            const parsed = JSON.parse(savedUser);
+            const tenant = parsed.tenant || parsed.tenantDb;
+            if (isValid(tenant)) {
+                config.headers["X-Tenant-DB"] = tenant;
+            }
+        } catch (e) { }
+    }
+
     return config;
 }, (error) => Promise.reject(error));
 

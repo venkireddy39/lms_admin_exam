@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiDollarSign, FiUsers, FiBarChart2, FiSettings, FiPlus, FiDownload, FiSearch, FiFilter, FiLink, FiCopy, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { generateAffiliateCode } from './utils/codeGenerator'; // Reusing utility for mocking
 import AffiliateForm from './components/AffiliateForm';
-import AffiliateBatchAssignment from './components/AffiliateBatchAssignment';
+import AffiliateLinkForm from './components/AffiliateLinkForm';
 import AffiliateDetails from './components/AffiliateDetails';
+import LeadManagement from '../Admin/Affiliates/LeadManagement';
+import SalesManagement from '../Admin/Affiliates/SalesManagement';
+import affiliateService from '../../services/affiliateService';
 import './Affiliates.css';
 
 const Affiliates = () => {
@@ -16,31 +17,42 @@ const Affiliates = () => {
   const [showModal, setShowModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
 
-  // MOCK DATA - Affiliates
-  const [affiliatesList, setAffiliatesList] = useState([
-    { id: 101, name: 'John Doe', type: 'Individual', joined: '2024-01-15', referrals: 45, status: 'ACTIVE', email: 'john@example.com', phone: '+91 9876543210', commissionType: 'PERCENT', commissionValue: 15, affiliateCode: 'AFF-JD-001', address: '123 Main St, Mumbai', riskLevel: 'Low', fraudSignals: [] },
-    { id: 102, name: 'CodeMasters Institute', type: 'Organization', joined: '2023-11-20', referrals: 128, status: 'ACTIVE', email: 'contact@codemasters.com', phone: '+91 1122334455', commissionType: 'FIXED', commissionValue: 2500, affiliateCode: 'AFF-CMI-002', address: 'Tech Park, Bangalore', riskLevel: 'High', fraudSignals: ['Multiple signups from same IP', 'Abnormal conversion rate'] },
-    { id: 103, name: 'Sarah Tech', type: 'Influencer', joined: '2024-02-01', referrals: 310, status: 'ACTIVE', email: 'sarah@social.com', phone: '+91 9879879870', commissionType: 'PERCENT', commissionValue: 20, affiliateCode: 'AFF-ST-003', address: 'Digital Hub, Pune', riskLevel: 'Medium', fraudSignals: ['Self-referrals detected'] },
-    { id: 104, name: 'Inactive User Demo', type: 'Individual', joined: '2024-03-01', referrals: 0, status: 'INACTIVE', email: 'inactive@demo.com', phone: '+91 0000000000', commissionType: 'PERCENT', commissionValue: 10, affiliateCode: 'AFF-INA-004', address: 'Nowhere', riskLevel: 'Low', fraudSignals: [] },
-  ]);
+  // Data State
+  const [affiliatesList, setAffiliatesList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock Chart Data
-  const data = [
-    { name: 'Jan', revenue: 4000 },
-    { name: 'Feb', revenue: 3000 },
-    { name: 'Mar', revenue: 2000 },
-    { name: 'Apr', revenue: 2780 },
-    { name: 'May', revenue: 1890 },
-    { name: 'Jun', revenue: 2390 },
-    { name: 'Jul', revenue: 3490 },
-    { name: 'Aug', revenue: 5200 },
-  ];
+  // Fetch Affiliates on mount
+  useEffect(() => {
+    fetchAffiliates();
+  }, []);
 
-  // Mock Batches for Assignment
-  const batches = {
-    101: [{ id: 'B1', name: 'Sept 2024 - Weekend', startDate: '01 Sep 2024', price: 15000 }, { id: 'B2', name: 'Oct 2024 - Weekday', startDate: '01 Oct 2024', price: 12000 }],
-    102: [{ id: 'B3', name: 'Nov 2024 - Fast Track', startDate: '15 Nov 2024', price: 20000 }],
-    103: [{ id: 'B4', name: 'Dec 2024 - Evening', startDate: '01 Dec 2024', price: 18000 }]
+  const fetchAffiliates = async () => {
+    try {
+      setLoading(true);
+      const data = await affiliateService.getAllAffiliates();
+      console.log("[Affiliates] Fetched data:", typeof data);
+
+      if (Array.isArray(data)) {
+        setAffiliatesList(data);
+      } else {
+        console.warn("[Affiliates] Received non-array data from API:", data);
+        setAffiliatesList([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch affiliates', error);
+      // fallback to empty list on error
+      setAffiliatesList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Placeholder for real stats (to be connected to a metrics API)
+  const stats = {
+    totalRevenue: 0,
+    commissionsPaid: 0,
+    activeAffiliates: (affiliatesList || []).length,
+    pendingAffiliates: (Array.isArray(affiliatesList) ? affiliatesList : []).filter(a => a?.status === 'PENDING').length
   };
 
   return (
@@ -53,8 +65,8 @@ const Affiliates = () => {
         <div className="marketing-actions">
           <button className={`btn-tab ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
           <button className={`btn-tab ${activeTab === 'affiliates' ? 'active' : ''}`} onClick={() => setActiveTab('affiliates')}>Affiliates</button>
-          <button className={`btn-tab ${activeTab === 'referrals' ? 'active' : ''}`} onClick={() => setActiveTab('referrals')}>Referrals</button>
-          <button className={`btn-tab ${activeTab === 'payouts' ? 'active' : ''}`} onClick={() => setActiveTab('payouts')}>Payouts</button>
+          <button className={`btn-tab ${activeTab === 'referrals' ? 'active' : ''}`} onClick={() => setActiveTab('referrals')}>Leads Tracker</button>
+          <button className={`btn-tab ${activeTab === 'payouts' ? 'active' : ''}`} onClick={() => setActiveTab('payouts')}>P/L & Sales</button>
           <button className={`btn-tab ${activeTab === 'commission' ? 'active' : ''}`} onClick={() => setActiveTab('commission')}>Rules</button>
           <button className={`btn-tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Settings</button>
         </div>
@@ -67,57 +79,47 @@ const Affiliates = () => {
             <div className="summary-card highlight">
               <div>
                 <div className="summary-label">Total Revenue Generated</div>
-                <div className="summary-value">$45,200.00</div>
+                <div className="summary-value">₹ {stats.totalRevenue.toLocaleString()}</div>
               </div>
-              <div className="chart-placeholder" style={{ height: 100, width: '100%', marginTop: 20 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data}>
-                    <defs>
-                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fillOpacity={1} fill="url(#colorRev)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="text-white text-opacity-50 small mt-4">
+                <FiBarChart2 className="me-1" /> Metrics will update as links are shared
               </div>
             </div>
             <div className="summary-card">
               <div className="d-flex justify-content-between">
                 <div>
                   <div className="summary-label">Commissions Paid</div>
-                  <div className="summary-value">$8,450.00</div>
+                  <div className="summary-value">₹ {stats.commissionsPaid.toLocaleString()}</div>
                 </div>
                 <div className="p-2 rounded-circle bg-green-subtle text-green">
                   <FiDollarSign size={24} color="#16a34a" />
                 </div>
               </div>
               <div style={{ marginTop: 'auto', fontSize: 13, color: '#16a34a' }}>
-                <FiBarChart2 style={{ marginRight: 4 }} /> +15% vs last month
+                <FiBarChart2 className="me-1" /> Accurate to current payouts
               </div>
             </div>
             <div className="summary-card">
               <div className="d-flex justify-content-between">
                 <div>
                   <div className="summary-label">Active Affiliates</div>
-                  <div className="summary-value">124</div>
+                  <div className="summary-value">{stats.activeAffiliates}</div>
                 </div>
                 <div className="p-2 rounded-circle bg-blue-subtle text-blue">
                   <FiUsers size={24} color="#3b82f6" />
                 </div>
               </div>
               <div style={{ marginTop: 'auto', fontSize: 13, color: '#64748b' }}>
-                <span className="badge bg-warning-subtle text-warning">12 Pending</span>
+                <span className="badge bg-warning-subtle text-warning">{stats.pendingAffiliates} Pending</span>
               </div>
             </div>
           </div>
 
-          <div className="table-responsive bg-white rounded shadow-sm border p-0">
+          <div className="table-responsive bg-white rounded shadow-sm border p-0 overflow-auto" style={{ maxWidth: '100%' }}>
             <div className="table-header border-bottom px-4 py-3">
               <h5 className="mb-0 fw-bold text-dark">Top Performing Affiliates</h5>
             </div>
-            <table className="table table-hover align-middle mb-0">
+            <table className="table table-hover align-middle mb-0 min-w-800">
               <thead className="table-light">
                 <tr>
                   <th className="ps-4">Affiliate Name</th>
@@ -129,28 +131,38 @@ const Affiliates = () => {
                 </tr>
               </thead>
               <tbody>
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <tr key={i}>
-                    <td className="ps-4">
-                      <div className="d-flex align-items-center gap-2">
-                        <div className="bg-light text-secondary border rounded-circle d-flex align-items-center justify-content-center fw-bold small" style={{ width: 32, height: 32, fontSize: '0.75rem' }}>
-                          {['JD', 'AS', 'MR', 'TK', 'PL'][i - 1]}
-                        </div>
-                        <div>
-                          <div className="fw-bold text-dark text-sm">
-                            {['John Doe', 'Anna Smith', 'Mike Ross', 'Tom King', 'Penny Lane'][i - 1]}
+                {(Array.isArray(affiliatesList) && affiliatesList.length > 0) ? (
+                  (Array.isArray(affiliatesList) ? affiliatesList : []).slice(0, 5).map((aff) => (
+                    <tr key={aff.id}>
+                      <td className="ps-4">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold text-uppercase" style={{ width: 32, height: 32, fontSize: '0.75rem' }}>
+                            {aff.name.charAt(0)}
                           </div>
-                          <div className="text-muted text-xs">ID: #{2000 + i}</div>
+                          <div>
+                            <div className="fw-bold text-dark text-sm">{aff.name}</div>
+                            <div className="text-muted text-xs">{aff.systemCode || 'ID: ' + aff.id}</div>
+                          </div>
                         </div>
-                      </div>
+                      </td>
+                      <td>{aff.affiliateType || 'Individual'}</td>
+                      <td className="fw-bold text-dark">0</td>
+                      <td className="text-secondary">₹ 0</td>
+                      <td className="fw-bold text-success">₹ 0</td>
+                      <td className="pe-4">
+                        <span className="badge bg-success bg-opacity-10 text-success">
+                          {aff.status || 'ACTIVE'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="text-center py-5 text-muted">
+                      No data available
                     </td>
-                    <td><span className="badge bg-light text-secondary border fw-normal">{i % 3 === 0 ? 'Group' : 'Individual'}</span></td>
-                    <td className="fw-bold text-dark">{120 + i * 15}</td>
-                    <td className="text-secondary">${(5000 + i * 850).toLocaleString()}</td>
-                    <td className="fw-bold text-success">${(750 + i * 125).toLocaleString()}</td>
-                    <td className="pe-4"><span className="badge bg-success bg-opacity-10 text-success">Active</span></td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -188,8 +200,16 @@ const Affiliates = () => {
                 </tr>
               </thead>
               <tbody>
-                {affiliatesList
-                  .filter(a => a.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="text-center py-4">Loading affiliates...</td>
+                  </tr>
+                ) : affiliatesList.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="text-center py-4 text-muted">No affiliates found. Create your first one!</td>
+                  </tr>
+                ) : (Array.isArray(affiliatesList) ? affiliatesList : [])
+                  .filter(a => a?.name?.toLowerCase().includes(searchTerm.toLowerCase()))
                   .map(aff => (
                     <tr key={aff.id} onClick={() => setSelectedAffiliate(aff)} style={{ cursor: 'pointer' }}>
                       <td className="ps-4">
@@ -203,23 +223,32 @@ const Affiliates = () => {
                           </div>
                         </div>
                       </td>
-                      <td><span className="badge bg-light text-dark border fw-normal">{aff.type}</span></td>
-
-
-                      <td className="fw-bold">{aff.referrals}</td>
                       <td>
-                        {aff.riskLevel === 'High' && <span className="badge bg-danger bg-opacity-10 text-danger border-0"><FiAlertTriangle className="me-1" /> High</span>}
-                        {aff.riskLevel === 'Medium' && <span className="badge bg-warning bg-opacity-10 text-warning border-0"><FiAlertTriangle className="me-1" /> Medium</span>}
-                        {aff.riskLevel === 'Low' && <span className="badge bg-success bg-opacity-10 text-success border-0">Low</span>}
+                        <span className="badge bg-light text-dark border fw-normal">Individual</span>
+                      </td>
+
+                      <td className="fw-bold">0</td>
+                      <td>
+                        <span className="badge bg-success bg-opacity-10 text-success border-0">Low</span>
                       </td>
                       <td>
-                        <span className={`badge ${aff.status === 'ACTIVE' ? 'bg-success bg-opacity-10 text-success' : 'bg-secondary bg-opacity-10 text-secondary'}`}>
-                          {aff.status}
+                        <span className="badge bg-success bg-opacity-10 text-success">
+                          ACTIVE
                         </span>
                       </td>
                       <td className="text-end pe-4">
                         <button
-                          className="btn btn-sm btn-outline-primary"
+                          className="btn btn-sm btn-outline-primary me-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedAffiliate(aff);
+                            setShowAssignmentModal(true);
+                          }}
+                        >
+                          <FiLink className="me-1" /> Link
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
                           onClick={(e) => { e.stopPropagation(); setSelectedAffiliate(aff); }}
                         >
                           View Details
@@ -233,52 +262,17 @@ const Affiliates = () => {
         </div>
       )}
 
-      {/* REFERRALS TAB */}
+      {/* REFERRALS TAB (Leads Tracker) */}
       {activeTab === 'referrals' && (
-        <div className="table-responsive bg-white rounded shadow-sm border">
-          <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
-            <h5 className="mb-0">Referral Records</h5>
-            <div className="d-flex gap-2">
-              <button className="btn btn-outline-secondary btn-sm"><FiFilter /> Filter</button>
-              <button className="btn btn-outline-secondary btn-sm"><FiDownload /> Export</button>
-            </div>
-          </div>
-          {/* Mock Referral Table */}
-          <div className="p-5 text-center text-muted">
-            <FiUsers size={40} className="mb-2 opacity-50" />
-            <p>Referral tracking table will appear here.</p>
-          </div>
+        <div className="bg-white rounded shadow-sm border p-3">
+          <LeadManagement />
         </div>
       )}
 
-      {/* PAYOUTS TAB */}
+      {/* PAYOUTS TAB (Sales Management) */}
       {activeTab === 'payouts' && (
-        <div className="table-responsive bg-white rounded shadow-sm border">
-          <div className="table-header border-bottom px-4 py-3">
-            <h5 className="mb-0 fw-bold text-dark">Payout Requests</h5>
-          </div>
-          <table className="table table-hover align-middle mb-0">
-            <thead className="table-light">
-              <tr>
-                <th className="ps-4">Request Date</th>
-                <th>Affiliate</th>
-                <th>Amount</th>
-                <th>Method</th>
-                <th>Status</th>
-                <th className="text-end pe-4">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="ps-4">Oct 24, 2024</td>
-                <td className="fw-bold">John Doe</td>
-                <td className="fw-bold text-dark">$450.00</td>
-                <td><span className="badge bg-light text-dark border fw-normal">Bank Transfer</span></td>
-                <td><span className="badge bg-warning bg-opacity-10 text-warning">Pending</span></td>
-                <td className="text-end pe-4"><button className="btn btn-sm btn-dark">Process</button></td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="bg-white rounded shadow-sm border p-3">
+          <SalesManagement />
         </div>
       )}
 
@@ -289,9 +283,9 @@ const Affiliates = () => {
             <div className="card shadow-sm border-0">
               <div className="card-body">
                 <div className="d-flex justify-content-between align-items-center mb-4">
-                  <h5 className="mb-0">Batch Commission Assignments</h5>
-                  <button className="btn btn-primary btn-sm d-flex align-items-center gap-2" onClick={() => setShowAssignmentModal(true)}>
-                    <FiPlus size={14} /> Assign Batch Rule
+                  <h5 className="mb-0">Link & Commission Rules</h5>
+                  <button className="btn btn-primary d-flex align-items-center gap-2 px-4 shadow-sm" style={{ borderRadius: '10px' }} onClick={() => setShowAssignmentModal(true)}>
+                    <FiLink size={18} /> Generate Tracking Link
                   </button>
                 </div>
                 <p className="text-muted">Define special commission structures for specific batches and affiliates.</p>
@@ -346,33 +340,34 @@ const Affiliates = () => {
 
       {/* CREATE MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl" style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 600, maxHeight: '90vh', overflowY: 'auto' }}>
-            <AffiliateForm
-              onSubmit={(data) => {
-                console.log("Creating:", data);
-                setShowModal(false);
-                alert("Affiliate Created Successfully!");
-              }}
-              onCancel={() => setShowModal(false)}
-            />
+        <div className="fixed inset-0 bg-black bg-opacity-60 d-flex align-items-center justify-content-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1050, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="bg-white rounded-5 shadow-2xl w-full max-w-2xl animate-scale-up-fast overflow-hidden" style={{ width: '95%', maxWidth: 650, maxHeight: '90vh' }}>
+            <div className="p-0 h-100 overflow-auto">
+              <AffiliateForm
+                onSubmit={(data) => {
+                  fetchAffiliates(); // Refresh list after creation
+                  setShowModal(false);
+                }}
+                onCancel={() => setShowModal(false)}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {/* BATCH ASSIGNMENT MODAL (Commission Rules) */}
       {showAssignmentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="bg-white rounded-lg p-0 w-full max-w-2xl" style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto' }}>
-            <AffiliateBatchAssignment
-              affiliates={affiliatesList}
-              batches={batches}
+        <div className="fixed inset-0 bg-black bg-opacity-60 d-flex align-items-center justify-content-center animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1050, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="bg-white rounded-5 shadow-2xl w-full max-w-2xl animate-scale-up-fast overflow-hidden" style={{ width: '95%', maxWidth: 800, maxHeight: '92vh' }}>
+            <AffiliateLinkForm
+              initialAffiliate={selectedAffiliate}
               onSave={(data) => {
-                console.log("Batch Assignment Created:", data);
-                setShowAssignmentModal(false);
-                alert("Batch Assigned with Commission Rule!");
+                console.log("Link Generated:", data);
               }}
-              onCancel={() => setShowAssignmentModal(false)}
+              onCancel={() => {
+                setShowAssignmentModal(false);
+                setSelectedAffiliate(null);
+              }}
             />
           </div>
         </div>

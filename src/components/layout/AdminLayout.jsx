@@ -23,12 +23,12 @@ const AdminLayout = () => {
         );
     }
 
-    // Role check - allow Admin and Instructor roles for now as per existing AppRoutes logic
+    // Role check - allow Admin, Affiliate and other staff roles
     const role = user?.role?.toUpperCase();
-    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'LIBRARIAN', 'MARKETING_MANAGER', 'INSTRUCTOR'];
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'LIBRARIAN', 'MARKETING_MANAGER', 'INSTRUCTOR', 'AFFILIATE', 'DRIVER', 'CONDUCTOR'];
 
     if (!user || !allowedRoles.includes(role)) {
-        console.warn("Restricted Access: Unauthorized attempt to access admin UI.");
+        console.warn("Restricted Access: Unauthorized attempt to access admin UI.", { role });
         return <Navigate to="/login" replace />;
     }
 

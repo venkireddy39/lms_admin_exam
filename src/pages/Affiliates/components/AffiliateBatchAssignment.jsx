@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { FiSave, FiX, FiInfo, FiCheck, FiAlertCircle, FiSearch, FiChevronDown } from 'react-icons/fi';
 
 const AffiliateBatchAssignment = ({
@@ -17,7 +18,8 @@ const AffiliateBatchAssignment = ({
         customCommissionValue: '',
         status: 'ACTIVE',
         internalNotes: '',
-        campaignName: ''
+        campaignName: '',
+        studentDiscountValue: ''
     });
 
     const [selectedBatchDetails, setSelectedBatchDetails] = useState(null);
@@ -110,16 +112,25 @@ const AffiliateBatchAssignment = ({
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    const [generatedLink, setGeneratedLink] = useState(null);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setGeneratedLink(null);
         if (validate()) {
-            const assignmentData = {
-                ...formData,
-                assignedAt: new Date().toISOString(),
-                commissionType: formData.useDefaultCommission ? currentAffiliate?.commissionType : formData.customCommissionType,
-                commissionValue: formData.useDefaultCommission ? currentAffiliate?.commissionValue : formData.customCommissionValue,
-            };
-            onSave(assignmentData);
+            try {
+                const response = await axios.post('/api/admin/affiliate-links', {
+                    affiliateId: formData.affiliateId,
+                    courseId: formData.courseId === 'Derived from Batch' ? selectedBatchDetails?.courseId : formData.courseId,
+                    batchId: formData.batchId,
+                    commissionValue: formData.useDefaultCommission ? null : parseFloat(formData.customCommissionValue),
+                    studentDiscountValue: formData.studentDiscountValue ? parseFloat(formData.studentDiscountValue) : null
+                });
+                setGeneratedLink(response.data.link);
+                if (onSave) onSave(response.data);
+            } catch (error) {
+                alert('Error generating link: ' + (error.response?.data?.message || error.message));
+            }
         }
     };
 
@@ -309,8 +320,24 @@ const AffiliateBatchAssignment = ({
                                         />
                                         {errors.customCommissionValue && <div className="invalid-feedback">{errors.customCommissionValue}</div>}
                                     </div>
-                                </div>
-                            )}
+                                    </div>
+                                )}
+                            </div>
+
+                        <div className="mt-3 p-3 bg-blue-subtle rounded border border-blue">
+                             <div className="d-flex align-items-center justify-content-between mb-2">
+                                <label className="form-label small fw-bold mb-0">Student Discount (%)</label>
+                                <span className="badge bg-primary text-white" style={{ fontSize: '0.65rem' }}>LEAD BENEFIT</span>
+                             </div>
+                             <input
+                                type="number"
+                                name="studentDiscountValue"
+                                className="form-control"
+                                value={formData.studentDiscountValue}
+                                onChange={handleChange}
+                                placeholder="e.g. 10 (Default: 10%)"
+                             />
+                             <div className="form-text small opacity-75">Discount applied when student uses this link.</div>
                         </div>
                     </div>
 
@@ -348,11 +375,36 @@ const AffiliateBatchAssignment = ({
                         </div>
                     </div>
 
+                    {generatedLink && (
+                        <div className="mt-4 p-3 bg-success bg-opacity-10 border border-success border-opacity-25 rounded animate-fade-in">
+                            <label className="form-label small fw-bold text-success mb-2">Referral Link Generated!</label>
+                            <div className="input-group">
+                                <input 
+                                    type="text" 
+                                    className="form-control border-success text-success fw-bold" 
+                                    value={generatedLink} 
+                                    readOnly 
+                                />
+                                <button 
+                                    className="btn btn-success" 
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(generatedLink);
+                                        alert('Link copied to clipboard!');
+                                    }}
+                                >
+                                    Copy Link
+                                </button>
+                            </div>
+                            <div className="form-text text-success small">Share this link with the affiliate to track their leads.</div>
+                        </div>
+                    )}
+
                     <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
                         <button type="button" className="btn btn-light" onClick={onCancel}>Cancel</button>
                         <button type="submit" className="btn btn-primary px-4 fw-bold">
                             <FiSave className="me-2" />
-                            Save Assignment
+                            {generatedLink ? 'Regenerate Link' : 'Save Assignment'}
                         </button>
                     </div>
 

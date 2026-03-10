@@ -45,7 +45,9 @@ const LearnerForm = ({ onSubmit, onCancel, initialValues }) => {
             name: `${formData.firstName} ${formData.lastName}`.trim(),
             // Map mobile to phone if needed by backend, or keep both
             phone: formData.mobile,
-            role: 'Learner' // Maps to Student
+            role: 'Learner', // Maps to Student
+            // Carry forward batchId if pre-filled from a lead
+            batchId: initialValues?.batchId || undefined
         };
         onSubmit(payload);
     };

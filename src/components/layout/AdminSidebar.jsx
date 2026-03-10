@@ -128,7 +128,9 @@ const AdminSidebar = ({ isOpen, toggleSidebar, isMobile }) => {
                         {canSeeUsers && (
                             <MenuGroup title="Affiliates" icon="FiShare2" isOpen={isOpen} expanded={groups.affiliates} onToggle={() => toggleGroup('affiliates')}>
                                 <SidebarItem to="/admin/affiliates" icon="FiUsers" label="All Affiliates" isOpen={isOpen} isSub />
-                                <SidebarItem to="/admin/affiliate/portal" icon="FiLayout" label="Partner Portal" isOpen={isOpen} isSub />
+                                {!(role === 'ADMIN' || role === 'SUPER_ADMIN') && (
+                                    <SidebarItem to="/admin/affiliate/portal" icon="FiLayout" label="Partner Portal" isOpen={isOpen} isSub />
+                                )}
                             </MenuGroup>
                         )}
 

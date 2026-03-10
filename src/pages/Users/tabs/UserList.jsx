@@ -21,7 +21,9 @@ const UserList = ({ users, onDelete, onToggleStatus, onEdit, hideRoleFilter, bat
         (user.email || "").toLowerCase().includes(term) ||
         roleStr.includes(term);
 
-      const matchesRole = roleFilter === "All" || String(user.role) === roleFilter;
+      const matchesRole = roleFilter === "All" ||
+        String(user.role).toLowerCase() === roleFilter.toLowerCase() ||
+        (user.roleName && user.roleName.replace('ROLE_', '').toLowerCase() === roleFilter.toLowerCase());
 
       // Batch Filter
       const userBatchIds = user.batches ? user.batches.map(b => String(b.id)) : [];

@@ -82,6 +82,7 @@ const TopNavbar = () => {
             children: [
                 { label: 'All Affiliates', path: '/admin/affiliates', icon: Users },
                 { label: 'Partner Portal', path: '/admin/affiliate/portal', icon: Layout },
+                { label: 'Wallet Settings', path: '/admin/affiliate/settings', icon: DollarSign },
             ]
         },
         {
@@ -101,8 +102,33 @@ const TopNavbar = () => {
                 { label: 'Audit Logs', path: '/admin/audit-logs', icon: Clipboard },
                 { label: 'Settings', path: '/admin/settings', icon: Settings },
             ]
-        },
+        }
     ];
+
+    const currentRole = user?.role?.toUpperCase();
+
+    const filteredNavItems = navItems.map(item => {
+        // 1. Handle Role-based top-level visibility
+        if (currentRole === 'AFFILIATE' && item.label !== 'Affiliates') {
+            return null; // Affiliates only see the 'Affiliates' section
+        }
+        if (currentRole === 'AFFILIATE' && item.label === 'Affiliates') {
+            return {
+                ...item,
+                children: item.children ? item.children.filter(child => child.label === 'Partner Portal') : []
+            };
+        }
+
+        // 2. Handle child filtering (e.g., hide Partner Portal for Admins)
+        if ((currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN') && item.label === 'Affiliates') {
+            return {
+                ...item,
+                children: item.children ? item.children.filter(child => child.label !== 'Partner Portal') : []
+            };
+        }
+
+        return item;
+    }).filter(Boolean); // Remove null entries
 
     useEffect(() => {
         const handleScroll = () => {
@@ -159,7 +185,7 @@ const TopNavbar = () => {
                 {/* Center: Navigation Links */}
                 <nav className="nav-center d-none d-lg-flex">
                     <ul className="nav-links">
-                        {navItems.map((item, index) => (
+                        {filteredNavItems.map((item, index) => (
                             <li
                                 key={index}
                                 className={`nav-item ${item.children ? 'nav-item-with-children' : ''}`}

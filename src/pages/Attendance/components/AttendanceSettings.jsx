@@ -20,98 +20,11 @@ import { EXIT_ACTIONS, QR_MODES } from '../utils/attendanceRules';
 const clamp = (val, min, max) =>
     Math.min(Math.max(Number(val), min), max);
 
-/* ---------------- SUB-COMPONENTS ---------------- */
-
-const SectionCard = ({ title, icon: Icon, children, description }) => (
-    <div className="col-md-6 col-xl-4 d-flex">
-        <div className="card shadow-sm border-0 w-100 overflow-hidden">
-            <div className="card-header bg-white py-3 border-bottom-0">
-                <div className="d-flex align-items-center gap-2 mb-1">
-                    <div className="p-2 bg-primary bg-opacity-10 rounded-circle text-primary">
-                        <Icon size={18} />
-                    </div>
-                    <h6 className="mb-0 fw-bold text-dark">{title}</h6>
-                </div>
-                {description && <div className="text-muted small ps-1">{description}</div>}
-            </div>
-            <div className="card-body pt-0">
-                <div className="d-flex flex-column gap-3">
-                    {children}
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
-const ToggleInput = ({ label, value, onToggle, helpText }) => (
-    <div className="form-check form-switch d-flex justify-content-between ps-0 align-items-center mb-1">
-        <label className="form-check-label fw-medium text-dark small mb-0 flex-grow-1 cursor-pointer" htmlFor={`toggle-${label.replace(/\s+/g, '-')}`}>
-            {label}
-            {helpText && <div className="text-muted fw-normal" style={{ fontSize: '0.75rem' }}>{helpText}</div>}
-        </label>
-        <input
-            id={`toggle-${label.replace(/\s+/g, '-')}`}
-            className="form-check-input ms-3 cursor-pointer"
-            type="checkbox"
-            checked={value}
-            onChange={onToggle}
-            style={{ width: '2.5rem', height: '1.25rem' }}
-        />
-    </div>
-);
-
-const NumberInput = ({ label, value, onChange, min, max, suffix }) => (
-    <div className="mb-1">
-        <label className="form-label small fw-medium text-secondary mb-1">{label}</label>
-        <div className="input-group input-group-sm">
-            <input
-                type="number"
-                className="form-control"
-                value={value}
-                min={min}
-                max={max}
-                onChange={e => onChange(e.target.value)}
-            />
-            {suffix && <span className="input-group-text bg-light">{suffix}</span>}
-        </div>
-    </div>
-);
-
-const RangeInput = ({ label, value, onChange, min = 0, max = 100 }) => (
-    <div className="mb-1">
-        <div className="d-flex justify-content-between align-items-center mb-1">
-            <label className="form-label small fw-medium text-secondary mb-0">{label}</label>
-            <span className={`badge ${value > 80 ? 'bg-success' : value > 50 ? 'bg-warning' : 'bg-danger'}`}>
-                {value}%
-            </span>
-        </div>
-        <input
-            type="range"
-            className="form-range"
-            min={min}
-            max={max}
-            value={value}
-            onChange={e => onChange(e.target.value)}
-        />
-    </div>
-);
-
-const SelectInput = ({ label, value, options, onChange }) => (
-    <div className="mb-1">
-        <label className="form-label small fw-medium text-secondary mb-1">{label}</label>
-        <select
-            className="form-select form-select-sm"
-            value={value}
-            onChange={e => onChange(e.target.value)}
-        >
-            {options.map(o => (
-                <option key={o} value={o}>
-                    {o.replace(/_/g, ' ')}
-                </option>
-            ))}
-        </select>
-    </div>
-);
+import SectionCard from './SectionCard';
+import ToggleInput from './ToggleInput';
+import NumberInput from './NumberInput';
+import RangeInput from './RangeInput';
+import SelectInput from './SelectInput';
 
 /* ---------------- MAIN COMPONENT ---------------- */
 

@@ -1,1 +1,62 @@
-/* All styles converted to Bootstrap classes - file kept for consistency */
+/* Premium Global Utilities & Animations */
+:root {
+  --ring-color: rgba(59, 130, 246, 0.2);
+}
+
+.transition-all { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.hover-shadow-lg:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+.shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+
+.rounded-4 { border-radius: 1rem !important; }
+.rounded-5 { border-radius: 2rem !important; }
+
+.ls-1 { letter-spacing: 0.05em; }
+.ls-2 { letter-spacing: 0.1em; }
+.ls-n1 { letter-spacing: -0.05em; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleUpFast {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bounceSubtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+.animate-scale-up-fast { animation: scaleUpFast 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.animate-bounce-subtle { animation: bounceSubtle 2s infinite ease-in-out; }
+.animate-pulse { animation: pulse 1.5s infinite ease-in-out; }
+
+/* Accordion Premium Overrides */
+.accordion-button:not(.collapsed) {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+  color: #2563eb !important;
+}
+.accordion-button::after {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+}
+
+.hover-bg-primary-subtle:hover { background-color: rgba(59, 130, 246, 0.08) !important; }
+.hover-border-primary:hover { border-color: #2563eb !important; }
+.cursor-pointer { cursor: pointer !important; }
+.text-xs { font-size: 0.75rem !important; }
+
+/* Scrollbar Styling */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }

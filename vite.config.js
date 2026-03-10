@@ -32,176 +32,153 @@ export default defineConfig({
 
     proxy: {
 
-      // AUTH + ADMIN SERVICE (8081)
-      "/admin": {
-        target: "http://192.168.1.24:8081",
-        changeOrigin: true,
-        secure: false
+      /* ---------------- AFFILIATE SERVICE (2003) ---------------- */
+
+      "/api/admin/affiliates": {
+        target: "http://localhost:2003",
+        changeOrigin: true
       },
+      "/api/admin/affiliate-links": {
+        target: "http://localhost:2003",
+        changeOrigin: true
+      },
+      "/api/admin/leads": {
+        target: "http://localhost:2003",
+        changeOrigin: true
+      },
+      "/api/admin/sales": {
+        target: "http://localhost:2003",
+        changeOrigin: true
+      },
+      "/api/affiliates": {
+        target: "http://localhost:2003",
+        changeOrigin: true
+      },
+
+      /* ---------------- FEE MANAGEMENT (3130) ---------------- */
+
+      "/api/fee-management": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/fee-types": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/fee-structures": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/fee-allocations": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/payments": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/student/payment": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/admin/installment": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/admin/early-payment": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/admin/settings": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+      "/api/v1/fee-management": {
+        target: "http://127.0.0.1:3130",
+        changeOrigin: true
+      },
+
+      /* ---------------- LIBRARY SERVICE (9191) ---------------- */
+
+      "/api/v1/library": {
+        target: "http://127.0.0.1:9191",
+        changeOrigin: true
+      },
+
+      /* ---------------- AUTH SERVICE (8081) ---------------- */
 
       "/auth": {
-        target: "http://192.168.1.24:8081",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.22:8081",
+        changeOrigin: true
       },
-
       "/api-identity": {
-        target: "http://192.168.1.24:8081",
+        target: "http://192.168.1.22:8081",
         changeOrigin: true,
-        secure: false,
         rewrite: (path) => path.replace(/^\/api-identity/, "")
       },
 
+      /* ---------------- MANAGEMENT SERVICE (5151) ---------------- */
 
-      // FEE MANAGEMENT SERVICE (LOCAL 3130)
-      "/api/fee-management": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/fee-types": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/fee-structures": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/fee-allocations": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/fee": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/student/payment": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/admin/installment": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/admin/early-payment": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/admin/settings": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/payments": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-      "/api/v1": {
-        target: "http://127.0.0.1:3130",
-        changeOrigin: true,
-        secure: false
-      },
-
-
-      // MANAGEMENT SERVICE (5151 → 192.168.1.63)
       "/api/attendance": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/courses": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/batches": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/student-batches": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/sessions": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/student-batch-transfers": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/certificates": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/exams": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/topics": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/api/topic-contents": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
 
-
-      // STATIC FILES
       "/uploads": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
-
       "/images": {
-        target: "http://192.168.1.63:5151",
-        changeOrigin: true,
-        secure: false
+        target: "http://192.168.1.27:5151",
+        changeOrigin: true
       },
 
+      /* ---------------- ADMIN CATCH ALL (LAST) ---------------- */
 
-      // LIBRARY SERVICE (9191)
-      "/api/v1/library": {
-        target: "http://127.0.0.1:9191",
+      "/admin": {
+        target: "http://192.168.1.22:8081",
         changeOrigin: true,
-        secure: false
+        bypass: (req, res, proxyOptions) => {
+          if (req.headers.accept.indexOf("html") !== -1) {
+            return "/index.html";
+          }
+        }
       }
 
     }

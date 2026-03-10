@@ -1,6 +1,6 @@
 import { apiFetch } from "./api";
 
-const BASE = "/library";
+const BASE = "/api/v1/library";
 
 export const libraryService = {
     books: {

@@ -161,7 +161,7 @@ export const useCourses = () => {
             ? parseInt(formData.validityInDays)
             : null;
 
-        // Build payload — names exactly match the Course entity setters
+        // Build clean payload — precisely matching the external API fields (8 total)
         const payload = {
             courseName: (formData.courseName || '').trim() || 'Untitled Course',
             description: formData.description || '',
@@ -169,12 +169,8 @@ export const useCourses = () => {
             toolsCovered: formData.toolsCovered || '',
             courseFee: fee,
             certificateProvided: formData.certificateProvided === true,
-            status: formData.status || 'ACTIVE',
             showValidity: formData.showValidity === true,
             validityInDays: validity,
-            allowOfflineMobile: formData.allowOfflineMobile === true,
-            allowBookmark: formData.allowBookmark === true,
-            shareEnabled: formData.shareEnabled !== false,
         };
 
         // If editing with no new file, preserve existing image URL

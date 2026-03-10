@@ -41,17 +41,23 @@ export const userService = {
             'Student': '/students',
             'Instructor': '/instructors',
             'Parent': '/parents',
+            'Affiliate': '/affiliates',
             'Driver': '/drivers',
             'Conductor': '/conductors'
         };
 
         const endpoint = roleEndpointMap[userData.role] || '/students';
+        
+        // Map UI role to backend ROLE_ constant
+        const roleName = `ROLE_${(userData.role || 'Student').toUpperCase()}`;
+
         const body = {
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
             password: userData.password,
             phone: userData.mobile || userData.phone,
+            roleName: roleName, // Fixes the "roleName cannot be null" Hibernate error
             ...(userData.role === 'Student' && {
                 dob: userData.dob,
                 gender: userData.gender,

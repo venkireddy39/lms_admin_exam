@@ -1,7 +1,7 @@
 import axios from "axios";
 import { AUTH_TOKEN_KEY } from "./auth.constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+const API_BASE = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE || "");
 
 const api = axios.create({
     baseURL: API_BASE,
@@ -14,10 +14,9 @@ const api = axios.create({
 // Request Interceptor
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem(AUTH_TOKEN_KEY);
+        const token = localStorage.getItem(AUTH_TOKEN_KEY) || import.meta.env.VITE_DEV_AUTH_TOKEN;
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log(`[api] Request: ${config.method?.toUpperCase()} ${config.url}`);
         }
 
         const savedUser = localStorage.getItem('auth_user');
