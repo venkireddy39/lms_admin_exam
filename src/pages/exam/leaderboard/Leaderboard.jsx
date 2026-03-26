@@ -17,7 +17,7 @@ const Leaderboard = () => {
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      const data = await ExamService.getLeaderboard(scope);
+      const data = await examService.getLeaderboard(scope);
       // Map name/studentName if needed (the mock uses studentName, original used name)
       const formattedData = (data || []).map(l => ({
         ...l,

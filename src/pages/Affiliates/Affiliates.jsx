@@ -30,29 +30,20 @@ const Affiliates = () => {
     try {
       setLoading(true);
       const data = await affiliateService.getAllAffiliates();
-      console.log("[Affiliates] Fetched data:", typeof data);
-
-      if (Array.isArray(data)) {
-        setAffiliatesList(data);
-      } else {
-        console.warn("[Affiliates] Received non-array data from API:", data);
-        setAffiliatesList([]);
-      }
+      setAffiliatesList(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Failed to fetch affiliates', error);
-      // fallback to empty list on error
       setAffiliatesList([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Placeholder for real stats (to be connected to a metrics API)
+  // TODO: connect totalRevenue and commissionsPaid to /api/admin/wallets metrics endpoint
   const stats = {
     totalRevenue: 0,
     commissionsPaid: 0,
-    activeAffiliates: (affiliatesList || []).length,
-    pendingAffiliates: (Array.isArray(affiliatesList) ? affiliatesList : []).filter(a => a?.status === 'PENDING').length
+    activeAffiliates: affiliatesList.filter(a => a?.status === 'ACTIVE').length,
+    pendingAffiliates: affiliatesList.filter(a => a?.status === 'PENDING_APPROVAL').length
   };
 
   return (
@@ -361,8 +352,8 @@ const Affiliates = () => {
           <div className="bg-white rounded-5 shadow-2xl w-full max-w-2xl animate-scale-up-fast overflow-hidden" style={{ width: '95%', maxWidth: 800, maxHeight: '92vh' }}>
             <AffiliateLinkForm
               initialAffiliate={selectedAffiliate}
-              onSave={(data) => {
-                console.log("Link Generated:", data);
+              onSave={() => {
+                setShowAssignmentModal(false);
               }}
               onCancel={() => {
                 setShowAssignmentModal(false);

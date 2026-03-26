@@ -11,37 +11,37 @@ export const attendanceService = {
     startSession: async (sessionId, courseId, batchId, userId) => {
         const params = new URLSearchParams({ sessionId, courseId, batchId, userId });
         const response = await api.post(`${BASE_SESSION_URL}/start?${params}`);
-        return response.data;
+        return response;
     },
 
     endSession: async (attendanceSessionId) => {
         const response = await api.put(`${BASE_SESSION_URL}/${attendanceSessionId}/end`);
-        return response.data;
+        return response;
     },
 
     getSessionById: async (attendanceSessionId) => {
         const response = await api.get(`${BASE_SESSION_URL}/${attendanceSessionId}`);
-        return response.data;
+        return response;
     },
 
     getActiveSession: async (sessionId) => {
         const response = await api.get(`${BASE_SESSION_URL}/active/${sessionId}`);
-        return response.data;
+        return response;
     },
 
     getActiveAndEndedSessions: async (sessionId) => {
         const response = await api.get(`${BASE_SESSION_URL}/session/${sessionId}/all`);
-        return response.data;
+        return response;
     },
 
     getSessionsByDate: async (date) => {
         const response = await api.get(`${BASE_SESSION_URL}/date/${date}`);
-        return response.data;
+        return response;
     },
 
     deleteSession: async (attendanceSessionId) => {
         const response = await api.delete(`${BASE_SESSION_URL}/${attendanceSessionId}`);
-        return response.data;
+        return response;
     },
 
     // ===============================
@@ -49,54 +49,54 @@ export const attendanceService = {
     // ===============================
     markAttendance: async (recordData) => {
         const response = await api.post(BASE_RECORD_URL, recordData);
-        return response.data;
+        return response;
     },
 
     markAttendanceBulk: async (recordsData) => {
         const response = await api.post(`${BASE_RECORD_URL}/bulk`, recordsData);
-        return response.data;
+        return response;
     },
 
     updateAttendanceRecord: async (attendanceRecordId, recordData) => {
         const response = await api.put(`${BASE_RECORD_URL}/${attendanceRecordId}`, recordData);
-        return response.data;
+        return response;
     },
 
     getRecordsBySession: async (attendanceSessionId) => {
         const response = await api.get(`${BASE_RECORD_URL}/session/${attendanceSessionId}`);
-        return response.data;
+        return response;
     },
 
     getRecordsByDate: async (date) => {
         const response = await api.get(`${BASE_RECORD_URL}/date/${date}`);
-        return response.data;
+        return response;
     },
 
     getRecordsBySessionAndDate: async (attendanceSessionId, date) => {
         const response = await api.get(`${BASE_RECORD_URL}/session/${attendanceSessionId}/date/${date}`);
-        return response.data;
+        return response;
     },
 
     getStudentRecords: async (studentId) => {
         const response = await api.get(`${BASE_RECORD_URL}/student/${studentId}`);
-        return response.data;
+        return response;
     },
 
     deleteAttendanceRecord: async (attendanceRecordId) => {
         const response = await api.delete(`${BASE_RECORD_URL}/${attendanceRecordId}`);
-        return response.data;
+        return response;
     },
 
     markLeave: async (attendanceSessionId, studentId) => {
         const params = new URLSearchParams({ attendanceSessionId, studentId });
         const response = await api.post(`${BASE_RECORD_URL}/leave?${params}`);
-        return response.data;
+        return response;
     },
 
     getDashboardStatus: async (courseId, batchId) => {
         const params = new URLSearchParams({ courseId, batchId });
         const response = await api.get(`${BASE_RECORD_URL}/dashboard?${params}`);
-        return response.data;
+        return response;
     },
 
     // ===============================
@@ -104,17 +104,17 @@ export const attendanceService = {
     // ===============================
     createConfig: async (configData) => {
         const response = await api.post(BASE_CONFIG_URL, configData);
-        return response.data;
+        return response;
     },
 
     getConfig: async (courseId, batchId) => {
         const params = new URLSearchParams({ courseId, batchId });
         const response = await api.get(`${BASE_CONFIG_URL}?${params}`);
-        return response.data;
+        return response;
     },
 
     updateConfig: async (configId, configData) => {
         const response = await api.put(`${BASE_CONFIG_URL}/${configId}`, configData);
-        return response.data;
+        return response;
     }
 };

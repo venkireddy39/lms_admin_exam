@@ -813,6 +813,18 @@ export const examService = {
         return await apiFetch(`/api/exam-attempts/${attemptId}/responses/coding-responses`);
     },
 
+    evaluateResponse: async (attemptId, responseId, marks) => {
+        // Step 11: Manual Evaluation
+        // POST /api/exam-attempts/{attemptId}/responses/{responseId}/evaluate?marks=X
+        return await api.post(`/api/exam-attempts/${attemptId}/responses/${responseId}/evaluate?marks=${marks}`);
+    },
+
+    getDetailedResult: async (examId, attemptId) => {
+        // Step 12: View Final Result
+        // GET /api/exams/{examId}/attempts/{attemptId}/result
+        return await apiFetch(`/api/exams/${examId}/attempts/${attemptId}/result`);
+    },
+
     // --- Coding Execution (Real Backend) ---
     // Matches CodingExecutionController
     runCodingSubmission: async (responseId) => {

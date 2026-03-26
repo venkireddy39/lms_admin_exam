@@ -20,16 +20,33 @@ api.interceptors.request.use(
         }
 
         const savedUser = localStorage.getItem('auth_user');
+        let tenant = null;
+
         if (savedUser) {
             try {
                 const parsed = JSON.parse(savedUser);
-                const tenant = parsed.tenant || parsed.tenantDb;
-                if (tenant) {
-                    config.headers["X-Tenant-DB"] = tenant;
-                }
-            } catch (e) {
-                // Ignore parse errors
-            }
+                tenant = parsed.tenant || parsed.tenantDb;
+            } catch (e) { }
+        }
+
+        // Fallback: If tenant still missing, decode the token manually
+        if (!tenant && token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const decoded = JSON.parse(atob(base64));
+                const extracted = decoded.tenantDb || decoded.tenant || (decoded.sub && decoded.sub.split('@')[1]?.split('.')[0]);
+                
+                // If extracted is 'gmail', it's likely a generic admin login, use default
+                tenant = (extracted === 'gmail') ? (import.meta.env.VITE_DEFAULT_TENANT || 'classx360') : extracted;
+            } catch (e) { }
+        }
+
+        // Final safety fallback
+        if (!tenant) tenant = import.meta.env.VITE_DEFAULT_TENANT || 'classx360';
+
+        if (tenant) {
+            config.headers["X-Tenant-DB"] = tenant;
         }
 
         // --- CRITICAL FIX FOR MULTIPART FORM DATA ---
@@ -44,29 +61,43 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+import { toast } from "react-toastify";
+
 // Response Interceptor
 api.interceptors.response.use(
     (response) => response.data,
     (error) => {
         const { response } = error;
+        let errorMsg = "An error occurred";
+
         if (response) {
             if (response.status === 401) {
-                console.warn("API 401: Session expired.");
-            }
-
-            let errorMsg = "An error occurred";
-            if (response.data) {
-                // Handle different error structures from backend
+                console.warn("API 401: Session expired or invalid token.");
+                errorMsg = "Unauthorized: Please log in again.";
+            } else if (response.data) {
                 if (typeof response.data === 'string') {
                     errorMsg = response.data;
                 } else {
                     errorMsg = response.data.message || response.data.error || JSON.stringify(response.data);
                 }
             }
-
-            return Promise.reject(new Error(errorMsg));
+        } else {
+            errorMsg = error.message || "Network Error: Backend might be unreachable.";
         }
-        return Promise.reject(error);
+
+        // Only show toast if it's not a background fetch or if we specifically want it
+        if (!error.config?.hideToast) {
+            toast.error(errorMsg);
+        }
+
+        console.error("API Error Trace:", {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: response?.status,
+            message: errorMsg
+        });
+
+        return Promise.reject(new Error(errorMsg));
     }
 );
 

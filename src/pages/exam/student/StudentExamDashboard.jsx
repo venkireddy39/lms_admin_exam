@@ -85,7 +85,7 @@ const StudentExamDashboard = () => {
                                             <p className="text-muted mb-4">{exam.course}</p>
                                             <button
                                                 className="btn btn-primary rounded-pill px-5 py-2 fw-bold premium-btn shadow-sm"
-                                                onClick={() => navigate(`/exams/student/attempt/${exam.id}`)}
+                                                onClick={() => navigate(`/admin/exams/student/attempt/${exam.id}`)}
                                             >
                                                 Start Assessment <ChevronRight size={18} className="ms-1" />
                                             </button>

@@ -1,12 +1,11 @@
-import axios from 'axios';
+import api from '../../../services/api';
 
 const BASE_URL = '/api/exam-responses';
 
 export const codingExecutionService = {
     runCodeSubmission: async (responseId) => {
         try {
-            const response = await axios.post(`${BASE_URL}/${responseId}/run`);
-            return response.data;
+            return await api.post(`${BASE_URL}/${responseId}/run`);
         } catch (error) {
             console.error(`Error running code submission for response ID ${responseId}:`, error);
             throw error;
@@ -15,8 +14,7 @@ export const codingExecutionService = {
 
     getExecutionResults: async (responseId) => {
         try {
-            const response = await axios.get(`${BASE_URL}/${responseId}/execution-results`);
-            return response.data;
+            return await api.get(`${BASE_URL}/${responseId}/execution-results`);
         } catch (error) {
             console.error(`Error fetching execution results for response ID ${responseId}:`, error);
             throw error;

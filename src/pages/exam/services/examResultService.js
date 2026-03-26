@@ -1,12 +1,11 @@
-import axios from 'axios';
+import api from '../../../services/api';
 
 const BASE_URL = '/api/exam-results';
 
 export const examResultService = {
     createResult: async (resultData) => {
         try {
-            const response = await axios.post(BASE_URL, resultData);
-            return response.data;
+            return await api.post(BASE_URL, resultData);
         } catch (error) {
             console.error('Error creating exam result:', error);
             throw error;
@@ -15,8 +14,7 @@ export const examResultService = {
 
     getResultById: async (id) => {
         try {
-            const response = await axios.get(`${BASE_URL}/${id}`);
-            return response.data;
+            return await api.get(`${BASE_URL}/${id}`);
         } catch (error) {
             console.error(`Error fetching exam result with ID ${id}:`, error);
             throw error;
@@ -25,8 +23,7 @@ export const examResultService = {
 
     getResultsByExamId: async (examId) => {
         try {
-            const response = await axios.get(`${BASE_URL}/exam/${examId}`);
-            return response.data;
+            return await api.get(`${BASE_URL}/exam/${examId}`);
         } catch (error) {
             console.error(`Error fetching results for exam ID ${examId}:`, error);
             throw error;
@@ -35,8 +32,7 @@ export const examResultService = {
 
     getResultsByStudentId: async (studentId) => {
         try {
-            const response = await axios.get(`${BASE_URL}/student/${studentId}`);
-            return response.data;
+            return await api.get(`${BASE_URL}/student/${studentId}`);
         } catch (error) {
             console.error(`Error fetching results for student ID ${studentId}:`, error);
             throw error;
@@ -45,8 +41,7 @@ export const examResultService = {
 
     updateResult: async (id, resultData) => {
         try {
-            const response = await axios.put(`${BASE_URL}/${id}`, resultData);
-            return response.data;
+            return await api.put(`${BASE_URL}/${id}`, resultData);
         } catch (error) {
             console.error(`Error updating exam result with ID ${id}:`, error);
             throw error;
@@ -55,8 +50,7 @@ export const examResultService = {
 
     deleteResult: async (id) => {
         try {
-            const response = await axios.delete(`${BASE_URL}/${id}`);
-            return response.data;
+            return await api.delete(`${BASE_URL}/${id}`);
         } catch (error) {
             console.error(`Error deleting exam result with ID ${id}:`, error);
             throw error;

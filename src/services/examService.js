@@ -7,8 +7,8 @@ export const examService = {
     // Matches @GetMapping("")
     getAllExams: async () => {
         try {
-            const response = await apiClient.get(BASE_URL);
-            return Array.isArray(response.data) ? response.data : (response.data || []);
+            const data = await api.get(BASE_URL);
+            return Array.isArray(data) ? data : (data || []);
         } catch (error) {
             console.error("Exam fetch error:", error);
             return [];
@@ -17,55 +17,46 @@ export const examService = {
 
     // Matches @GetMapping("/{examId}")
     getExamById: async (id) => {
-        const response = await apiClient.get(`${BASE_URL}/${id}`);
-        return response.data;
+        return await api.get(`${BASE_URL}/${id}`);
     },
 
     // Matches @GetMapping("/course/{courseId}")
     getExamsByCourseId: async (courseId) => {
-        const response = await apiClient.get(`${BASE_URL}/course/${courseId}`);
-        return response.data;
+        return await api.get(`${BASE_URL}/course/${courseId}`);
     },
 
     // Matches @GetMapping("/batch/{batchId}")
     getExamsByBatchId: async (batchId) => {
-        const response = await api.get(`${BASE_URL}/batch/${batchId}`);
-        return response.data;
+        return await api.get(`${BASE_URL}/batch/${batchId}`);
     },
 
     // Matches @PostMapping("")
     createExam: async (examData) => {
-        const response = await api.post(BASE_URL, examData);
-        return response.data;
+        return await api.post(BASE_URL, examData);
     },
 
     // Matches @PutMapping("/{examId}/publish")
     publishExam: async (id) => {
-        const response = await api.put(`${BASE_URL}/${id}/publish`);
-        return response.data;
+        return await api.put(`${BASE_URL}/${id}/publish`);
     },
 
     // Matches @PutMapping("/{examId}/close")
     closeExam: async (id) => {
-        const response = await apiClient.put(`${BASE_URL}/${id}/close`);
-        return response.data;
+        return await api.put(`${BASE_URL}/${id}/close`);
     },
 
     // Matches @DeleteMapping("/{examId}") - SOFT DELETE
     deleteExam: async (id) => {
-        const response = await apiClient.delete(`${BASE_URL}/${id}`);
-        return response.data;
+        return await api.delete(`${BASE_URL}/${id}`);
     },
 
     // Matches @PutMapping("/{examId}/restore")
     restoreExam: async (id) => {
-        const response = await apiClient.put(`${BASE_URL}/${id}/restore`);
-        return response.data;
+        return await api.put(`${BASE_URL}/${id}/restore`);
     },
 
     // Matches @DeleteMapping("/{examId}/hard")
     hardDeleteExam: async (id) => {
-        const response = await apiClient.delete(`${BASE_URL}/${id}/hard`);
-        return response.data;
+        return await api.delete(`${BASE_URL}/${id}/hard`);
     }
 };

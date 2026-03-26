@@ -75,7 +75,7 @@ const QuestionArea = ({
                         executionResults={executionResults}
                         testCases={testCases}
                     />
-                ) : ['short', 'long', 'fill', 'abacus', 'essay'].includes(currentQ.type) ? (
+                ) : ['short', 'long', 'fill', 'abacus', 'essay', 'descriptive'].includes(currentQ.type) ? (
                     <DescriptiveQuestion
                         answer={currentAnswer}
                         onAnswerChange={onAnswerChange}

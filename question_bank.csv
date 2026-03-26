@@ -1,0 +1,6 @@
+question_text,type,difficulty,points,correct_answer,options
+"What is the capital of France?",MCQ,EASY,5,Paris,"Paris, London, Rome, Berlin"
+"How many planets are in the solar system?",MCQ,EASY,5,8,"7, 8, 9, 6"
+"Is the earth round?",TRUE_FALSE,EASY,5,TRUE,"TRUE, FALSE"
+"What is 10 + 10?",MCQ,EASY,5,20,"10, 20, 30, 40"
+"Explain MVC architecture.",DESCRIPTIVE,HARD,10,NULL,NULL

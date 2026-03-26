@@ -47,6 +47,7 @@ const LoginPage = lazy(() => import('../pages/Login/LoginPage'));
 const StudentLayout = lazy(() => import('../components/layout/StudentLayout'));
 const AutomationDashboard = lazy(() => import('../pages/Automation/AutomationDashboard'));
 const StudentFeePage = lazy(() => import('../pages/Student/Fee/StudentFeePage'));
+const StudentDashboardPage = lazy(() => import('../pages/Student/Dashboard/StudentDashboard'));
 const ParentFeePage = lazy(() => import('../pages/Parent/Fee/ParentFeePage'));
 const PayPage = lazy(() => import('../pages/Pay/PayPage'));
 const Apply = lazy(() => import('../pages/Apply/Apply'));
@@ -61,7 +62,7 @@ const RootRedirect = () => {
   const role = user?.role?.toUpperCase();
 
   if (role === 'STUDENT') {
-    return <Navigate to="/student/fee" replace />;
+    return <Navigate to="/student/dashboard" replace />;
   }
   if (role === 'PARENT') {
     return <Navigate to="/parent/dashboard" replace />;
@@ -94,7 +95,10 @@ const AppRoutes = () => {
         {/* ================= STUDENT PORTAL ================= */}
         <Route element={<StudentLayout />}>
           <Route path="/student">
-            <Route index element={<Navigate to="/student/fee" replace />} />
+            <Route index element={<Navigate to="/student/dashboard" replace />} />
+
+            {/* Student Dashboard */}
+            <Route path="dashboard" element={<StudentDashboardPage />} />
 
             {/* New Student Fee View */}
             <Route path="fee" element={<StudentFeePage />} />

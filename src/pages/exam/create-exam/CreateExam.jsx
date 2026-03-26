@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../Library/context/AuthContext";
 import { toast, ToastContainer } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
 import "react-toastify/dist/ReactToastify.css";
@@ -11,6 +12,7 @@ import { Loader2 } from "lucide-react";
 
 const CreateExam = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { id } = useParams();
   const isEditMode = id && id !== "undefined";
 
@@ -158,7 +160,8 @@ const CreateExam = () => {
         examType: examData.type.toUpperCase(),
         totalMarks: examData.totalMarks,
         durationMinutes: examData.duration,
-        passPercentage: 40
+        passPercentage: 40,
+        createdBy: user?.userId || 1
       };
 
       let savedExam;

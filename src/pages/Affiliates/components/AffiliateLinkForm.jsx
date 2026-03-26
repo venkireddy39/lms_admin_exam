@@ -25,6 +25,7 @@ const AffiliateLinkForm = ({ onSave, onCancel, initialAffiliate = null }) => {
     const [submitting, setSubmitting] = useState(false);
     const [generatedLink, setGeneratedLink] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [error, setError] = useState('');
 
     const [affSearch, setAffSearch] = useState(initialAffiliate?.name || '');
     const [isAffOpen, setIsAffOpen] = useState(false);
@@ -76,8 +77,8 @@ const AffiliateLinkForm = ({ onSave, onCancel, initialAffiliate = null }) => {
 
             setAffiliates(mapped);
             setCourses(rawCrs.map(c => ({ id: c.courseId || c.id, name: c.courseName || c.title || c.name || 'Unnamed' })));
-        } catch (e) {
-            console.error('Failed to load form data', e);
+        } catch {
+            setError('Failed to load form data. Please refresh.');
         } finally { setLoading(false); }
     };
 
@@ -86,7 +87,7 @@ const AffiliateLinkForm = ({ onSave, onCancel, initialAffiliate = null }) => {
             const data = await batchService.getBatchesByCourseId(courseId);
             const raw = Array.isArray(data) ? data : (data?.data || data?.batches || []);
             setBatches(raw.map(b => ({ id: b.batchId || b.id, name: b.batchName || b.name || `Batch #${b.batchId || b.id}` })));
-        } catch (e) { console.error('Failed to fetch batches', e); setBatches([]); }
+        } catch { setBatches([]); }
     };
 
     const handleChange = e => {
@@ -111,8 +112,9 @@ const AffiliateLinkForm = ({ onSave, onCancel, initialAffiliate = null }) => {
 
     const handleSubmit = async e => {
         e.preventDefault();
+        setError('');
         if (!formData.affiliateId || !formData.batchId) {
-            alert('Please select both a Partner and a Batch.'); return;
+            setError('Please select both a Partner and a Batch.'); return;
         }
         setSubmitting(true);
         try {
@@ -134,8 +136,7 @@ const AffiliateLinkForm = ({ onSave, onCancel, initialAffiliate = null }) => {
             setGeneratedLink(resp);
             if (onSave) onSave(resp);
         } catch (e) {
-            console.error('Submission failed', e);
-            alert('Error: ' + (e.response?.data?.message || e.message || 'Unknown error'));
+            setError(e.message || 'Failed to generate link. Please try again.');
         } finally { setSubmitting(false); }
     };
 
@@ -195,6 +196,13 @@ const AffiliateLinkForm = ({ onSave, onCancel, initialAffiliate = null }) => {
     /* ─── Main form ─── */
     return (
         <form onSubmit={handleSubmit} className="d-flex flex-column" style={{ maxHeight: '85vh' }}>
+
+            {error && (
+                <div className="alert alert-danger alert-dismissible mx-4 mt-3 mb-0 py-2 small" role="alert">
+                    {error}
+                    <button type="button" className="btn-close" onClick={() => setError('')} />
+                </div>
+            )}
 
             {/* Header */}
             <div className="px-4 py-3 border-bottom d-flex align-items-center justify-content-between flex-shrink-0">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { examService } from "../services/examService";
-import { Eye, Trash2, Database, Search, FileText, Loader2, Play, BookOpen } from "lucide-react";
+import { Eye, Trash2, Database, Search, FileText, Loader2, Play, BookOpen, CheckCircle } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -31,6 +31,21 @@ const QuestionBank = () => {
       toast.error(`Failed to load ${viewMode}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePublish = async (id) => {
+    try {
+      await examService.publishExam(id);
+      toast.success("Exam published successfully!");
+      // Update local state instead of refetching
+      setData(prev => prev.map(item => {
+        const itemId = item.id || item.examId;
+        return String(itemId) === String(id) ? { ...item, status: 'PUBLISHED' } : item;
+      }));
+    } catch (error) {
+      toast.error("Failed to publish exam. Ensure all settings are configured.");
+      console.error(error);
     }
   };
 
@@ -218,9 +233,16 @@ const QuestionBank = () => {
                           <td className="pe-4 text-end">
                             <div className="d-flex justify-content-end gap-2">
                               {viewMode === 'exams' && (
-                                <Link to={`/admin/exams/view-paper/${id}`} className="btn btn-icon btn-light-hover">
-                                  <Play size={18} />
-                                </Link>
+                                <>
+                                  <Link to={`/admin/exams/preview/${id}`} className="btn btn-icon btn-light-hover" title="Preview Exam">
+                                    <Play size={18} />
+                                  </Link>
+                                  {item.status === 'DRAFT' && (
+                                    <button onClick={() => handlePublish(id)} className="btn btn-icon btn-light-hover text-success" title="Publish Exam">
+                                      <CheckCircle size={18} />
+                                    </button>
+                                  )}
+                                </>
                               )}
                               <button onClick={() => handleDelete(id)} className="btn btn-icon btn-danger-hover">
                                 <Trash2 size={18} />

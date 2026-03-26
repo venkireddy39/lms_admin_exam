@@ -60,8 +60,7 @@ const AffiliatePortal = () => {
             setTransactions(Array.isArray(portalTransactions) ? portalTransactions : []);
 
             setLoading(false);
-        } catch (error) {
-            console.error('Error fetching portal data:', error);
+        } catch {
             setLoading(false);
         }
     };
@@ -76,24 +75,24 @@ const AffiliatePortal = () => {
     const [selectedLinkForLead, setSelectedLinkForLead] = useState(null);
     const [leadForm, setLeadForm] = useState({ name: '', email: '', mobile: '' });
     const [submittingLead, setSubmittingLead] = useState(false);
+    const [leadError, setLeadError] = useState('');
+    const [copyMsg, setCopyMsg] = useState('');
 
     const handleLeadSubmit = async (e) => {
         e.preventDefault();
         setSubmittingLead(true);
         try {
             await affiliateService.submitLead({
-                name: leadForm.name,
-                email: leadForm.email,
-                mobile: leadForm.mobile,
+                name: leadForm.name, email: leadForm.email, mobile: leadForm.mobile,
                 courseId: selectedLinkForLead.courseId || null,
                 batchId: selectedLinkForLead.batchId || null,
                 affiliateCode: selectedLinkForLead.code
             });
             setShowLeadModal(false);
             setLeadForm({ name: '', email: '', mobile: '' });
-            fetchPortalData(); // Refresh to show new lead and updated stats
+            fetchPortalData();
         } catch (error) {
-            alert('Failed to submit lead: ' + (error.response?.data?.message || error.message));
+            setLeadError(error.message || 'Failed to submit lead.');
         } finally {
             setSubmittingLead(false);
         }
@@ -148,7 +147,9 @@ const AffiliatePortal = () => {
                     </div>
                     <div className="chart-placeholder bg-white bg-opacity-10 small d-flex justify-content-between align-items-center">
                         <span>Ready for Payout</span>
-                        <button className="btn btn-sm btn-light py-0 px-2 rounded-pill fw-bold text-dark" onClick={() => alert("Payout request sent to admin for approval!")} style={{ fontSize: '11px' }}>
+                        <button className="btn btn-sm btn-light py-0 px-2 rounded-pill fw-bold text-dark"
+                            onClick={() => { setCopyMsg('Payout request sent!'); setTimeout(() => setCopyMsg(''), 3000); }}
+                            style={{ fontSize: '11px' }}>
                             Request Payout
                         </button>
                     </div>
@@ -212,7 +213,8 @@ const AffiliatePortal = () => {
                                                 </button>
                                                 <button className="btn btn-sm btn-light border p-1 px-2 rounded-pill" onClick={() => {
                                                     navigator.clipboard.writeText(`http://localhost:5173/apply?ref=${link.code}`);
-                                                    alert("Referral URL copied!");
+                                                    setCopyMsg('Referral URL copied!');
+                                                    setTimeout(() => setCopyMsg(''), 2000);
                                                 }}>
                                                     <FiCopy className="me-1" /> Copy Link
                                                 </button>

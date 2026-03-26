@@ -302,8 +302,8 @@ const MNCExamView = () => {
             try {
                 const payload = {
                     examQuestionId: currentQ.id,
-                    selectedOptionId: currentQ.type === 'mcq' ? answer : null,
-                    descriptiveAnswer: ['short', 'long', 'fill'].includes(currentQ.type) ? answer : null,
+                    selectedOptionId: (currentQ.type === 'mcq' || currentQ.type === 'quiz') ? answer : null,
+                    descriptiveAnswer: ['descriptive', 'short', 'long', 'fill'].includes(currentQ.type) ? answer : null,
                     codingSubmissionCode: currentQ.type === 'coding' ? answer : null
                 };
 
