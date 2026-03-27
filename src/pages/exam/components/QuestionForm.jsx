@@ -9,13 +9,13 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
     { text: "", image: null }
   ]);
   const [correctOption, setCorrectOption] = useState(initialData?.correctOption !== undefined ? initialData.correctOption : null);
-  const [marks, setMarks] = useState(initialData?.marks || (type === 'coding' ? 10 : 5));
+  const [marks, setMarks] = useState(initialData?.marks || (type === 'coding' ? 10 : 1));
   const [image, setImage] = useState(initialData?.image || null);
   const [referenceAnswer, setReferenceAnswer] = useState(initialData?.referenceAnswer || "");
   const [evaluationGuidelines, setEvaluationGuidelines] = useState(initialData?.evaluationGuidelines || "");
 
   // Coding Specific State
-  const [codeLanguage, setCodeLanguage] = useState(initialData?.language || "javascript");
+  const [codeLanguage, setCodeLanguage] = useState(initialData?.language || "java");
   const [starterCode, setStarterCode] = useState(initialData?.starterCode || "// Write your solution here...");
   const [testCases, setTestCases] = useState(initialData?.testCases || []);
 
@@ -29,11 +29,11 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
         { text: "", image: null }
       ]);
       setCorrectOption(initialData.correctOption !== undefined ? initialData.correctOption : null);
-      setMarks(initialData.marks || (type === 'coding' ? 10 : 5));
+      setMarks(initialData.marks || (type === 'coding' ? 10 : 1));
       setImage(initialData.image || null);
       setReferenceAnswer(initialData.referenceAnswer || "");
       setEvaluationGuidelines(initialData.evaluationGuidelines || "");
-      setCodeLanguage(initialData.language || "javascript");
+      setCodeLanguage(initialData.language || "java");
       setStarterCode(initialData.starterCode || "// Write your solution here...");
       setTestCases(initialData.testCases || []);
     }
@@ -55,10 +55,7 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
 
     let payload = { type, question, image, marks: parseInt(marks) || 0 };
 
-    if (type === "quiz") {
-      if (correctOption === null && options.some(o => o.text.trim() !== "")) {
-        // Validation
-      }
+    if (type === "mcq") {
       payload.options = options.map(opt => ({
         text: opt.text,
         image: opt.image
@@ -68,7 +65,7 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
       payload.language = codeLanguage;
       payload.starterCode = starterCode;
       payload.testCases = testCases;
-    } else if (["short", "long", "abacus"].includes(type)) {
+    } else if (["descriptive", "short", "long"].includes(type)) {
       payload.referenceAnswer = referenceAnswer;
       payload.evaluationGuidelines = evaluationGuidelines;
     }
@@ -81,10 +78,10 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
       { text: "", image: null },
       { text: "", image: null },
       { text: "", image: null },
-      { text: "", image: null }
+      { text: i === 3 ? "" : "", image: null }
     ]);
     setCorrectOption(null);
-    setMarks(type === 'coding' ? 10 : 5);
+    setMarks(type === 'coding' ? 10 : 1);
     setImage(null);
     setReferenceAnswer("");
     setEvaluationGuidelines("");
@@ -97,18 +94,14 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
       {/* Header with Type and Marks */}
       <div className="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
         <div className="d-flex align-items-center gap-2">
-          <span className={`badge rounded-pill px-3 py-2 ${type === 'quiz' ? 'bg-primary bg-opacity-10 text-primary' :
+          <span className={`badge rounded-pill px-3 py-2 ${type === 'mcq' ? 'bg-primary bg-opacity-10 text-primary' :
             type === 'coding' ? 'bg-dark text-white' :
-              type === 'abacus' ? 'bg-danger bg-opacity-10 text-danger' :
-                type === 'short' ? 'bg-info bg-opacity-10 text-info' :
-                  'bg-warning bg-opacity-10 text-dark'
+              'bg-warning bg-opacity-10 text-dark'
             }`}>
-            <i className={`bi ${type === 'quiz' ? 'bi-list-ul' :
-              type === 'coding' ? 'bi-code-slash' :
-                type === 'abacus' ? 'bi-calculator' :
-                  type === 'short' ? 'bi-text-paragraph' : 'bi-journal-text'
+            <i className={`bi ${type === 'mcq' ? 'bi-list-ul' :
+              type === 'coding' ? 'bi-code-slash' : 'bi-journal-text'
               } me-2`}></i>
-            {type === 'quiz' ? 'Multiple Choice' : type === 'coding' ? 'Coding Challenge' : type === 'abacus' ? 'Abacus / Mental Math' : type === 'short' ? 'Short Answer' : 'Long Essay'}
+            {type === 'mcq' ? 'Multiple Choice' : type === 'coding' ? 'Coding Challenge' : 'Descriptive'}
           </span>
         </div>
         <div className="d-flex align-items-center">
@@ -132,7 +125,7 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
           rows="3"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder={`Enter your ${type === 'quiz' ? 'choice' : ''} question here...`}
+          placeholder={`Enter your ${type === 'mcq' ? 'choice' : ''} question here...`}
         ></textarea>
       </div>
 
@@ -164,11 +157,11 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
         )}
       </div>
 
-      {/* Options for Quiz */}
-      {type === "quiz" && (
+      {/* Options for MCQ */}
+      {type === "mcq" && (
         <div className="mb-4 animate-fade-in">
           <label className="form-label text-muted small fw-bold text-uppercase ls-1 mb-3">
-            Answer Options
+            Answer Options (4 Required)
             <span className="text-muted fw-normal ms-2 text-capitalize small">(Select the radio button for the correct answer)</span>
           </label>
 
@@ -187,19 +180,22 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
                     />
                   </div>
                   <div className="flex-grow-1">
-                    <input
-                      className="form-control border-0 bg-transparent fw-medium"
-                      placeholder={`Option ${i + 1}`}
-                      value={opt.text}
-                      onChange={(e) => {
-                        const copy = [...options];
-                        copy[i].text = e.target.value;
-                        setOptions(copy);
-                      }}
-                    />
+                    <div className="d-flex align-items-center">
+                        <span className="badge bg-secondary me-2">{String.fromCharCode(65 + i)}</span>
+                        <input
+                            className="form-control border-0 bg-transparent fw-medium"
+                            placeholder={`Option ${i + 1}`}
+                            value={opt.text}
+                            onChange={(e) => {
+                                const copy = [...options];
+                                copy[i].text = e.target.value;
+                                setOptions(copy);
+                            }}
+                        />
+                    </div>
 
                     {/* Image Attachment for Option */}
-                    <div className="mt-2 px-1">
+                    <div className="mt-2 px-1 ms-4">
                       {!opt.image ? (
                         <div className="position-relative d-inline-block">
                           <input
@@ -256,9 +252,9 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
           <div className="mb-3">
             <label className="form-label text-muted small fw-bold text-uppercase ls-1">Target Language</label>
             <select className="form-select border-0 bg-light shadow-sm" value={codeLanguage} onChange={(e) => setCodeLanguage(e.target.value)}>
-              <option value="javascript">JavaScript / Node.js</option>
-              <option value="python">Python</option>
               <option value="java">Java</option>
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript / Node.js</option>
               <option value="cpp">C++</option>
               <option value="csharp">C#</option>
               <option value="html">HTML / CSS</option>
@@ -353,25 +349,15 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
         </div>
       )}
 
-      {/* Reference Answer for Evaluation */}
-      {(type === "short" || type === "long" || type === "abacus") && (
+  {/* Descriptive Answer for Evaluation */}
+      {(type === "descriptive" || type === "short" || type === "long") && (
         <div className="mb-4 animate-fade-in">
           <div className="card border-0 bg-primary bg-opacity-5 rounded-4 p-4 border border-primary border-opacity-10">
             <div className="mb-3">
               <label className="form-label text-primary small fw-bold text-uppercase ls-1 d-flex align-items-center">
                 <i className="bi bi-shield-check me-2"></i>
-                {type === 'abacus' ? 'Correct Numeric Answer' : 'Reference Answer (Model Solution)'}
+                Model Answer (Reference solution)
               </label>
-              {type === 'abacus' ? (
-                <input
-                  type="number"
-                  className="form-control border-1 shadow-none fw-bold text-primary p-3"
-                  style={{ borderRadius: '12px' }}
-                  value={referenceAnswer}
-                  onChange={(e) => setReferenceAnswer(e.target.value)}
-                  placeholder="Enter correct result..."
-                />
-              ) : (
                 <textarea
                   className="form-control border-1 shadow-none p-3"
                   style={{ borderRadius: '12px', minHeight: '120px' }}
@@ -380,13 +366,12 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
                   onChange={(e) => setReferenceAnswer(e.target.value)}
                   placeholder="Enter the expected answer or key points for automated/manual evaluation..."
                 ></textarea>
-              )}
             </div>
 
             <div className="mb-0">
               <label className="form-label text-muted small fw-bold text-uppercase ls-1 d-flex align-items-center">
                 <i className="bi bi-journal-text me-2"></i>
-                Evaluation Guidelines <span className="text-secondary fw-normal ms-1 fs-xs">(AI Training Context)</span>
+                Evaluation Keywords <span className="text-secondary fw-normal ms-1 fs-xs">(comma separated)</span>
               </label>
               <textarea
                 className="form-control border-1 shadow-none p-3"
@@ -394,7 +379,7 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
                 rows="2"
                 value={evaluationGuidelines}
                 onChange={(e) => setEvaluationGuidelines(e.target.value)}
-                placeholder="e.g. Award full marks if student includes 'X' keyword..."
+                placeholder="reconciliation, diffing, ReactDOM..."
               ></textarea>
             </div>
           </div>
@@ -416,7 +401,7 @@ const QuestionForm = ({ type, onAdd, initialData, onCancel }) => {
           type="button"
           className={`btn btn-${initialData ? 'success' : 'primary'} flex-grow-1 py-3 fw-bold rounded-pill shadow-sm transition-all hover-translate-y d-flex align-items-center justify-content-center`}
           onClick={handleAdd}
-          disabled={!question.trim() || (type === 'quiz' && (correctOption === null || !options[correctOption]?.text?.trim()))}
+          disabled={!question.trim() || (type === 'mcq' && (correctOption === null || !options[correctOption]?.text?.trim()))}
         >
           <i className={initialData ? "bi bi-check-circle me-2 fs-5" : "bi bi-plus-circle-fill me-2 fs-5"}></i>
           {initialData ? "Update Question" : "Add to Exam Paper"}

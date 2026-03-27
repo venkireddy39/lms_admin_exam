@@ -31,7 +31,7 @@ const ExamSetupCard = ({ onStart, onTemplateSelect }) => {
                                 <select className="form-select form-select-lg bg-light border-0" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
                                     <option value="mixed">Mixed (Flexible)</option>
                                     <option value="coding">Coding Challenge</option>
-                                    <option value="quiz">Quiz (MCQ Only)</option>
+                                    <option value="mcq">Quiz (MCQ Only)</option>
                                     <option value="short">Short Answer</option>
                                 </select>
                             </div>

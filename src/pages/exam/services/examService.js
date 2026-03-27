@@ -598,7 +598,10 @@ export const examService = {
                 if (sections && Array.isArray(sections)) {
                     for (const sec of sections) {
                         try {
-                            const qs = await apiFetch(`/api/exam-sections/${sec.examSectionId}/questions`);
+                            // Developer's verified endpoint: /api/sections/{sectionId}/questions
+                            // We try both sectionId and examSectionId as fallback
+                            const sId = sec.sectionId || sec.id || sec.examSectionId;
+                            const qs = await apiFetch(`/api/sections/${sId}/questions`);
                             if (qs && Array.isArray(qs)) {
                                 qs.forEach(q => {
                                     if (q.questionId) allowedQuestionIds.add(String(q.questionId));
@@ -658,6 +661,7 @@ export const examService = {
             // If options are empty but it's an MCQ, try fetching options directly
             if (qOptions.length === 0 && (qType === 'mcq' || qType === 'quiz') && questionId) {
                 try {
+                    // Developer's endpoint mapping
                     const fetchedOpts = await apiFetch(`/api/questions/${questionId}/options`);
                     if (fetchedOpts && Array.isArray(fetchedOpts)) {
                         qOptions = fetchedOpts;

@@ -32,9 +32,9 @@ export default defineConfig({
 
     proxy: {
       /* ---------------- AUTH & IDENTITY SERVICE (5151) ---------------- */
-      "/auth": { target: "http://100.83.30.12:5151", changeOrigin: true },
+      "/auth": { target: "http://100.96.210.91:8081", changeOrigin: true },
       "/api-identity": {
-        target: "http://100.83.30.12:5151",
+        target: "http://100.96.210.91:8081",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-identity/, "")
       },

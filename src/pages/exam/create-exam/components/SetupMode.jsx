@@ -427,9 +427,10 @@ const SetupMode = ({ onComplete, initialData }) => {
                                 <div className="col-md-4">
                                     <label className="form-label small fw-bold">Type</label>
                                     <select className="form-select form-select-lg" value={config.type} onChange={(e) => setConfig({ ...config, type: e.target.value })}>
-                                        <option value="mixed">Mixed</option>
-                                        <option value="quiz">Quiz (MCQ)</option>
-                                        <option value="coding">Coding</option>
+                                        <option value="MIXED">Mixed</option>
+                                        <option value="MCQ">MCQ</option>
+                                        <option value="DESCRIPTIVE">Descriptive</option>
+                                        <option value="CODING">Coding</option>
                                     </select>
                                 </div>
 

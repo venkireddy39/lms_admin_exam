@@ -105,5 +105,31 @@ export const studentService = {
     // 19. Get Library History
     getLibraryHistory: async () => {
         return apiFetch(`${API_BASE_URL}/my/library/history`);
+    },
+
+    // 20. Exam Lifecycle (New Flow)
+    getExamDetails: async (examId) => {
+        return apiFetch(`/api/exams/${examId}`);
+    },
+    startExam: async (examId) => {
+        return apiFetch(`/api/exams/${examId}/attempts/start`, { method: 'POST' });
+    },
+    getExamQuestions: async (sectionId) => {
+        const data = await apiFetch(`/api/sections/${sectionId}/questions`);
+        return (data || []).map(q => ({
+            ...q,
+            id: q.questionId || q.id,
+            questionText: q.questionText || q.question || "Untitled Question",
+            questionType: (q.questionType || q.type || "MCQ").toUpperCase()
+        }));
+    },
+    saveResponse: async (attemptId, responseData) => {
+        return apiFetch(`/api/exam-attempts/${attemptId}/responses`, {
+            method: 'POST',
+            body: JSON.stringify(responseData)
+        });
+    },
+    submitExam: async (examId, attemptId) => {
+        return apiFetch(`/api/exams/${examId}/attempts/${attemptId}/submit`, { method: 'POST' });
     }
 };

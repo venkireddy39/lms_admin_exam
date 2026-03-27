@@ -5,9 +5,9 @@ export const EXAM_TEMPLATES = [
         title: 'General Knowledge Quiz',
         course: 'General Studies',
         questions: [
-            { type: 'quiz', marks: 2, question: 'What is the capital of France?', options: ['London', 'Berlin', 'Paris', 'Madrid'], correctOption: 2 },
-            { type: 'quiz', marks: 2, question: 'Which planet is known as the Red Planet?', options: ['Venus', 'Mars', 'Jupiter', 'Saturn'], correctOption: 1 },
-            { type: 'quiz', marks: 2, question: 'What is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctOption: 3 }
+            { type: 'mcq', marks: 2, question: 'What is the capital of France?', options: ['London', 'Berlin', 'Paris', 'Madrid'], correctOption: 2 },
+            { type: 'mcq', marks: 2, question: 'Which planet is known as the Red Planet?', options: ['Venus', 'Mars', 'Jupiter', 'Saturn'], correctOption: 1 },
+            { type: 'mcq', marks: 2, question: 'What is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctOption: 3 }
         ]
     },
     // 2. SHORT ANSWER

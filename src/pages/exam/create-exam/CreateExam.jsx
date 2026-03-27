@@ -25,7 +25,7 @@ const CreateExam = () => {
     course: "", // Display name
     courseId: null, // Required for backend
     batchId: null, // Required for backend
-    type: "mixed", // mixed | coding | quiz
+    type: "MIXED", // MIXED | CODING | MCQ | DESCRIPTIVE
     totalMarks: 100,
     duration: 60,
     questions: [],
@@ -155,13 +155,13 @@ const CreateExam = () => {
       // NEST QUESTIONS HERE to support Cascade Save (since separate linking endpoint is missing)
       const corePayload = {
         title: examData.title,
-        courseId: examData.courseId || 1, // Fallback to 1 if backend rigidly requires courseId
-        batchId: examData.batchId || null,
         examType: examData.type.toUpperCase(),
-        totalMarks: examData.totalMarks,
-        durationMinutes: examData.duration,
+        totalMarks: Number(examData.totalMarks),
+        durationMinutes: Number(examData.duration),
         passPercentage: 40,
-        createdBy: user?.userId || 1
+        status: "DRAFT", // matches nullable = false in Hibernate
+        createdBy: user?.userId || 1,
+        certificateEnabled: examData.certificateEnabled || false
       };
 
       let savedExam;
@@ -187,12 +187,13 @@ const CreateExam = () => {
       // These are optional, failures shouldn't block the main flow.
       await Promise.all([
         examService.saveSettings(examId, {
-          attemptsAllowed: examData.settings.maxAttempts,
-          negativeMarking: examData.settings.negativeMarking,
-          negativeMarkValue: examData.settings.negativeMarkingPenalty || 0,
-          shuffleQuestions: examData.settings.shuffleQuestions,
-          shuffleOptions: examData.settings.shuffleOptions,
-          allowLateEntry: examData.settings.allowLateEntry || false,
+          examId: Number(examId),
+          attemptsAllowed: Number(examData.settings.maxAttempts || 1),
+          negativeMarking: Boolean(examData.settings.negativeMarking),
+          negativeMarkValue: Number(examData.settings.negativeMarkingPenalty || 0),
+          shuffleQuestions: Boolean(examData.settings.shuffleQuestions),
+          shuffleOptions: Boolean(examData.settings.shuffleOptions),
+          allowLateEntry: Boolean(examData.settings.allowLateEntry || false),
           networkMode: (examData.settings.networkStrictness || "LENIENT").toUpperCase()
         }).catch(e => console.warn("Settings save failed", e)),
 
@@ -200,30 +201,33 @@ const CreateExam = () => {
           orientation: (examData.customAssets?.orientation || "PORTRAIT").toUpperCase(),
           instituteLogo: examData.customAssets?.logo,
           backgroundImage: examData.customAssets?.bgImage,
-          watermark_type: (typeof examData.customAssets?.watermark === 'string' && !examData.customAssets?.watermark.startsWith('data:')) ? 'TEXT' : 'IMAGE',
-          watermark_value: examData.customAssets?.watermark,
-          watermark_opacity: examData.customAssets?.watermarkOpacity || 0.1
+          watermarkType: (typeof examData.customAssets?.watermark === 'string' && !examData.customAssets?.watermark.startsWith('data:')) ? 'TEXT' : 'IMAGE',
+          watermarkValue: examData.customAssets?.watermark,
+          watermarkOpacity: examData.customAssets?.watermarkOpacity || 0.1
         }).catch(e => console.warn("Design save failed", e)),
 
         examService.saveProctoring(examId, {
-          enabled: examData.proctoring.enabled,
-          cameraRequired: examData.proctoring.cameraRequired,
+          examId: Number(examId),
+          enabled: Boolean(examData.proctoring.enabled),
+          cameraRequired: Boolean(examData.proctoring.cameraRequired),
           systemCheckRequired: true,
-          violationLimit: examData.proctoring.maxViolations || 5
+          violationLimit: Number(examData.proctoring.maxViolations || 5)
         }).catch(e => console.warn("Proctoring save failed", e)),
 
         examService.saveGrading(examId, {
-          autoEvaluation: examData.settings.autoEvaluation ?? true,
-          partialMarking: examData.settings.partialMarking,
-          showResult: examData.settings.showResults,
-          showRank: examData.settings.showRank,
-          showPercentile: examData.settings.showPercentile
+          examId: Number(examId),
+          autoEvaluation: Boolean(examData.settings.autoEvaluation ?? true),
+          partialMarking: Boolean(examData.settings.partialMarking),
+          showResult: Boolean(examData.settings.showResults),
+          showRank: Boolean(examData.settings.showRank),
+          showPercentile: Boolean(examData.settings.showPercentile)
         }).catch(e => console.warn("Grading save failed", e)),
 
         examService.saveNotification(examId, {
-          scheduledNotification: examData.settings.scheduledNotification || false,
+          examId: Number(examId),
+          scheduledNotification: Boolean(examData.settings.scheduledNotification || false),
           reminderBefore: examData.settings.examReminder || "NONE",
-          feedback_after_exam: examData.settings.collectFeedback || false
+          feedbackAfterExam: Boolean(examData.settings.collectFeedback || false)
         }).catch(e => console.warn("Notification save failed", e))
       ]);
 
@@ -255,7 +259,7 @@ const CreateExam = () => {
             }
 
             // 2. Link Section to Exam (Returns ExamSection)
-            const linkedExamSection = await examService.addSectionToExam(examId, actualSectionId, secIdx + 1);
+            const linkedExamSection = await examService.addSectionToExam(examId, actualSectionId, secIdx + 1, sectionConf.shuffleQuestions || false);
             const examSectionId = linkedExamSection?.examSectionId || linkedExamSection?.id;
             if (!examSectionId) {
               console.warn("Failed to link section to exam:", actualSectionId);
@@ -299,7 +303,7 @@ const CreateExam = () => {
                 const qType = (q.type || q.questionType || "").toLowerCase();
 
                 // Options
-                if (q.options?.length > 0 && (qType === 'quiz' || qType === 'mcq')) {
+                if (q.options?.length > 0 && (qType === 'mcq' || qType === 'quiz')) {
                   const optsToCreate = [];
                   const optsToUpdate = [];
                   for (let oIdx = 0; oIdx < q.options.length; oIdx++) {
@@ -335,15 +339,11 @@ const CreateExam = () => {
                   }
                   if (optsToCreate.length > 0) {
                     console.log(`[DEBUG] Sending POST /api/questions/${actualQuestionId}/options with ${optsToCreate.length} options...`);
-                    await examService.addQuestionOptions(actualQuestionId, optsToCreate)
+                    await examService.saveMCQOptions(actualQuestionId, optsToCreate)
                       .then(() => console.log(`[DEBUG] Successfully created ${optsToCreate.length} new options for question ${actualQuestionId}!`))
                       .catch(e => {
-                        console.error("Options add failed", e);
-                        if (e.message?.toLowerCase().includes('size exceeded')) {
-                          toast.error(`Image too large for question "${q.question?.substring(0, 20)}...". Increase backend upload limit.`);
-                        } else {
-                          toast.error(`Failed to save options: ${e.message}`);
-                        }
+                        console.error("Options save failed", e);
+                        toast.error(`Failed to save options: ${e.message}`);
                       });
                   }
                 }
@@ -351,7 +351,7 @@ const CreateExam = () => {
                 // Coding Test Cases - Batch Save Strategy
                 if (qType === 'coding' && q.testCases?.length > 0) {
                   console.log(`[DEBUG] Saving ${q.testCases.length} test cases for question ${actualQuestionId}...`);
-                  await examService.createTestCases(actualQuestionId, q.testCases).catch(e => {
+                  await examService.saveCodingTestCases(actualQuestionId, q.testCases).catch(e => {
                     console.error("Test cases save failed", e);
                     toast.error(`Failed to save test cases for question ${actualQuestionId}`);
                   });
@@ -359,7 +359,7 @@ const CreateExam = () => {
 
                 // Descriptive
                 if (['short', 'long', 'abacus'].includes(qType) && q.referenceAnswer) {
-                  await examService.saveDescriptiveAnswer(actualQuestionId, {
+                  await examService.saveDescriptiveRubric(actualQuestionId, {
                     answerText: q.referenceAnswer,
                     guidelines: q.evaluationGuidelines
                   }).catch(() => { });
