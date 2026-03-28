@@ -582,7 +582,7 @@ export const examService = {
     },
 
     addQuestionsToExamSection: async (examSectionId, questions) => {
-        return await apiFetch(`/api/exam-sections/${examSectionId}/questions`, {
+        return await apiFetch(`/api/sections/${examSectionId}/questions`, {
             method: 'POST',
             body: JSON.stringify(questions)
         });

@@ -114,7 +114,7 @@ export const examService = {
     },
 
     addQuestionsToExamSection: async (examSectionId, mapping) => {
-        return await api.post(`/api/exam-sections/${examSectionId}/questions`, mapping);
+        return await api.post(`/api/sections/${examSectionId}/questions`, mapping);
     },
 
     // Part 3: Student Attempt

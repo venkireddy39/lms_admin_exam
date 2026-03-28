@@ -252,17 +252,18 @@ const CreateExam = () => {
               sectionDescription: sectionConf.description || "",
               shuffleQuestions: false
             });
-            const actualSectionId = newSection?.sectionId || newSection?.id;
-            if (!actualSectionId) {
-              console.warn("Failed to create section:", sectionConf.title);
+            const actualSectionId = newSection?.id || newSection?.sectionId || (typeof newSection !== 'object' ? newSection : null);
+            if (!actualSectionId || actualSectionId === "null") {
+              console.warn("[CreateExam] Failed to extract section ID from response:", newSection);
               continue;
             }
 
             // 2. Link Section to Exam (Returns ExamSection)
             const linkedExamSection = await examService.addSectionToExam(examId, actualSectionId, secIdx + 1, sectionConf.shuffleQuestions || false);
-            const examSectionId = linkedExamSection?.examSectionId || linkedExamSection?.id;
-            if (!examSectionId) {
-              console.warn("Failed to link section to exam:", actualSectionId);
+            const examSectionId = linkedExamSection?.examSectionId || linkedExamSection?.id || (typeof linkedExamSection !== 'object' ? linkedExamSection : null);
+            
+            if (!examSectionId || examSectionId === "null") {
+              console.warn("[CreateExam] Failed to link section to exam or extract examSectionId:", linkedExamSection);
               continue;
             }
 
@@ -295,7 +296,7 @@ const CreateExam = () => {
                   }
 
                   const newQ = await examService.createQuestion(payload);
-                  actualQuestionId = newQ?.questionId || newQ?.id;
+                  actualQuestionId = newQ?.questionId || newQ?.id || (typeof newQ !== 'object' ? newQ : null);
                 }
 
                 if (!actualQuestionId) continue;
@@ -338,9 +339,8 @@ const CreateExam = () => {
                       });
                   }
                   if (optsToCreate.length > 0) {
-                    console.log(`[DEBUG] Sending POST /api/questions/${actualQuestionId}/options with ${optsToCreate.length} options...`);
-                    await examService.saveMCQOptions(actualQuestionId, optsToCreate)
-                      .then(() => console.log(`[DEBUG] Successfully created ${optsToCreate.length} new options for question ${actualQuestionId}!`))
+                    console.log(`[CreateExam] Saving ${optsToCreate.length} new options for question ${actualQuestionId}...`);
+                    await examService.addQuestionOptions(actualQuestionId, optsToCreate)
                       .catch(e => {
                         console.error("Options save failed", e);
                         toast.error(`Failed to save options: ${e.message}`);
@@ -348,18 +348,23 @@ const CreateExam = () => {
                   }
                 }
 
-                // Coding Test Cases - Batch Save Strategy
+                // Coding Test Cases - Aligned with Pattern (inputData, expectedOutput)
                 if (qType === 'coding' && q.testCases?.length > 0) {
-                  console.log(`[DEBUG] Saving ${q.testCases.length} test cases for question ${actualQuestionId}...`);
-                  await examService.saveCodingTestCases(actualQuestionId, q.testCases).catch(e => {
+                  const mappedTestCases = q.testCases.map(tc => ({
+                    inputData: tc.input,
+                    expectedOutput: tc.output,
+                    hidden: tc.isHidden || false
+                  }));
+
+                  console.log(`[CreateExam] Saving ${mappedTestCases.length} test cases for question ${actualQuestionId}...`);
+                  await examService.createTestCases(actualQuestionId, mappedTestCases).catch(e => {
                     console.error("Test cases save failed", e);
-                    toast.error(`Failed to save test cases for question ${actualQuestionId}`);
                   });
                 }
 
                 // Descriptive
                 if (['short', 'long', 'abacus'].includes(qType) && q.referenceAnswer) {
-                  await examService.saveDescriptiveRubric(actualQuestionId, {
+                  await examService.saveDescriptiveAnswer(actualQuestionId, {
                     answerText: q.referenceAnswer,
                     guidelines: q.evaluationGuidelines
                   }).catch(() => { });
@@ -368,10 +373,23 @@ const CreateExam = () => {
                 // Map Question to Question Bank Section (Crucial intermediate step requested by the user API pattern)
                 await examService.mapQuestionToSection(actualSectionId, actualQuestionId).catch(e => console.warn("Failed to map question to Bank Section", e));
 
+                const questionIdNum = Number(actualQuestionId);
+                const marksNum = parseFloat(q.marks || 1);
+                
+                if (isNaN(questionIdNum) || isNaN(marksNum)) {
+                  console.warn(`[CreateExam] Skipping invalid question data for Q index ${qIdx}:`, { actualQuestionId, marks: q.marks });
+                  continue;
+                }
+
                 sectionExamQuestions.push({
-                  questionId: Number(actualQuestionId),
-                  marks: parseFloat(q.marks || 1),
-                  questionOrder: sectionExamQuestions.length + 1
+                  // Send both formats to ensure backend mapping works 
+                  questionId: questionIdNum,
+                  question_id: questionIdNum,
+                  marks: marksNum,
+                  questionOrder: sectionExamQuestions.length + 1,
+                  question_order: sectionExamQuestions.length + 1,
+                  examSectionId: Number(examSectionId),
+                  exam_section_id: Number(examSectionId)
                 });
               } catch (qErr) {
                 console.error(`Failed to process question ${qIdx}`, qErr);
